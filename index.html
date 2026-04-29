@@ -6,26 +6,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<title>Finanzas</title>
+<title>Mis Finanzas</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#000;--card:#111113;--border:#1f1f23;--text:#fafafa;--dim:#a1a1aa;--muted:#52525b;--green:#00d68f;--red:#ff3b6b;--yellow:#ffb84d;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:100px;min-height:100vh;}
+body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:100px;padding-top:env(safe-area-inset-top);min-height:100vh;}
 .container{max-width:600px;margin:0 auto;padding:0 20px;}
-.header{padding:28px 0 24px;display:flex;justify-content:space-between;align-items:center;}
+.header{padding:20px 0 24px;display:flex;justify-content:space-between;align-items:center;}
 .logo{font-size:1.4rem;font-weight:800;letter-spacing:-0.02em;}
 .logo span{color:var(--green);}
 .refresh{width:36px;height:36px;background:var(--card);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;}
 .refresh svg{width:16px;height:16px;stroke:var(--dim);}
 .refresh.loading svg{animation:spin 1s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.hero{background:linear-gradient(135deg,#0a0a0a,#111118);border:1px solid var(--border);border-radius:24px;padding:28px 24px;margin-bottom:16px;position:relative;overflow:hidden;}
+.hero{background:linear-gradient(135deg,#0a0a0a,#111118);border:1px solid var(--border);border-radius:24px;padding:24px;margin-bottom:16px;position:relative;overflow:hidden;}
 .hero::before{content:'';position:absolute;top:-50%;right:-20%;width:60%;height:200%;background:radial-gradient(circle,#00d68f33,transparent 60%);opacity:0.4;}
-.lbl{font-size:0.72rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:500;}
-.amount{font-size:2.8rem;font-weight:800;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums;position:relative;}
+.month-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;position:relative;}
+.mn-btn{background:var(--card);border:1px solid var(--border);width:30px;height:30px;border-radius:50%;color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:1rem;}
+.mn-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.mn-label{font-size:0.78rem;font-weight:600;color:var(--dim);text-transform:capitalize;}
+.lbl{font-size:0.7rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;font-weight:500;}
+.amount{font-size:2.6rem;font-weight:800;letter-spacing:-0.04em;line-height:1;font-variant-numeric:tabular-nums;position:relative;}
 .amount.pos{color:var(--green);}.amount.neg{color:var(--red);}
-.stats{display:flex;gap:24px;margin-top:20px;position:relative;}
+.stats{display:flex;gap:24px;margin-top:18px;position:relative;}
 .stat-lbl{font-size:0.7rem;color:var(--muted);display:flex;align-items:center;gap:4px;}
 .dot{width:6px;height:6px;border-radius:50%;}.dot.in{background:var(--green);}.dot.out{background:var(--red);}
 .stat-val{font-size:1rem;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px;}
@@ -35,7 +39,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 .tind{position:absolute;top:4px;bottom:4px;width:calc(50% - 4px);background:#18181b;border-radius:8px;transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);}
 .section{margin-bottom:28px;}
 .s-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:0 4px;}
-.s-title{font-size:0.82rem;font-weight:600;}
+.s-title{font-size:0.95rem;font-weight:700;letter-spacing:-0.01em;}
 .cgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
 .ccard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;position:relative;overflow:hidden;}
 .ccard::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--cc,var(--green));}
@@ -77,7 +81,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 .fab{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));right:20px;width:52px;height:52px;border-radius:50%;background:var(--green);border:none;color:var(--bg);font-size:1.5rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px #00d68f55;z-index:90;}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center;z-index:200;}
 .modal.active{display:flex;}
-.mc{background:#0a0a0a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:600px;max-height:85vh;overflow-y:auto;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);}
+.mc{background:#0a0a0a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom));width:100%;max-width:600px;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);}
 @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
 .mh{width:36px;height:4px;background:#2a2a30;border-radius:2px;margin:0 auto 16px;}
 .mt{font-size:1.1rem;font-weight:700;margin-bottom:16px;}
@@ -98,10 +102,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 .rmeta{font-size:0.7rem;color:var(--muted);margin-top:2px;}
 .ramt{font-size:0.95rem;font-weight:700;font-variant-numeric:tabular-nums;}
 .ramt.in{color:var(--green);}
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-200%);background:var(--card);border:1px solid var(--border);padding:12px 20px;border-radius:12px;font-size:0.85rem;z-index:300;transition:transform 0.3s;}
+.toast{position:fixed;top:calc(20px + env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-200%);background:var(--card);border:1px solid var(--border);padding:12px 20px;border-radius:12px;font-size:0.85rem;z-index:300;transition:transform 0.3s;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast.success{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
+.page-title{font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;}
 </style>
 </head>
 <body>
@@ -109,12 +114,17 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 <div class="page active" id="p-dash">
   <div class="container">
     <header class="header">
-      <div class="logo">mis <span>finanzas</span></div>
+      <div class="logo">Mis <span>Finanzas</span></div>
       <button class="refresh" onclick="cargar()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
       </button>
     </header>
     <div class="hero">
+      <div class="month-nav" id="monthNav" style="display:none">
+        <button class="mn-btn" onclick="cambiarMes(-1)">‹</button>
+        <div class="mn-label" id="mnLabel"></div>
+        <button class="mn-btn" id="mnNext" onclick="cambiarMes(1)">›</button>
+      </div>
       <div class="lbl" id="balLbl">BALANCE TOTAL</div>
       <div class="amount pos" id="balAmt">S/ 0.00</div>
       <div class="stats">
@@ -124,7 +134,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
     </div>
     <div class="toggle">
       <div class="tind" id="tind"></div>
-      <button class="tbtn active" onclick="setVista('mes')">Este mes</button>
+      <button class="tbtn active" onclick="setVista('mes')">Por Mes</button>
       <button class="tbtn" onclick="setVista('total')">Acumulado</button>
     </div>
     <div class="section">
@@ -132,7 +142,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
       <div class="cgrid" id="cats"></div>
     </div>
     <div class="section">
-      <div class="s-head"><div class="s-title">Movimientos recientes</div></div>
+      <div class="s-head"><div class="s-title">Movimientos Recientes</div></div>
       <div class="txc" id="txs"></div>
     </div>
   </div>
@@ -140,24 +150,24 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 
 <div class="page" id="p-bud">
   <div class="container">
-    <header class="header"><div class="logo">presupuestos</div></header>
+    <header class="header"><div class="page-title">Presupuestos</div></header>
     <div id="buds"></div>
   </div>
 </div>
 
 <div class="page" id="p-rec">
   <div class="container">
-    <header class="header"><div class="logo">recurrentes</div></header>
+    <header class="header"><div class="page-title">Recurrentes</div></header>
     <div id="recs"></div>
   </div>
 </div>
 
 <div class="page" id="p-deb">
   <div class="container">
-    <header class="header"><div class="logo">deudas</div></header>
+    <header class="header"><div class="page-title">Deudas</div></header>
     <div class="dtabs">
-      <button class="dt active" onclick="setDT('me-deben',this)">Me deben</button>
-      <button class="dt" onclick="setDT('les-debo',this)">Les debo</button>
+      <button class="dt active" onclick="setDT('me-deben',this)">Me Deben</button>
+      <button class="dt" onclick="setDT('les-debo',this)">Les Debo</button>
     </div>
     <div id="debs"></div>
   </div>
@@ -168,13 +178,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 <div class="modal" id="modal">
   <div class="mc">
     <div class="mh"></div>
-    <div class="mt">Nueva transacción</div>
+    <div class="mt">Nueva Transacción</div>
     <div class="tt">
       <button class="ttb active gasto" id="tg" onclick="setTipo('Gasto')">Gasto</button>
       <button class="ttb ingreso" id="ti" onclick="setTipo('Ingreso')">Ingreso</button>
     </div>
     <div class="ig"><label class="il">Monto</label><input type="number" class="inp" id="iMon" placeholder="0.00" step="0.01" inputmode="decimal"></div>
     <div class="ig"><label class="il">Descripción</label><input type="text" class="inp" id="iDes" placeholder="¿En qué?"></div>
+    <div class="ig"><label class="il">Fecha</label><input type="date" class="inp" id="iFec"></div>
     <div class="ig"><label class="il">Categoría</label><select class="sel" id="iCat"></select></div>
     <div class="ig"><label class="il">Cuenta</label><select class="sel" id="iCue">
       <option>Mastercard BBVA</option><option>iO BCP</option><option>Visa BBVA</option><option>Visa Interbank</option><option>Yape</option><option>Plin</option><option>Efectivo</option>
@@ -211,6 +222,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif
 const URL='https://script.google.com/macros/s/AKfycbzIOLHWNhZhXwUYK-H9XUZr8INJ3FQYayVJoeVcrTPNXUwAFEZFgw2Ti7wEc5YCGU1N5g/exec';
 let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[]};
 let vista='mes',tipoA='Gasto',dT='me-deben';
+let mesOffset=0;
+
+const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 const fmt=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtC=n=>{const x=Number(n||0);return Math.abs(x)>=1000?'S/ '+(x/1000).toFixed(1)+'k':'S/ '+x.toFixed(0);};
@@ -224,13 +238,28 @@ async function cargar(){
   finally{b.classList.remove('loading');}
 }
 
+function getMesActivo(){const a=new Date();return new Date(a.getFullYear(),a.getMonth()+mesOffset,1);}
+
 function filtrar(){
   if(vista==='total')return datos.transacciones;
-  const a=new Date(),m=a.getMonth(),y=a.getFullYear();
+  const ma=getMesActivo();
+  const m=ma.getMonth(),y=ma.getFullYear();
   return datos.transacciones.filter(t=>{const f=pf(t[0]);return f.getMonth()===m&&f.getFullYear()===y;});
 }
 
-function render(){renderBal();renderCat();renderTx();renderBud();renderRec();renderDeb();llenarSel();}
+function render(){actualizarMonthNav();renderBal();renderCat();renderTx();renderBud();renderRec();renderDeb();llenarSel();}
+
+function actualizarMonthNav(){
+  const nav=document.getElementById('monthNav');
+  if(vista==='mes'){
+    nav.style.display='flex';
+    const ma=getMesActivo();
+    document.getElementById('mnLabel').textContent=meses[ma.getMonth()]+' '+ma.getFullYear();
+    document.getElementById('mnNext').disabled=false;
+  }else{nav.style.display='none';}
+}
+
+function cambiarMes(d){mesOffset+=d;render();}
 
 function renderBal(){
   const tx=filtrar();let i=0,g=0;
@@ -299,17 +328,25 @@ function renderDeb(){
 
 function llenarSel(){const s=document.getElementById('iCat');if(!datos.categorias||datos.categorias.length===0)return;s.innerHTML=datos.categorias.map(c=>`<option>${c[0]}</option>`).join('');}
 
-function setVista(v){vista=v;document.querySelectorAll('.tbtn').forEach((b,i)=>{b.classList.toggle('active',(v==='mes'&&i===0)||(v==='total'&&i===1));});document.getElementById('tind').style.transform=v==='total'?'translateX(100%)':'translateX(0)';render();}
+function setVista(v){vista=v;mesOffset=0;document.querySelectorAll('.tbtn').forEach((b,i)=>{b.classList.toggle('active',(v==='mes'&&i===0)||(v==='total'&&i===1));});document.getElementById('tind').style.transform=v==='total'?'translateX(100%)':'translateX(0)';render();}
 function setPg(p,b){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('p-'+p).classList.add('active');document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));b.classList.add('active');}
 function setDT(t,b){dT=t;document.querySelectorAll('.dt').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
-function abrirM(){document.getElementById('modal').classList.add('active');document.getElementById('iMon').focus();}
+function abrirM(){
+  const hoy=new Date();
+  const yyyy=hoy.getFullYear();const mm=String(hoy.getMonth()+1).padStart(2,'0');const dd=String(hoy.getDate()).padStart(2,'0');
+  document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
+  document.getElementById('modal').classList.add('active');
+  document.getElementById('iMon').focus();
+}
 function cerrarM(){document.getElementById('modal').classList.remove('active');document.getElementById('iMon').value='';document.getElementById('iDes').value='';}
 function setTipo(t){tipoA=t;document.getElementById('tg').classList.toggle('active',t==='Gasto');document.getElementById('ti').classList.toggle('active',t==='Ingreso');}
 
 async function guardar(){
-  const m=document.getElementById('iMon').value,d=document.getElementById('iDes').value,c=document.getElementById('iCat').value,cu=document.getElementById('iCue').value;
+  const m=document.getElementById('iMon').value,d=document.getElementById('iDes').value,c=document.getElementById('iCat').value,cu=document.getElementById('iCue').value,fec=document.getElementById('iFec').value;
   if(!m||!d){toast('Completa monto y descripción','error');return;}
-  const f=new Date().toLocaleString('es-PE',{day:'numeric',month:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+  const[yy,mm,dd]=fec.split('-');
+  const ahora=new Date();
+  const f=`${+dd}/${+mm}/${yy}, ${ahora.getHours()}:${String(ahora.getMinutes()).padStart(2,'0')}`;
   const fd=new URLSearchParams();fd.append('fecha',f);fd.append('descripcion',d);fd.append('categoria',c);fd.append('tipo',tipoA);fd.append('monto',m);fd.append('tarjeta',cu);
   try{await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});toast('Guardado','success');cerrarM();setTimeout(cargar,500);}
   catch(e){toast('Error al guardar','error');}
