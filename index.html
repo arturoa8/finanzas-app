@@ -266,6 +266,156 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .ym{background:var(--card2);border-radius:8px;padding:8px 6px;text-align:center;}
 .ym-mes{font-size:0.62rem;color:var(--muted);text-transform:uppercase;}
 .ym-val{font-size:0.78rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:3px;}
+
+/* Credit cards page */
+.card-tabs{display:flex;gap:8px;margin-bottom:16px;}
+.card-tab{flex:1;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--dim);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;}
+.card-tab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+.credit-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:14px;}
+.credit-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.credit-name{font-size:1rem;font-weight:800;letter-spacing:-0.01em;}
+.credit-sub{font-size:0.72rem;color:var(--muted);margin-top:4px;}
+.credit-amount{font-size:1.25rem;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.credit-info{display:grid;gap:8px;}
+.credit-row{display:flex;justify-content:space-between;gap:12px;font-size:0.78rem;}
+.credit-row span:first-child{color:var(--muted);}
+.credit-row span:last-child{color:var(--text);font-weight:600;text-align:right;}
+.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:0.7rem;font-weight:800;}
+.status-ok{color:var(--green);background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.35);}
+.status-warn{color:var(--yellow);background:rgba(255,184,77,0.12);border:1px solid rgba(255,184,77,0.35);}
+.status-bad{color:var(--red);background:rgba(255,59,107,0.12);border:1px solid rgba(255,59,107,0.35);}
+
+
+/* Smoother motion */
+*{scroll-behavior:smooth;}
+.icon-btn,.chip,.kpi,.ccard,.tx,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;}
+.icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-pill:active,.cchip:active{transform:scale(.97);}
+.page.active{animation:softPageIn .38s cubic-bezier(.2,.8,.2,1);}
+@keyframes softPageIn{from{opacity:0;transform:translateY(12px) scale(.99);}to{opacity:1;transform:translateY(0) scale(1);}}
+.mc{animation:softSlideUp .36s cubic-bezier(.2,.8,.2,1);}
+@keyframes softSlideUp{from{transform:translateY(100%);opacity:.8;}to{transform:translateY(0);opacity:1;}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
+
+/* Card detail / payments */
+.credit-card{cursor:pointer;position:relative;overflow:hidden;}
+.credit-card::after{content:'Toca para ver detalle';display:block;margin-top:12px;font-size:.68rem;color:var(--muted);font-weight:600;}
+.credit-pay-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px;}
+.credit-mini{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:10px;}
+.credit-mini-lbl,.card-stat-lbl{font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.credit-mini-val{font-size:.95rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.credit-mini-val.red,.card-tx-amt{color:var(--red);} .credit-mini-val.green{color:var(--green);} .credit-mini-val.yellow{color:var(--yellow);}
+.pay-input-row{display:flex;gap:8px;align-items:center;margin:12px 0 16px;}
+.pay-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;color:var(--text);font-size:1rem;font-family:inherit;font-weight:700;outline:none;min-width:0;}
+.pay-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
+.card-detail-head{margin-bottom:14px;}.card-detail-name{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;}.card-detail-sub{font-size:.76rem;color:var(--muted);margin-top:4px;}
+.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0;}.card-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;}.card-stat.full{grid-column:1/-1;}.card-stat-val{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.card-tx-list{margin-top:12px;}.card-tx-title{font-size:.82rem;font-weight:800;margin-bottom:8px;color:var(--text);}.card-tx-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}.card-tx-desc{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.card-tx-meta{font-size:.68rem;color:var(--muted);margin-top:2px;}.card-tx-amt{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums;}
+
+/* Balance number smoothing */
+.big-num,.kpi{transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1),filter .22s ease;}
+.num-changing{opacity:.62;transform:translateY(2px) scale(.985);filter:blur(.15px);}
+
+/* Card detail internal tabs and cycle overrides */
+.detail-tabs{display:flex;gap:8px;margin:14px 0 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;position:sticky;top:0;z-index:3;backdrop-filter:blur(16px);}
+.detail-tab{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-size:.78rem;font-weight:800;border-radius:10px;font-family:inherit;cursor:pointer;}
+.detail-tab.active{background:var(--card2);color:var(--text);}
+.card-panel{animation:softPageIn .24s cubic-bezier(.2,.8,.2,1);}
+.tx-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.mini-action{background:var(--card);border:1px solid var(--border);color:var(--dim);border-radius:999px;padding:6px 9px;font-size:.66rem;font-weight:800;font-family:inherit;cursor:pointer;}
+.mini-action.active{border-color:var(--green);color:var(--green);background:rgba(0,214,143,.08);}
+.manual-tag{display:inline-flex;margin-left:6px;color:var(--yellow);font-size:.62rem;font-weight:800;}
+.card-detail-scroll{max-height:62vh;overflow:auto;padding-right:2px;}
+
+
+
+/* Tarjetas v2 */
+.modal.centered{align-items:center;padding:18px;}
+.modal.centered .mc{border-radius:24px;max-height:86vh;padding:20px;box-shadow:0 20px 80px rgba(0,0,0,.65);}
+.compact-mc{max-width:520px;}
+.page-tabs{margin-bottom:16px;}
+.detail-tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;}
+.detail-tab{flex:1;padding:10px;border:none;border-radius:10px;background:transparent;color:var(--muted);font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer;}
+.detail-tab.active{background:var(--card2);color:var(--text);}
+.card-section-title{font-size:.86rem;font-weight:800;margin:16px 4px 10px;color:var(--text);}
+.card-mini-list{margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;}
+.card-mini-item{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.card-mini-desc{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-mini-meta{font-size:.64rem;color:var(--muted);margin-top:2px;}
+.card-mini-amt{font-size:.78rem;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;}
+.credit-card::after{content:''!important;display:none!important;}
+.credit-card .hint{margin-top:12px;font-size:.68rem;color:var(--muted);font-weight:600;}
+.stat-bar-row{margin-top:10px;}
+.card-detail-scroll{max-height:52vh;overflow-y:auto;padding-right:4px;}
+.card-detail-actions{display:flex;gap:8px;margin-top:12px;}
+.card-detail-actions .btn{padding:12px 14px;}
+
+
+/* Credit line usage summary */
+.line-summary-card{
+  background:linear-gradient(180deg,rgba(24,24,27,.95),rgba(17,17,19,.95));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+  margin:4px 0 14px;
+  box-shadow:0 10px 34px rgba(0,0,0,.18);
+}
+.line-summary-top,.line-row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.line-summary-title{font-size:.78rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+.line-summary-main{font-size:1.15rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+.line-summary-main .used{color:var(--red);}
+.line-summary-main .limit{color:var(--dim);font-size:.86rem;font-weight:800;}
+.line-edit-btn{background:var(--card2);border:1px solid var(--border);border-radius:999px;color:var(--text);font-family:inherit;font-size:.72rem;font-weight:800;padding:8px 11px;cursor:pointer;white-space:nowrap;}
+.line-progress{height:8px;background:var(--border);border-radius:999px;overflow:hidden;position:relative;}
+.line-fill{height:100%;border-radius:999px;background:var(--green);transition:width .35s cubic-bezier(.2,.8,.2,1),background .25s ease;}
+.line-fill.warn{background:var(--yellow);}.line-fill.bad{background:var(--red);}.line-fill.danger{background:#ff174f;}
+.line-summary-meta{display:flex;justify-content:space-between;gap:12px;margin-top:9px;font-size:.72rem;color:var(--dim);line-height:1.25;}
+.line-summary-meta strong{color:var(--text);font-weight:900;}
+.line-advice.ok{color:var(--green);}.line-advice.warn{color:var(--yellow);}.line-advice.bad,.line-advice.danger{color:var(--red);}
+.credit-line-block{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);}
+.credit-line-title{display:flex;justify-content:space-between;gap:10px;font-size:.72rem;color:var(--muted);font-weight:800;margin-bottom:7px;}
+.credit-line-title span:last-child{color:var(--text);font-variant-numeric:tabular-nums;}
+.credit-line-sub{display:flex;justify-content:space-between;gap:12px;font-size:.68rem;color:var(--muted);margin-top:7px;line-height:1.25;}
+.credit-line-sub .line-advice{font-weight:800;text-align:right;}
+.line-config-grid{display:grid;gap:12px;margin-top:8px;}
+.line-config-item{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;}
+.line-config-name{font-size:.9rem;font-weight:900;margin-bottom:10px;}
+.line-config-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;}
+.line-field label{display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:6px;}
+.line-field input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:.95rem;font-weight:800;padding:11px 12px;outline:none;}
+.line-field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
+
+
+/* Tarjetas refinamiento: selector rápido, línea + siguiente ciclo, consumo detalle */
+.card-cycle-bar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch;margin:0 0 12px;}
+.card-cycle-main,.card-cycle-next{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;cursor:pointer;transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .25s ease,background .25s ease;}
+.card-cycle-main:active,.card-cycle-next:active{transform:scale(.98);}
+.card-cycle-title{font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.card-cycle-value{font-size:.95rem;color:var(--text);font-weight:900;display:flex;align-items:center;gap:6px;}
+.card-cycle-amount{font-size:.85rem;color:var(--red);font-weight:900;font-variant-numeric:tabular-nums;margin-top:4px;}
+.card-cycle-next{min-width:150px;}
+.card-cycle-next .card-cycle-value{justify-content:space-between;}
+.card-cycle-arrow{color:var(--dim);font-size:.9rem;}
+.line-summary-breakdown{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.7rem;color:var(--muted);}
+.line-summary-breakdown strong{color:var(--text);}
+.tx-detail-grid{display:grid;gap:10px;margin:12px 0;}
+.tx-detail-row{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;font-size:.8rem;}
+.tx-detail-row span:first-child{color:var(--muted);font-weight:700;}
+.tx-detail-row span:last-child{color:var(--text);font-weight:800;text-align:right;}
+.stat-delta-pos{color:var(--green)!important}.stat-delta-neg{color:var(--red)!important}.stat-delta-flat{color:var(--dim)!important}
+@media(max-width:460px){.card-cycle-bar{grid-template-columns:1fr}.card-cycle-next{min-width:0}.line-summary-meta{flex-direction:column}.line-summary-breakdown{flex-direction:column;gap:4px}}
+
+
+/* === Ajustes finales Arturo: carrusel de ciclos y recuperación === */
+.card-cycle-bar{transition:grid-template-columns .28s cubic-bezier(.2,.8,.2,1);}
+.card-cycle-bar.offset-next{grid-template-columns:auto 1fr;}
+.card-cycle-bar.offset-next .card-cycle-main{min-width:150px;}
+.card-cycle-bar.offset-next .card-cycle-next{min-width:0;}
+.card-cycle-main,.card-cycle-next{will-change:transform,opacity;overflow:hidden;}
+.card-cycle-bar.animating .card-cycle-main,.card-cycle-bar.animating .card-cycle-next{animation:cycleSoftSlide .28s cubic-bezier(.2,.8,.2,1);}
+@keyframes cycleSoftSlide{from{opacity:.72;transform:translateX(10px) scale(.985)}to{opacity:1;transform:translateX(0) scale(1)}}
+.manual-section-title{font-size:.72rem;color:var(--yellow);font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;}
+.card-tx-item.recovery{border-color:rgba(255,184,77,.25);background:rgba(255,184,77,.035);}
+
 </style>
 </head>
 <body>
@@ -361,19 +511,41 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   </div>
 </div>
 
-<!-- PRESUPUESTOS -->
-<div class="page" id="p-bud">
+<!-- TARJETAS -->
+<div class="page" id="p-card">
   <div class="container">
-    <header class="header"><div class="page-title">Presupuestos</div></header>
-    <div id="buds"></div>
+    <header class="header"><div class="page-title">Tarjetas</div></header>
+
+    <div class="card-cycle-bar">
+      <div class="card-cycle-main" onclick="abrirCardCyclePicker()">
+        <div class="card-cycle-title">Ciclo seleccionado</div>
+        <div class="card-cycle-value"><span id="chipCardCycleLbl">Ciclo actual</span><span class="card-cycle-arrow">⌄</span></div>
+        <div class="card-cycle-amount" id="chipCardCycleAmt">S/ 0.00</div>
+      </div>
+      <div class="card-cycle-next" onclick="goNextCardCycle()">
+        <div class="card-cycle-title">Siguiente ciclo</div>
+        <div class="card-cycle-value"><span id="chipNextCycleLbl">—</span><span class="card-cycle-arrow">›</span></div>
+        <div class="card-cycle-amount" id="chipNextCycleAmt">S/ 0.00</div>
+      </div>
+    </div>
+
+    <div id="cardsLineSummary"></div>
+
+    <div class="detail-tabs page-tabs">
+      <button class="detail-tab active" onclick="setCardPageTab('resumen',this)">Resumen</button>
+      <button class="detail-tab" onclick="setCardPageTab('consumos',this)">Consumos</button>
+      <button class="detail-tab" onclick="setCardPageTab('stats',this)">Stats</button>
+    </div>
+
+    <div id="cardsPage"></div>
   </div>
 </div>
 
-<!-- RECURRENTES -->
-<div class="page" id="p-rec">
+<!-- METAS -->
+<div class="page" id="p-bud">
   <div class="container">
-    <header class="header"><div class="page-title">Recurrentes</div></header>
-    <div id="recs"></div>
+    <header class="header"><div class="page-title">Metas</div></header>
+    <div id="buds"></div>
   </div>
 </div>
 
@@ -393,11 +565,13 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 <button class="fab" onclick="abrirM()" aria-label="Nueva transacción">+</button>
 
 <!-- MES PICKER MODAL -->
-<div class="modal" id="mesPicker">
-  <div class="mc">
+<div class="modal centered" id="mesPicker">
+  <div class="mc compact-mc">
     <div class="mc-top">
       <div class="mc-title-big">Mes</div>
-      <button class="mh-x" onclick="cerrarMesPicker()">✕</button>
+      <button class="mh-x" onclick="cerrarMesPicker()">
+✕
+</button>
     </div>
     <div class="mp-pills">
       <div class="mp-pill" id="mpTodos" onclick="seleccionarTodoTiempo()">Todo el tiempo</div>
@@ -408,7 +582,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
       </div>
     </div>
     <div class="mp-grid" id="mpGrid"></div>
-    <button class="mp-aplicar" onclick="aplicarMesPicker()">✓ Aplicar</button>
+    <button class="mp-aplicar" onclick="aplicarMesPicker()">
+✓
+ Aplicar</button>
   </div>
 </div>
 
@@ -417,7 +593,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   <div class="mc">
     <div class="mc-top">
       <div class="mt" id="modalTitle">Nueva transacción</div>
-      <button class="mh-x" onclick="cerrarM()">✕</button>
+      <button class="mh-x" onclick="cerrarM()">
+✕
+</button>
     </div>
 
     <div class="tt">
@@ -427,7 +605,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 
     <div class="pill-row">
       <label class="mpill">
-        <span>📅</span>
+        <span>
+📅
+</span>
         <input type="date" id="iFec">
       </label>
     </div>
@@ -451,6 +631,60 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   </div>
 </div>
 
+
+<!-- CARD CYCLE PICKER MODAL -->
+<div class="modal centered" id="cardCyclePicker">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mc-title-big">Ciclo</div>
+      <button class="mh-x" onclick="cerrarCardCyclePicker()">✕</button>
+    </div>
+    <div class="mp-pills">
+      <div class="mp-pill" onclick="seleccionarCardCycleActual()">Actual</div>
+      <div class="mp-year">
+        <button onclick="cambiarAnioCardPicker(-1)" aria-label="Año anterior">‹</button>
+        <span class="mp-year-lbl" id="cardPickerAnio">2026</span>
+        <button onclick="cambiarAnioCardPicker(1)" aria-label="Año siguiente">›</button>
+      </div>
+    </div>
+    <div class="mp-grid" id="cardPickerGrid"></div>
+    <button class="mp-aplicar" onclick="aplicarCardCyclePicker()">✓ Aplicar</button>
+  </div>
+</div>
+
+<!-- CARD DETAIL MODAL -->
+<div class="modal centered" id="cardDetailModal">
+  <div class="mc">
+    <div class="mc-top">
+      <div class="mt">Detalle de tarjeta</div>
+      <button class="mh-x" onclick="cerrarCardDetail()">✕</button>
+    </div>
+    <div id="cardDetailContent"></div>
+  </div>
+</div>
+
+<!-- CARD TRANSACTION DETAIL MODAL -->
+<div class="modal centered" id="cardTxDetailModal">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mt">Detalle de consumo</div>
+      <button class="mh-x" onclick="cerrarCardTxDetail()">✕</button>
+    </div>
+    <div id="cardTxDetailContent"></div>
+  </div>
+</div>
+
+<!-- CREDIT LINE CONFIG MODAL -->
+<div class="modal centered" id="creditLineModal">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mc-title-big">Líneas de crédito</div>
+      <button class="mh-x" onclick="cerrarLineasCredito()">✕</button>
+    </div>
+    <div id="creditLineConfig"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast" onclick="ocultarToast()"></div>
 
 <!-- Bottom nav (5 tabs) -->
@@ -463,13 +697,13 @@ input,textarea{-webkit-user-select:text;user-select:text;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     ANÁLISIS
   </button>
+  <button class="nt" onclick="setPg('card',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    TARJETAS
+  </button>
   <button class="nt" onclick="setPg('bud',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     METAS
-  </button>
-  <button class="nt" onclick="setPg('rec',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.4 2.6L21 8"/><polyline points="21 3 21 8 16 8"/><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.4-2.6L3 16"/><polyline points="3 21 3 16 8 16"/></svg>
-    REPETIR
   </button>
   <button class="nt" onclick="setPg('deb',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
@@ -490,6 +724,13 @@ let primeraCarga=true;
 let anPeriodo='mes';
 let chartTipo='bar';
 let toastTimer=null;
+let cardCycleOffset=0;
+let selectedCardCuenta=null;
+let selectedCardTxRow=null;
+let cardDetailTab='resumen';
+let cardPageTab='resumen';
+let cardPickerYear=new Date().getFullYear();
+let cardPickerMonth=new Date().getMonth();
 let acumuladoMode=false;
 let mesPickerYear=new Date().getFullYear();
 let mesPickerMes=new Date().getMonth();
@@ -585,7 +826,7 @@ function render(){
   renderCat();
   renderTx();
   renderBud();
-  renderRec();
+  renderCardsPage();
   renderDeb();
   llenarSel();
   renderFilterPill();
@@ -596,7 +837,9 @@ function renderFilterPill(){
   const c=document.getElementById('filterPill');
   if(filtroCategoria){
     const em=getEmoji(filtroCategoria);
-    c.innerHTML=`<div class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()">${em.e} ${cleanName(filtroCategoria)} <span style="font-weight:700;margin-left:4px">✕</span></div>`;
+    c.innerHTML=`<div class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()">${em.e} ${cleanName(filtroCategoria)} <span style="font-weight:700;margin-left:4px">
+✕
+</span></div>`;
   }else c.innerHTML='';
 }
 
@@ -688,6 +931,19 @@ function toggleAcumulado(){
   render();
 }
 
+function smoothSetText(el,newText,newValue=null){
+  if(!el)return;
+  const oldValue=el.dataset.value;
+  const newValueStr=newValue===null?newText:String(Number(newValue||0).toFixed(2));
+  if(oldValue===newValueStr && el.textContent===newText)return;
+  el.classList.add('num-changing');
+  setTimeout(()=>{
+    el.textContent=newText;
+    el.dataset.value=newValueStr;
+    el.classList.remove('num-changing');
+  },90);
+}
+
 function renderBal(){
   /*
     Si acumuladoMode está activo:
@@ -714,20 +970,17 @@ function renderBal(){
 
   const balance = iBal - gBal;
 
-  document.getElementById('balAmt').textContent = fmtN(Math.abs(balance));
-  document.getElementById('balDot').textContent = balance >= 0 ? '+' : '−';
-  document.getElementById('balDot').classList.toggle('neg', balance < 0);
+  smoothSetText(document.getElementById('balAmt'), fmtN(Math.abs(balance)), Math.abs(balance));
+  const dot=document.getElementById('balDot');
+  dot.textContent = balance >= 0 ? '+' : '−';
+  dot.classList.toggle('neg', balance < 0);
 
   document.getElementById('balLbl').textContent = acumuladoMode
     ? 'Saldo acumulado'
     : 'Total';
 
-  /*
-    Estos dos chips siguen mostrando el periodo actual,
-    no el acumulado, para que el dashboard no cambie completo.
-  */
-  document.getElementById('kpiOut').textContent = '− ' + fmt(gPeriodo);
-  document.getElementById('kpiIn').textContent = '+ ' + fmt(iPeriodo);
+  smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
+  smoothSetText(document.getElementById('kpiIn'), '+ ' + fmt(iPeriodo), iPeriodo);
 }
 
 function renderCat(){
@@ -854,6 +1107,8 @@ function setPg(p,b){
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   if(p==='ana')renderAnalisis();
+  if(p==='card')renderCardsPage();
+  if(p==='bud')renderBud();
 }
 
 function setDT(t,b){dT=t;document.querySelectorAll('.dt').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
@@ -1220,6 +1475,565 @@ function renderTrend(area,leg){
   area.innerHTML=svg;
   leg.innerHTML=`<span class="legend-item"><span class="legend-dot" style="background:#00d68f"></span>Gasto ${anPeriodo==='mes'?'diario':'mensual'}</span>`;
 }
+
+
+const CREDIT_CARDS=[
+  // Ciclos ajustados: BBVA 10-9, iO BCP 25-24
+  {nombre:'Mastercard BBVA',emoji:'💳',cuenta:'Mastercard BBVA',inicioDia:10,finDia:9,pagoDia:5},
+  {nombre:'iO BCP',emoji:'💳',cuenta:'iO BCP',inicioDia:25,finDia:24,pagoDia:12}
+];
+
+
+function setCardPageTab(tab,btn){
+  cardPageTab=tab;
+  document.querySelectorAll('#p-card .detail-tab').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderCardsPage();
+}
+
+function setCardCycle(offset,btn){
+  cardCycleOffset=offset;
+  document.querySelectorAll('.card-tab').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderCardsPage();
+}
+
+function addMonths(date,months){return new Date(date.getFullYear(),date.getMonth()+months,date.getDate());}
+function fmtDateShort(d){return d.toLocaleDateString('es-PE',{day:'numeric',month:'short'});}
+function fmtDateLong(d){return d.toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});}
+function endOfDay(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59,999);}
+
+function getCurrentCycleEndMonth(){
+  const today=new Date();
+  // Mes de cierre mostrado en Tarjetas: para BBVA 10 mar-9 abr y iO 25 mar-24 abr se ve como abril.
+  return new Date(today.getFullYear(),today.getMonth(),1);
+}
+
+function getSelectedCycleEndMonth(){return addMonths(getCurrentCycleEndMonth(),cardCycleOffset);}
+
+function getCardCycle(card,offset=cardCycleOffset){
+  const base=addMonths(getCurrentCycleEndMonth(),offset);
+  const cycleEnd=endOfDay(new Date(base.getFullYear(),base.getMonth(),card.finDia));
+  const cycleStart=new Date(base.getFullYear(),base.getMonth()-1,card.inicioDia);
+  const payDate=new Date(base.getFullYear(),base.getMonth()+1,card.pagoDia);
+  return{start:cycleStart,end:cycleEnd,pay:payDate};
+}
+
+function getDaysDiff(from,to){
+  const a=new Date(from.getFullYear(),from.getMonth(),from.getDate());
+  const b=new Date(to.getFullYear(),to.getMonth(),to.getDate());
+  return Math.ceil((b-a)/(1000*60*60*24));
+}
+
+function getCardStatus(payDate){
+  const today=new Date();
+  const days=getDaysDiff(today,payDate);
+  if(days<0)return{text:'Vencido',detail:`Venció hace ${Math.abs(days)} día${Math.abs(days)===1?'':'s'}`,cls:'status-bad'};
+  if(days<=3)return{text:'Vence pronto',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-warn'};
+  return{text:'Pendiente',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-ok'};
+}
+function sameAccount(a,b){return norm(a)===norm(b);}
+
+function getCardPaymentKey(card,cycle){return 'finanzas_pago_'+norm(card.cuenta).replace(/\s+/g,'_')+'_'+getCycleKey(cycle);}
+function getCardPayment(card,cycle){const v=localStorage.getItem(getCardPaymentKey(card,cycle));return Math.max(0,parseFloat(v)||0);}
+function setCardPayment(card,cycle,value){const n=Math.max(0,parseFloat(value)||0);localStorage.setItem(getCardPaymentKey(card,cycle),String(n));}
+function getCycleKey(cycle){return cycle.end.getFullYear()+'-'+String(cycle.end.getMonth()+1).padStart(2,'0')+'-'+String(cycle.end.getDate()).padStart(2,'0');}
+function getTxRow(t){return t[6] ?? `${t[0]}_${t[1]}_${t[4]}_${t[5]}`;}
+function getTxCycleOverrideKey(card,t){return 'finanzas_card_cycle_'+norm(card.cuenta).replace(/\s+/g,'_')+'_'+getTxRow(t);}
+function getTxCycleOverride(card,t){return localStorage.getItem(getTxCycleOverrideKey(card,t));}
+function setTxCycleOverride(card,t,cycle){localStorage.setItem(getTxCycleOverrideKey(card,t),getCycleKey(cycle));}
+function clearTxCycleOverride(card,t){localStorage.removeItem(getTxCycleOverrideKey(card,t));}
+function txBelongsToCycle(card,t,cycle){
+  const override=getTxCycleOverride(card,t);
+  if(override)return override===getCycleKey(cycle);
+  const fecha=pf(t[0]);
+  return fecha>=cycle.start && fecha<=cycle.end;
+}
+
+function getCardData(card,offset=cardCycleOffset){
+  const cycle=getCardCycle(card,offset);
+  const gastos=datos.transacciones.filter(t=>{
+    const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
+    return tipo!=='Ingreso' && monto>0 && sameAccount(cuenta,card.cuenta) && txBelongsToCycle(card,t,cycle);
+  }).sort((a,b)=>pf(b[0])-pf(a[0]));
+  const total=gastos.reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
+  const pagado=Math.min(getCardPayment(card,cycle),total);
+  const pendiente=Math.max(total-pagado,0);
+  const status=getCardStatus(cycle.pay);
+  return{cycle,gastos,total,pagado,pendiente,status};
+}
+
+function cardStats(gastos,total){
+  const cats={}; let maxTx=null;
+  gastos.forEach(t=>{const m=parseFloat(t[4])||0;const c=cleanName(t[2]);cats[c]=(cats[c]||0)+m;if(!maxTx||m>(parseFloat(maxTx[4])||0))maxTx=t;});
+  const top=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
+  return{topCat:top?top[0]:'—',topCatVal:top?top[1]:0,avg:gastos.length?total/gastos.length:0,maxTx,cats};
+}
+
+function renderCardMiniList(gastos,limit=3){
+  if(!gastos.length)return '<div class="empty" style="padding:18px 8px">Sin consumos en este ciclo</div>';
+  return `<div class="card-mini-list">${gastos.slice(0,limit).map(t=>{
+    const em=getEmoji(cleanName(t[2]));
+    return `<div class="card-mini-item"><div><div class="card-mini-desc">${em.e} ${t[1]||'Sin descripción'}</div><div class="card-mini-meta">${cleanName(t[2])} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
+  }).join('')}</div>`;
+}
+
+
+function getCreditLimit(card){
+  const key='finanzas_credit_limit_'+norm(card.cuenta).replace(/\s+/g,'_');
+  const def=sameAccount(card.cuenta,'Mastercard BBVA')?1000:sameAccount(card.cuenta,'iO BCP')?500:0;
+  const v=localStorage.getItem(key);
+  const n=parseFloat(v);
+  return Number.isFinite(n)&&n>0?n:def;
+}
+function setCreditLimit(card,value){
+  const key='finanzas_credit_limit_'+norm(card.cuenta).replace(/\s+/g,'_');
+  const n=Math.max(0,parseFloat(value)||0);
+  localStorage.setItem(key,String(n));
+}
+function getCreditGoalPct(){
+  const v=parseFloat(localStorage.getItem('finanzas_credit_goal_pct'));
+  return Number.isFinite(v)&&v>0?v:30;
+}
+function setCreditGoalPct(value){
+  const n=Math.max(1,Math.min(100,parseFloat(value)||30));
+  localStorage.setItem('finanzas_credit_goal_pct',String(n));
+}
+function getLineState(used,limit,goalPct=getCreditGoalPct()){
+  const pct=limit>0?(used/limit)*100:0;
+  const goalAmount=limit*(goalPct/100);
+  const remaining=goalAmount-used;
+  let cls='ok',label='Óptimo';
+  if(pct>=80){cls='danger';label='Muy alto';}
+  else if(used>goalAmount){cls='bad';label='Sobre meta';}
+  else if(used>=goalAmount*.8){cls='warn';label='Cerca de meta';}
+  return{pct,goalAmount,remaining,cls,label};
+}
+function renderLineProgress(pct,cls){
+  return `<div class="line-progress"><div class="line-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div>`;
+}
+function renderCreditLineBlock(card,used){
+  const limit=getCreditLimit(card); const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
+  const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)}`:`Te pasaste ${fmt(Math.abs(st.remaining))}`;
+  return `<div class="credit-line-block">
+    <div class="credit-line-title"><span>Línea usada</span><span>${fmt(used)} de ${fmt(limit)}</span></div>
+    ${renderLineProgress(st.pct,st.cls)}
+    <div class="credit-line-sub"><span>${st.pct.toFixed(1)}% usado · meta ${goal}% (${fmt(st.goalAmount)})</span><span class="line-advice ${st.cls}">${advice}</span></div>
+  </div>`;
+}
+function renderCreditLineSummary(){
+  const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
+  const items=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
+  const used=items.reduce((s,x)=>s+x.data.pendiente,0);
+  const limit=items.reduce((s,x)=>s+getCreditLimit(x.card),0);
+  const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
+  const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(st.remaining))} sobre la meta recomendada`;
+  cont.innerHTML=`<div class="line-summary-card">
+    <div class="line-summary-top">
+      <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
+      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar líneas</button>
+    </div>
+    ${renderLineProgress(st.pct,st.cls)}
+    <div class="line-summary-meta"><span><strong>${st.pct.toFixed(1)}%</strong> usado · meta ${goal}% = <strong>${fmt(st.goalAmount)}</strong></span><span class="line-advice ${st.cls}">${advice}</span></div>
+  </div>`;
+}
+function abrirLineasCredito(){
+  renderLineasCreditoConfig();
+  document.getElementById('creditLineModal').classList.add('active');
+}
+function cerrarLineasCredito(){document.getElementById('creditLineModal').classList.remove('active');}
+function renderLineasCreditoConfig(){
+  const cont=document.getElementById('creditLineConfig'); if(!cont)return;
+  const goal=getCreditGoalPct();
+  cont.innerHTML=`<div class="line-config-grid">
+    ${CREDIT_CARDS.map((card,i)=>`<div class="line-config-item"><div class="line-config-name">${card.emoji} ${card.nombre}</div><div class="line-config-row"><div class="line-field"><label>Línea</label><input id="creditLimit${i}" type="number" inputmode="decimal" step="0.01" value="${getCreditLimit(card)}"></div><div class="line-field"><label>Meta %</label><input ${i===0?'id="creditGoalPct"':''} type="number" inputmode="decimal" step="1" value="${goal}" ${i>0?'disabled':''}></div></div></div>`).join('')}
+    <button class="btn btn-p" onclick="guardarLineasCredito()">Guardar cambios</button>
+  </div>`;
+}
+function guardarLineasCredito(){
+  CREDIT_CARDS.forEach((card,i)=>setCreditLimit(card,document.getElementById('creditLimit'+i).value));
+  const goalEl=document.getElementById('creditGoalPct'); if(goalEl)setCreditGoalPct(goalEl.value);
+  cerrarLineasCredito(); renderCardsPage(); renderCardDetail(); toast('Líneas actualizadas','success');
+}
+
+function renderCardsPage(){
+  renderCreditLineSummary();
+  const cont=document.getElementById('cardsPage'); if(!cont)return;
+  const selected=getSelectedCycleEndMonth();
+  const lbl=document.getElementById('chipCardCycleLbl');
+  if(lbl)lbl.textContent=`Ciclo ${mesesC[selected.getMonth()]}. ${selected.getFullYear()}`;
+
+  if(cardPageTab==='resumen'){
+    cont.innerHTML=CREDIT_CARDS.map(card=>{
+      const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
+      const pct=total>0?Math.min((pagado/total)*100,100):0;
+      return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
+        <div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
+        <div class="credit-info">
+          <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
+          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}</span></div>
+          <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
+          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
+          <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
+          <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
+        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver detalle</div></div>`;
+    }).join('');
+    return;
+  }
+
+  if(cardPageTab==='consumos'){
+    cont.innerHTML=CREDIT_CARDS.map(card=>{
+      const data=getCardData(card,cardCycleOffset);
+      return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Consumos recientes · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div>${renderCardMiniList(data.gastos,5)}<div class="hint">Toca para ver todos los consumos</div></div>`;
+    }).join('');
+    return;
+  }
+
+  cont.innerHTML=CREDIT_CARDS.map(card=>{
+    const data=getCardData(card,cardCycleOffset); const st=cardStats(data.gastos,data.total); const topEmoji=getEmoji(st.topCat);
+    return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Estadísticas del ciclo</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${data.gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="hint">Toca para ver detalle</div></div>`;
+  }).join('');
+}
+
+function abrirCardCyclePicker(){
+  const selected=getSelectedCycleEndMonth();
+  cardPickerYear=selected.getFullYear();
+  cardPickerMonth=selected.getMonth();
+  renderCardCyclePickerGrid();
+  document.getElementById('cardCyclePicker').classList.add('active');
+}
+function cerrarCardCyclePicker(){document.getElementById('cardCyclePicker').classList.remove('active');}
+function cambiarAnioCardPicker(d){cardPickerYear+=d;renderCardCyclePickerGrid();}
+function seleccionarCardCycleActual(){const d=getCurrentCycleEndMonth();cardPickerYear=d.getFullYear();cardPickerMonth=d.getMonth();renderCardCyclePickerGrid();}
+function seleccionarCardCycleMes(m){cardPickerMonth=m;renderCardCyclePickerGrid();}
+function aplicarCardCyclePicker(){
+  const current=getCurrentCycleEndMonth();
+  cardCycleOffset=(cardPickerYear-current.getFullYear())*12+(cardPickerMonth-current.getMonth());
+  cerrarCardCyclePicker();renderCardsPage();
+}
+function renderCardCyclePickerGrid(){
+  document.getElementById('cardPickerAnio').textContent=cardPickerYear;
+  document.getElementById('cardPickerGrid').innerHTML=mesesC.map((mc,i)=>{
+    const sel=i===cardPickerMonth;
+    const total=CREDIT_CARDS.reduce((sum,card)=>{
+      const cur=getCurrentCycleEndMonth();
+      const off=(cardPickerYear-cur.getFullYear())*12+(i-cur.getMonth());
+      return sum+getCardData(card,off).total;
+    },0);
+    const val=total>0?fmtC(total):'S/ 0';
+    return `<div class="mp-cell ${sel?'selected':''}" onclick="seleccionarCardCycleMes(${i})"><div class="mp-cell-mes">${mc}.</div><div class="mp-cell-val out">${val}</div></div>`;
+  }).join('');
+}
+
+function abrirCardDetail(cuenta){selectedCardCuenta=cuenta;renderCardDetail();document.getElementById('cardDetailModal').classList.add('active');}
+function cerrarCardDetail(){document.getElementById('cardDetailModal').classList.remove('active');selectedCardCuenta=null;}
+function guardarPagoTarjeta(){
+  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
+  const data=getCardData(card,cardCycleOffset); const val=document.getElementById('cardPaidInput').value;
+  setCardPayment(card,data.cycle,val); renderCardsPage(); renderCardDetail(); toast('Pago actualizado','success');
+}
+function limpiarPagoTarjeta(){
+  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
+  const data=getCardData(card,cardCycleOffset); localStorage.removeItem(getCardPaymentKey(card,data.cycle));
+  renderCardsPage(); renderCardDetail(); toast('Pago reiniciado','success');
+}
+function moverConsumoCiclo(row,targetOffset){
+  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
+  const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
+  if(targetOffset==='auto')clearTxCycleOverride(card,tx);
+  else setTxCycleOverride(card,tx,getCardCycle(card,Number(targetOffset)));
+  renderCardsPage(); renderCardDetail(); toast('Ciclo actualizado','success');
+}
+
+function renderCardTxList(card,gastos,cycle){
+  if(!gastos.length)return '<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
+  return gastos.map(t=>{
+    const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const isManual=!!override; const row=getTxRow(t);
+    return `<div class="card-tx-item">
+      <div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${isManual?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div><div class="tx-actions"><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}','auto')">Auto</button><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}',-1)">Ciclo ant.</button><button class="mini-action active" onclick="event.stopPropagation();moverConsumoCiclo('${row}',0)">Este ciclo</button><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}',1)">Sig. ciclo</button></div></div>
+      <div class="card-tx-amt" onclick="editarTx(${t[6]})">− ${fmt(t[4])}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCardDetail(){
+  const cont=document.getElementById('cardDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!cont||!card)return;
+  const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data; const st=cardStats(gastos,total);
+  const pct=total>0?Math.min((pagado/total)*100,100):0; const topEmoji=getEmoji(st.topCat);
+  const catRows=Object.entries(st.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="credit-row"><span>${getEmoji(k).e} ${k}</span><span>${fmt(v)}</span></div>`).join('');
+  cont.innerHTML=`
+    <div class="card-detail-head"><div class="card-detail-name">${card.emoji} ${card.nombre}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>
+    <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
+    ${renderCreditLineBlock(card,pendiente)}
+    <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>=60?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
+    <div class="pay-input-row"><input id="cardPaidInput" class="pay-input" type="number" inputmode="decimal" step="0.01" value="${pagado?pagado.toFixed(2):''}" placeholder="Pagado hasta hoy"><button class="btn btn-p" style="flex:0 0 auto;padding:13px 16px" onclick="guardarPagoTarjeta()">Guardar</button></div>
+    <button class="btn btn-s" style="width:100%;margin-bottom:14px" onclick="limpiarPagoTarjeta()">Reiniciar pago registrado</button>
+    <div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div>
+    <div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>
+    <div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>`;
+}
+
+/* === Overrides finales: ciclos rápidos, línea total con siguiente ciclo, consumos/stats diferenciados === */
+function cardCycleTotal(offset=cardCycleOffset){
+  return CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,offset).pendiente,0);
+}
+
+function goNextCardCycle(){
+  cardCycleOffset += 1;
+  renderCardsPage();
+}
+
+function updateCardCycleQuickUI(){
+  const selected=getSelectedCycleEndMonth();
+  const next=addMonths(selected,1);
+  const lbl=document.getElementById('chipCardCycleLbl');
+  const amt=document.getElementById('chipCardCycleAmt');
+  const nextLbl=document.getElementById('chipNextCycleLbl');
+  const nextAmt=document.getElementById('chipNextCycleAmt');
+  if(lbl)lbl.textContent=`Ciclo ${mesesC[selected.getMonth()]}. ${selected.getFullYear()}`;
+  if(amt)amt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
+  if(nextLbl)nextLbl.textContent=`${mesesC[next.getMonth()]}. ${next.getFullYear()}`;
+  if(nextAmt)nextAmt.textContent=`Siguiente: ${fmt(cardCycleTotal(cardCycleOffset+1))}`;
+}
+
+function renderCreditLineSummary(){
+  const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
+  const currentItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
+  const nextItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset+1)}));
+  const usedCurrent=currentItems.reduce((s,x)=>s+x.data.pendiente,0);
+  const usedNext=nextItems.reduce((s,x)=>s+x.data.pendiente,0);
+  const used=usedCurrent+usedNext;
+  const limit=CREDIT_CARDS.reduce((s,card)=>s+getCreditLimit(card),0);
+  const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
+  const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(st.remaining))} sobre la meta recomendada`;
+  cont.innerHTML=`<div class="line-summary-card">
+    <div class="line-summary-top">
+      <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
+      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar líneas</button>
+    </div>
+    ${renderLineProgress(st.pct,st.cls)}
+    <div class="line-summary-breakdown"><span>Actual: <strong>${fmt(usedCurrent)}</strong></span><span>Siguiente: <strong>${fmt(usedNext)}</strong></span></div>
+    <div class="line-summary-meta"><span><strong>${st.pct.toFixed(1)}%</strong> usado · meta ${goal}% = <strong>${fmt(st.goalAmount)}</strong></span><span class="line-advice ${st.cls}">${advice}</span></div>
+  </div>`;
+}
+
+function renderCardMiniList(gastos,limit=3,card=null){
+  if(!gastos.length)return '<div class="empty" style="padding:18px 8px">Sin consumos en este ciclo</div>';
+  return `<div class="card-mini-list">${gastos.slice(0,limit).map(t=>{
+    const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const cta=card?card.cuenta:(t[5]||'');
+    return `<div class="card-mini-item" onclick="event.stopPropagation();abrirCardTxDetail('${String(cta).replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-mini-desc">${em.e} ${t[1]||'Sin descripción'}</div><div class="card-mini-meta">${cleanName(t[2])} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function renderCardsPage(){
+  updateCardCycleQuickUI();
+  renderCreditLineSummary();
+  const cont=document.getElementById('cardsPage'); if(!cont)return;
+
+  if(cardPageTab==='resumen'){
+    cont.innerHTML=CREDIT_CARDS.map(card=>{
+      const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
+      const pct=total>0?Math.min((pagado/total)*100,100):0;
+      return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
+        <div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
+        <div class="credit-info">
+          <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
+          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}</span></div>
+          <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
+          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
+          <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
+          <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
+        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
+    }).join('');
+    return;
+  }
+
+  if(cardPageTab==='consumos'){
+    cont.innerHTML=CREDIT_CARDS.map(card=>{
+      const data=getCardData(card,cardCycleOffset);
+      return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div>${renderCardMiniList(data.gastos,8,card)}<div class="hint">Toca un consumo para ver detalle y moverlo de ciclo</div></div>`;
+    }).join('');
+    return;
+  }
+
+  cont.innerHTML=CREDIT_CARDS.map(card=>{
+    const data=getCardData(card,cardCycleOffset); const prev=getCardData(card,cardCycleOffset-1); const st=cardStats(data.gastos,data.total); const topEmoji=getEmoji(st.topCat);
+    const delta=data.total-prev.total; const pct=prev.total>0?(delta/prev.total)*100:(data.total>0?100:0);
+    const cls=delta<0?'stat-delta-pos':delta>0?'stat-delta-neg':'stat-delta-flat';
+    const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pct>0?'+':''}${pct.toFixed(0)}%`;
+    return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Stats vs ciclo anterior</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${cls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${data.gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="hint">Toca para ver estadísticas completas</div></div>`;
+  }).join('');
+}
+
+function abrirCardTxDetail(cuenta,row){
+  selectedCardCuenta=cuenta;
+  selectedCardTxRow=row;
+  renderCardTxDetail();
+  document.getElementById('cardTxDetailModal').classList.add('active');
+}
+function cerrarCardTxDetail(){
+  document.getElementById('cardTxDetailModal').classList.remove('active');
+  selectedCardTxRow=null;
+}
+function renderCardTxDetail(){
+  const cont=document.getElementById('cardTxDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta));
+  if(!cont||!card)return;
+  const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(selectedCardTxRow));
+  if(!tx){cont.innerHTML='<div class="empty">No encontré este consumo</div>';return;}
+  const em=getEmoji(cleanName(tx[2])); const cycle=getCardCycle(card,cardCycleOffset); const override=getTxCycleOverride(card,tx);
+  const modo=override?'Manual':'Automático';
+  cont.innerHTML=`<div class="card-detail-head"><div class="card-detail-name">${em.e} ${tx[1]||'Sin descripción'}</div><div class="card-detail-sub">${card.nombre} · ${fmtDateLong(pf(tx[0]))}</div></div>
+    <div class="tx-detail-grid">
+      <div class="tx-detail-row"><span>Monto</span><span style="color:var(--red)">− ${fmt(tx[4])}</span></div>
+      <div class="tx-detail-row"><span>Categoría</span><span>${cleanName(tx[2])}</span></div>
+      <div class="tx-detail-row"><span>Cuenta</span><span>${tx[5]||card.nombre}</span></div>
+      <div class="tx-detail-row"><span>Ciclo visible</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
+      <div class="tx-detail-row"><span>Asignación</span><span>${modo}</span></div>
+    </div>
+    <div class="card-tx-title">Mover consumo</div>
+    <div class="tx-actions"><button class="mini-action ${!override?'active':''}" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}','auto');renderCardTxDetail();">Auto</button><button class="mini-action" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',-1);cerrarCardTxDetail();">Ciclo ant.</button><button class="mini-action ${override===getCycleKey(cycle)?'active':''}" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',0);renderCardTxDetail();">Este ciclo</button><button class="mini-action" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',1);cerrarCardTxDetail();">Sig. ciclo</button></div>`;
+}
+
+function renderCardTxList(card,gastos,cycle){
+  if(!gastos.length)return '<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
+  return gastos.map(t=>{
+    const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const isManual=!!override; const row=getTxRow(t);
+    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')">
+      <div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${isManual?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div>
+      <div class="card-tx-amt">− ${fmt(t[4])}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCardDetail(){
+  const cont=document.getElementById('cardDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!cont||!card)return;
+  const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data; const st=cardStats(gastos,total);
+  const prev=getCardData(card,cardCycleOffset-1); const prevSt=cardStats(prev.gastos,prev.total); const topEmoji=getEmoji(st.topCat);
+  const pct=total>0?Math.min((pagado/total)*100,100):0; const delta=total-prev.total; const pctDelta=prev.total>0?(delta/prev.total)*100:(total>0?100:0);
+  const deltaCls=delta<0?'stat-delta-pos':delta>0?'stat-delta-neg':'stat-delta-flat';
+  const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pctDelta>0?'+':''}${pctDelta.toFixed(0)}%`;
+  const head=`<div class="card-detail-head"><div class="card-detail-name">${card.emoji} ${card.nombre}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>`;
+  if(cardPageTab==='consumos'){
+    cont.innerHTML=head+`<div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>`;
+    return;
+  }
+  if(cardPageTab==='stats'){
+    const catRows=Object.entries(st.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="credit-row"><span>${getEmoji(k).e} ${k}</span><span>${fmt(v)}</span></div>`).join('');
+    cont.innerHTML=head+`<div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Este ciclo</div><div class="card-stat-val">${fmt(total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${deltaCls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>`;
+    return;
+  }
+  cont.innerHTML=head+`
+    <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
+    ${renderCreditLineBlock(card,pendiente)}
+    <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>=60?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
+    <div class="pay-input-row"><input id="cardPaidInput" class="pay-input" type="number" inputmode="decimal" step="0.01" value="${pagado?pagado.toFixed(2):''}" placeholder="Pagado hasta hoy"><button class="btn btn-p" style="flex:0 0 auto;padding:13px 16px" onclick="guardarPagoTarjeta()">Guardar</button></div>
+    <button class="btn btn-s" style="width:100%;margin-bottom:14px" onclick="limpiarPagoTarjeta()">Reiniciar pago registrado</button>`;
+}
+
+
+/* === Fix final Arturo: carrusel + recuperación de consumos === */
+function goPrevCardCycle(){
+  cardCycleOffset=Math.max(0,cardCycleOffset-1);
+  renderCardsPage();
+}
+function goNextCardCycle(){
+  cardCycleOffset += 1;
+  renderCardsPage();
+}
+function cycleMonthLabel(date){return `${mesesC[date.getMonth()]}. ${date.getFullYear()}`;}
+function pulseCycleBar(){
+  const bar=document.querySelector('.card-cycle-bar');
+  if(!bar)return;
+  bar.classList.remove('animating');
+  void bar.offsetWidth;
+  bar.classList.add('animating');
+  setTimeout(()=>bar.classList.remove('animating'),320);
+}
+function updateCardCycleQuickUI(){
+  const selected=getSelectedCycleEndMonth();
+  const next=addMonths(selected,1);
+  const prev=addMonths(selected,-1);
+  const main=document.querySelector('.card-cycle-main');
+  const side=document.querySelector('.card-cycle-next');
+  const bar=document.querySelector('.card-cycle-bar');
+  if(!main||!side||!bar)return;
+  const mainTitle=main.querySelector('.card-cycle-title');
+  const sideTitle=side.querySelector('.card-cycle-title');
+  const mainLbl=document.getElementById('chipCardCycleLbl');
+  const mainAmt=document.getElementById('chipCardCycleAmt');
+  const sideLbl=document.getElementById('chipNextCycleLbl');
+  const sideAmt=document.getElementById('chipNextCycleAmt');
+  bar.classList.toggle('offset-next',cardCycleOffset>0);
+  if(cardCycleOffset>0){
+    if(mainTitle)mainTitle.textContent='Ciclo anterior';
+    if(mainLbl)mainLbl.textContent=cycleMonthLabel(prev);
+    if(mainAmt)mainAmt.textContent=`Anterior: ${fmt(cardCycleTotal(cardCycleOffset-1))}`;
+    main.onclick=()=>goPrevCardCycle();
+    const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='‹';
+    if(sideTitle)sideTitle.textContent='Ciclo seleccionado';
+    if(sideLbl)sideLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`;
+    if(sideAmt)sideAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
+    side.onclick=()=>abrirCardCyclePicker();
+    const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='⌄';
+  }else{
+    if(mainTitle)mainTitle.textContent='Ciclo seleccionado';
+    if(mainLbl)mainLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`;
+    if(mainAmt)mainAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
+    main.onclick=()=>abrirCardCyclePicker();
+    const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='⌄';
+    if(sideTitle)sideTitle.textContent='Siguiente ciclo';
+    if(sideLbl)sideLbl.textContent=cycleMonthLabel(next);
+    if(sideAmt)sideAmt.textContent=`Siguiente: ${fmt(cardCycleTotal(cardCycleOffset+1))}`;
+    side.onclick=()=>goNextCardCycle();
+    const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='›';
+  }
+  pulseCycleBar();
+}
+function txDateParts(t){const d=pf(t[0]);return {day:d.getDate(),month:d.getMonth(),year:d.getFullYear()};}
+function isCardExpenseFor(card,t){return t && t[3]!=='Ingreso' && (parseFloat(t[4])||0)>0 && sameAccount((t[5]||'').toString().trim(),card.cuenta);}
+function forceKnownMastercardRecoveries(){
+  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,'Mastercard BBVA'));
+  if(!card||!Array.isArray(datos.transacciones))return;
+  const currentCycle=getCardCycle(card,0);
+  const nextCycle=getCardCycle(card,1);
+  datos.transacciones.forEach(t=>{
+    if(!isCardExpenseFor(card,t))return;
+    const {day,month,year}=txDateParts(t);
+    if(year!==2026||month!==3)return;
+    const d=norm(t[1]||'');
+    if((d.includes('mcdonald') && day===5) || (d.includes('delicass') && day===7)) setTxCycleOverride(card,t,currentCycle);
+    if(d.includes('mcdonald') && day===10) setTxCycleOverride(card,t,nextCycle);
+  });
+}
+function getManualMovedTxs(card){return (datos.transacciones||[]).filter(t=>isCardExpenseFor(card,t)&&!!getTxCycleOverride(card,t)).sort((a,b)=>pf(b[0])-pf(a[0]));}
+function renderManualMovedSection(card,cycle){
+  const moved=getManualMovedTxs(card).filter(t=>!txBelongsToCycle(card,t,cycle));
+  if(!moved.length)return '';
+  return `<div class="manual-section-title">Movidos manualmente fuera de este ciclo</div>`+moved.map(t=>{
+    const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const key=getTxCycleOverride(card,t);
+    return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+  }).join('');
+}
+function moverConsumoCiclo(row,targetOffset){
+  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
+  const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
+  if(targetOffset==='auto')clearTxCycleOverride(card,tx);
+  else setTxCycleOverride(card,tx,getCardCycle(card,cardCycleOffset+Number(targetOffset)));
+  forceKnownMastercardRecoveries();
+  renderCardsPage(); renderCardDetail(); renderCardTxDetail(); toast('Ciclo actualizado','success');
+}
+function renderCardTxList(card,gastos,cycle){
+  const list=gastos.length?gastos.map(t=>{
+    const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const row=getTxRow(t);
+    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${override?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+  }).join(''):'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
+  return list+renderManualMovedSection(card,cycle);
+}
+const _renderCardsPageBeforeRecover=renderCardsPage;
+renderCardsPage=function(){
+  forceKnownMastercardRecoveries();
+  _renderCardsPageBeforeRecover();
+};
 
 cargar();
 </script>
