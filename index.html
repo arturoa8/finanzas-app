@@ -194,10 +194,52 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .btn-d{background:var(--red);color:var(--text);flex:0 0 auto;padding:14px 18px;}
 
 /* Toast */
-.toast{position:fixed;top:calc(20px + env(safe-area-inset-top));left:50%;transform:translateX(-50%) translateY(-200%);background:var(--card);border:1px solid var(--border);padding:12px 20px;border-radius:24px;font-size:0.85rem;font-weight:600;z-index:300;transition:transform 0.3s;cursor:pointer;}
-.toast.show{transform:translateX(-50%) translateY(0);}
-.toast.success{border-color:var(--green);color:var(--green);background:rgba(0,214,143,0.08);}
-.toast.error{border-color:var(--red);color:var(--red);background:rgba(255,59,107,0.08);}
+.toast{
+  position:fixed;
+  top:calc(14px + env(safe-area-inset-top));
+  left:50%;
+  transform:translateX(-50%) translateY(-140px);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+
+  background:var(--card);
+  border:1px solid var(--border);
+  padding:12px 20px;
+  border-radius:24px;
+  font-size:0.85rem;
+  font-weight:600;
+  z-index:9999;
+  cursor:pointer;
+
+  transition:
+    transform 0.28s ease,
+    opacity 0.2s ease,
+    visibility 0s linear 0.28s;
+}
+
+.toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transition:
+    transform 0.28s ease,
+    opacity 0.2s ease,
+    visibility 0s;
+}
+
+.toast.success{
+  border-color:var(--green);
+  color:var(--green);
+  background:rgba(0,214,143,0.10);
+}
+
+.toast.error{
+  border-color:var(--red);
+  color:var(--red);
+  background:rgba(255,59,107,0.10);
+}
 
 .page-title{font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;}
 
@@ -908,15 +950,42 @@ async function guardar(){
 // TOAST robusto: limpia timer previo, tap-to-dismiss, expira siempre
 function toast(m,t){
   const e=document.getElementById('toast');
-  if(toastTimer){clearTimeout(toastTimer);toastTimer=null;}
+
+  if(toastTimer){
+    clearTimeout(toastTimer);
+    toastTimer=null;
+  }
+
   e.textContent=m;
-  e.className='toast show '+(t||'');
-  toastTimer=setTimeout(()=>{e.classList.remove('show');toastTimer=null;},2500);
+  e.className='toast '+(t||'');
+
+  // Fuerza reinicio de animación
+  void e.offsetWidth;
+
+  e.classList.add('show');
+
+  toastTimer=setTimeout(()=>{
+    ocultarToast();
+  },2200);
 }
+
 function ocultarToast(){
   const e=document.getElementById('toast');
+
   e.classList.remove('show');
-  if(toastTimer){clearTimeout(toastTimer);toastTimer=null;}
+
+  if(toastTimer){
+    clearTimeout(toastTimer);
+    toastTimer=null;
+  }
+
+  // Limpia el texto cuando ya terminó la animación
+  setTimeout(()=>{
+    if(!e.classList.contains('show')){
+      e.textContent='';
+      e.className='toast';
+    }
+  },300);
 }
 
 // Bloquear doble-toque para evitar zoom
