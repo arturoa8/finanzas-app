@@ -1583,7 +1583,7 @@ function getCardStatus(payDate){
 function sameAccount(a,b){return norm(a)===norm(b);}
 
 function getCycleKey(cycle){return cycle.end.getFullYear()+'-'+String(cycle.end.getMonth()+1).padStart(2,'0')+'-'+String(cycle.end.getDate()).padStart(2,'0');}
-function getTxRow(t){return t[6] ?? `${t[0]}_${t[1]}_${t[4]}_${t[5]}`;}
+function getTxRow(t){return t[6] || `${t[0]}_${t[1]}_${t[4]}_${t[5]}`;}
 
 function getCardPayment(card,cycle){
   const key=getCycleKey(cycle);
