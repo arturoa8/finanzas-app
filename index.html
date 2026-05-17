@@ -1188,7 +1188,7 @@ function abrirM(){
 function editarTx(row){
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
-  editando=row;
+  editando=String(getTxRow(t));
   document.getElementById('modalTitle').textContent='Editar transacción';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-d" onclick="eliminar()">Eliminar</button><button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   const f=pf(t[0]);
@@ -1204,7 +1204,8 @@ function editarTx(row){
     document.querySelectorAll('.cchip').forEach(c=>{
       if(norm(c.dataset.cat)===norm(cn))c.classList.add('selected');
     });
-    document.getElementById('iCue').value=t[5]||'';
+    const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
+    document.getElementById('iCue').value=matchedCard?matchedCard.cuenta:(t[5]||'');
   },50);
   document.getElementById('modal').classList.add('active');
 }
