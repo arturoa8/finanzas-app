@@ -1657,11 +1657,25 @@ function getTxCycleOverride(card,t){
   return row?String(row[3]):null;
 }
 async function setTxCycleOverride(card,t,cycle){
-  const txId=String(getTxRow(t));const key=getCycleKey(cycle);
+  const txId=String(getTxRow(t));
+  const key=getCycleKey(cycle);
+
+  const fd=new URLSearchParams();
+  fd.append('action','setCicloOverride');
+  fd.append('tarjeta',card.cuenta);
+  fd.append('txId',txId);
+  fd.append('cicloKey',key);
+
+  const r=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+  const res=await r.json();
+
+  if(!r.ok || !res.success){
+    throw new Error(res.error || 'No se pudo guardar el ciclo');
+  }
+
   const ex=(datos.ciclosOverride||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===txId);
-  if(ex){ex[3]=key;}else{datos.ciclosOverride.push([null,card.cuenta,txId,key]);}
-  const fd=new URLSearchParams();fd.append('action','setCicloOverride');fd.append('tarjeta',card.cuenta);fd.append('txId',txId);fd.append('cicloKey',key);
-  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+  if(ex) ex[3]=key;
+  else datos.ciclosOverride.push([res.id || Date.now(),card.cuenta,txId,key]);
 }
 async function clearTxCycleOverride(card,t){
   const txId=String(getTxRow(t));
