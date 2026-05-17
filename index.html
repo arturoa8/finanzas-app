@@ -1073,8 +1073,8 @@ function renderTx(){
       const i=t[3]==='Ingreso';
       const d=t[1]||'?';
       const m=parseFloat(t[4])||0;
-      const row=t[6];
-      return `<div class="tx" onclick="editarTx(${row})"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${c||'—'}</div><div class="tdesc">${d}</div></div><div class="tamt-pill ${i?'in':'out'}"><span class="pdot"></span>${i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
+      const row=getTxRow(t);
+      return `<div class="tx" onclick="editarTx('${String(row).replace(/'/g,"\\'")}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${c||'—'}</div><div class="tdesc">${d}</div></div><div class="tamt-pill ${i?'in':'out'}"><span class="pdot"></span>${i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
     }).join('');
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
   }).join('');
@@ -1186,7 +1186,7 @@ function abrirM(){
 }
 
 function editarTx(row){
-  const t=datos.transacciones.find(x=>x[6]===row);
+  const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
   editando=row;
   document.getElementById('modalTitle').textContent='Editar transacción';
@@ -1771,7 +1771,15 @@ function renderCardsPage(){
   if(cardPageTab==='consumos'){
     cont.innerHTML=CREDIT_CARDS.map(card=>{
       const data=getCardData(card,cardCycleOffset);
-      return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Consumos recientes · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div>${renderCardMiniList(data.gastos,5)}<div class="hint">Toca para ver todos los consumos</div></div>`;
+      const txRows=data.gastos.length
+        ?data.gastos.map(t=>{
+            const em=getEmoji(cleanName(t[2]));
+            const override=getTxCycleOverride(card,t);
+            const row=String(getTxRow(t)).replace(/'/g,"\\'");
+            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><div class="card-tx-amt">− ${fmt(t[4])}</div><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
+          }).join('')
+        :'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
+      return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-tx-list">${txRows}</div></div>`;
     }).join('');
     return;
   }
@@ -2079,18 +2087,7 @@ function updateCardCycleQuickUI(){
 function txDateParts(t){const d=pf(t[0]);return {day:d.getDate(),month:d.getMonth(),year:d.getFullYear()};}
 function isCardExpenseFor(card,t){return t && t[3]!=='Ingreso' && (parseFloat(t[4])||0)>0 && sameAccount((t[5]||'').toString().trim(),card.cuenta);}
 function forceKnownMastercardRecoveries(){
-  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,'Mastercard BBVA'));
-  if(!card||!Array.isArray(datos.transacciones))return;
-  const currentCycle=getCardCycle(card,0);
-  const nextCycle=getCardCycle(card,1);
-  datos.transacciones.forEach(t=>{
-    if(!isCardExpenseFor(card,t))return;
-    const {day,month,year}=txDateParts(t);
-    if(year!==2026||month!==3)return;
-    const d=norm(t[1]||'');
-    if((d.includes('mcdonald') && day===5) || (d.includes('delicass') && day===7)) setTxCycleOverride(card,t,currentCycle);
-    if(d.includes('mcdonald') && day===10) setTxCycleOverride(card,t,nextCycle);
-  });
+  // Los ciclos ahora se guardan en Sheets (CiclosOverride), no se necesita lógica hardcodeada
 }
 function getManualMovedTxs(card){return (datos.transacciones||[]).filter(t=>isCardExpenseFor(card,t)&&!!getTxCycleOverride(card,t)).sort((a,b)=>pf(b[0])-pf(a[0]));}
 function renderManualMovedSection(card,cycle){
