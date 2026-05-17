@@ -1247,24 +1247,25 @@ async function guardar(){
   if(!m||!d){toast('Completa monto y descripción','error');return;}
   if(!c){toast('Selecciona una categoría','error');return;}
   const[yy,mm,dd]=fec.split('-');
-  let f;
+  const fmtHora=(h,min)=>{const ampm=h>=12?'p. m.':'a. m.';return `${h%12||12}:${String(min).padStart(2,'0')} ${ampm}`;};
+  const ahoraHora=()=>{const n=new Date();return fmtHora(n.getHours(),n.getMinutes());};
+  let timePart=ahoraHora();
   if(editando&&editandoFecha){
     const orig=String(editandoFecha);
     if(orig.includes('T')){
-      const od=new Date(orig);const oh=od.getHours();
-      const oa=oh>=12?'p. m.':'a. m.';const oh12=oh%12||12;
-      f=`${dd}/${mm}/${yy}, ${oh12}:${String(od.getMinutes()).padStart(2,'0')} ${oa}`;
+      const od=new Date(orig);
+      if(!isNaN(od))timePart=fmtHora(od.getHours(),od.getMinutes());
     } else if(orig.includes(',')){
-      f=`${dd}/${mm}/${yy},${orig.substring(orig.indexOf(','))}`;
-    } else {
-      const ahora=new Date();const hora=ahora.getHours();
-      f=`${dd}/${mm}/${yy}, ${hora%12||12}:${String(ahora.getMinutes()).padStart(2,'0')} ${hora>=12?'p. m.':'a. m.'}`;
+      const raw=orig.substring(orig.indexOf(',')+1).trim();
+      if(raw.includes('p. m.')||raw.includes('a. m.')){
+        timePart=raw;
+      } else {
+        const[hh,mn]=(raw||'').split(':');
+        const h=parseInt(hh);if(!isNaN(h))timePart=fmtHora(h,parseInt(mn)||0);
+      }
     }
-  } else {
-    const ahora=new Date();const hora=ahora.getHours();
-    const ampm=hora>=12?'p. m.':'a. m.';const h12=hora%12||12;
-    f=`${dd}/${mm}/${yy}, ${h12}:${String(ahora.getMinutes()).padStart(2,'0')} ${ampm}`;
   }
+  const f=`${dd}/${mm}/${yy}, ${timePart}`;
   const fd=new URLSearchParams();
   fd.append('action',editando?'edit':'add');
   if(editando)fd.append('row',editando);
