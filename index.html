@@ -728,6 +728,26 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   </div>
 </div>
 
+<!-- MODAL EDITAR PAGO TARJETA -->
+<div class="modal" id="payEditModal">
+  <div class="mc">
+    <div class="mc-top">
+      <div class="mt" id="payEditTitle">Editar pago</div>
+      <button class="mh-x" onclick="cerrarEditPago()">✕</button>
+    </div>
+    <div class="pill-row">
+      <label class="mpill"><span>📅</span><input type="date" id="payEditDate"></label>
+    </div>
+    <input type="text" class="big-input" id="payEditNote" placeholder="Nota (opcional)">
+    <input type="number" class="big-input muto" id="payEditAmount" placeholder="Monto" step="0.01" inputmode="decimal">
+    <div class="brow">
+      <button class="btn btn-d" onclick="confirmarEliminarPago()">Eliminar</button>
+      <button class="btn btn-s" onclick="cerrarEditPago()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarEditPago()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" onclick="ocultarToast()"></div>
 
 <!-- Bottom nav (5 tabs) -->
@@ -1756,13 +1776,18 @@ function renderLineasCreditoConfig(){
   const cont=document.getElementById('creditLineConfig'); if(!cont)return;
   const goal=getCreditGoalPct();
   cont.innerHTML=`<div class="line-config-grid">
-    ${CREDIT_CARDS.map((card,i)=>`<div class="line-config-item"><div class="line-config-name">${card.emoji} ${card.nombre}</div><div class="line-config-row"><div class="line-field"><label>Línea</label><input id="creditLimit${i}" type="number" inputmode="decimal" step="0.01" value="${getCreditLimit(card)}"></div><div class="line-field"><label>Meta %</label><input ${i===0?'id="creditGoalPct"':''} type="number" inputmode="decimal" step="1" value="${goal}" ${i>0?'disabled':''}></div></div></div>`).join('')}
+    ${CREDIT_CARDS.map((card,i)=>`<div class="line-config-item"><div class="line-config-name">${card.emoji} ${card.nombre}</div><div class="line-config-row"><div class="line-field"><label>Línea</label><input id="creditLimit${i}" type="number" inputmode="decimal" step="0.01" value="${getCreditLimit(card)}"></div><div class="line-field"><label>Meta %</label><input class="creditGoalPctInput" type="number" inputmode="decimal" step="1" value="${goal}"></div></div></div>`).join('')}
     <button class="btn btn-p" onclick="guardarLineasCredito()">Guardar cambios</button>
   </div>`;
 }
 async function guardarLineasCredito(){
   await Promise.all(CREDIT_CARDS.map((card,i)=>setCreditLimit(card,document.getElementById('creditLimit'+i).value)));
-  const goalEl=document.getElementById('creditGoalPct'); if(goalEl)await setCreditGoalPct(goalEl.value);
+  const inputs=document.querySelectorAll('.creditGoalPctInput');
+  const currentGoal=getCreditGoalPct();
+  let nuevoGoal=null;
+  inputs.forEach(el=>{const v=parseFloat(el.value);if(Number.isFinite(v)&&v!==currentGoal)nuevoGoal=v;});
+  if(nuevoGoal===null&&inputs.length)nuevoGoal=parseFloat(inputs[0].value);
+  if(nuevoGoal!==null&&Number.isFinite(nuevoGoal))await setCreditGoalPct(nuevoGoal);
   cerrarLineasCredito(); renderCardsPage(); renderCardDetail(); toast('Líneas actualizadas','success');
 }
 
@@ -2152,11 +2177,17 @@ renderCardsPage=function(){
 
 
 /* === Pagos por tarjeta: Sheets + estados avanzados === */
+function normCycleKey(v){
+  if(v instanceof Date)return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  const s=String(v||'').trim();
+  if(s.includes('T'))return s.slice(0,10);
+  return s;
+}
 function getCardPaymentRecords(card,cycle){
   const key=getCycleKey(cycle);
   return (datos.pagosTarjetas||[])
-    .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key)
-    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:String(r[4]||'').slice(0,10),note:String(r[5]||'')}));
+    .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&normCycleKey(r[2])===key)
+    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:normCycleKey(r[4]),note:String(r[5]||'')}));
 }
 function getCardPayment(card,cycle){return getCardPaymentRecords(card,cycle).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);}
 async function addCardPaymentRecord(card,cycle,amount,date,note){
@@ -2202,7 +2233,13 @@ function getCardData(card,offset=cardCycleOffset){
   return{cycle,gastos,total,pagado,pendiente,status,pagos:getCardPaymentRecords(card,cycle)};
 }
 function hoyISO(){return new Date().toISOString().slice(0,10);}
-function formatISODate(iso){if(!iso)return '—';const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});}
+function formatISODate(iso){
+  if(!iso)return '—';
+  const s=String(iso).slice(0,10);
+  const [y,m,d]=s.split('-').map(Number);
+  if(!y||!m||!d)return '—';
+  return `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+}
 function getSelectedCardAndData(){const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta));return card?{card,data:getCardData(card,cardCycleOffset)}:null;}
 async function guardarPagoTarjeta(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
@@ -2222,19 +2259,42 @@ async function limpiarPagoTarjeta(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(!confirm('¿Eliminar todo el historial de pagos de este ciclo?'))return;
   const key=getCycleKey(ctx.data.cycle);
-  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&String(r[2])===key));
+  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key));
   const fd=new URLSearchParams();fd.append('action','clearPagos');fd.append('tarjeta',ctx.card.cuenta);fd.append('cicloKey',key);
   await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
   renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
 }
-async function editarPagoTarjeta(id){
+let editandoPagoId=null;
+function editarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   const p=getCardPaymentRecords(ctx.card,ctx.data.cycle).find(x=>x.id===id); if(!p)return;
-  const amount=prompt('Monto del pago:',p.amount.toFixed(2)); if(amount===null)return;
-  const date=prompt('Fecha del pago (YYYY-MM-DD):',p.date); if(date===null)return;
-  const note=prompt('Nota opcional:',p.note||''); if(note===null)return;
-  await updateCardPaymentRecord(ctx.card,ctx.data.cycle,id,amount,date,note);
-  renderCardsPage(); renderCardDetail(); toast('Pago editado','success');
+  editandoPagoId=id;
+  document.getElementById('payEditTitle').textContent='Editar pago';
+  document.getElementById('payEditDate').value=p.date||hoyISO();
+  document.getElementById('payEditAmount').value=p.amount.toFixed(2);
+  document.getElementById('payEditNote').value=p.note||'';
+  document.getElementById('payEditModal').classList.add('active');
+}
+function cerrarEditPago(){
+  document.getElementById('payEditModal').classList.remove('active');
+  editandoPagoId=null;
+}
+async function guardarEditPago(){
+  if(!editandoPagoId)return;
+  const ctx=getSelectedCardAndData(); if(!ctx)return;
+  const amount=String(document.getElementById('payEditAmount').value).replace(/[^0-9.]/g,'').trim();
+  const date=document.getElementById('payEditDate').value||hoyISO();
+  const note=document.getElementById('payEditNote').value||'';
+  if(!amount||parseFloat(amount)<=0){toast('Ingresa un monto válido','error');return;}
+  await updateCardPaymentRecord(ctx.card,ctx.data.cycle,editandoPagoId,amount,date,note);
+  cerrarEditPago(); renderCardsPage(); renderCardDetail(); toast('Pago editado','success');
+}
+async function confirmarEliminarPago(){
+  if(!editandoPagoId)return;
+  if(!confirm('¿Eliminar este pago?'))return;
+  const ctx=getSelectedCardAndData(); if(!ctx)return;
+  await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,editandoPagoId);
+  cerrarEditPago(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
 }
 async function eliminarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
