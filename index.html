@@ -664,9 +664,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 
     <div class="cuenta-row">
       <span class="cuenta-lbl">Cuenta</span>
-      <select class="sel" id="iCue">
-        <option>Mastercard Platinum</option><option>Visa iO</option><option>Visa BBVA</option><option>Visa Interbank</option><option>Yape</option><option>Plin</option><option>Efectivo</option>
-      </select>
+      <select class="sel" id="iCue"></select>
     </div>
 
     <div class="brow" id="modalBtns">
@@ -765,6 +763,7 @@ let filtroCategoria=null;
 let filtroTipo='todos'; // 'todos' | 'gastos' | 'ingresos'
 let busqueda='';
 let editando=null;
+let editandoFecha=null;
 let primeraCarga=true;
 let anPeriodo='mes';
 let chartTipo='bar';
@@ -801,6 +800,7 @@ const EMOJIS={
 
 // Quita acentos, lowercase, trim — para que "Comer afuéra" matchee con "Comer afuera"
 const norm=s=>(s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const EMOJI_NORM={};
 Object.keys(EMOJIS).forEach(k=>{EMOJI_NORM[norm(k)]=k;});
 
@@ -1074,7 +1074,7 @@ function renderTx(){
       const d=t[1]||'?';
       const m=parseFloat(t[4])||0;
       const row=getTxRow(t);
-      return `<div class="tx" onclick="editarTx('${String(row).replace(/'/g,"\\'")}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${c||'—'}</div><div class="tdesc">${d}</div></div><div class="tamt-pill ${i?'in':'out'}"><span class="pdot"></span>${i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
+      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${c||'—'}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${i?'in':'out'}"><span class="pdot"></span>${i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
     }).join('');
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
   }).join('');
@@ -1114,6 +1114,14 @@ function renderDeb(){
     const i=dT==='me-deben';const fe=pf(d[3]);const fs=fe.toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});
     return `<div class="ditem"><div><div class="dperson">${d[0]||'?'}</div><div class="ddesc">${d[1]||''}</div><div class="ddesc" style="margin-top:4px">${fs}</div></div><div class="damt ${i?'in':'out'}">${i?'+':'−'}${fmtC(d[2])}</div></div>`;
   }).join('');
+}
+
+function llenarCuentas(seleccionada){
+  const sel=document.getElementById('iCue');
+  const cuentas=new Set();
+  CREDIT_CARDS.forEach(c=>cuentas.add(c.cuenta));
+  (datos.transacciones||[]).forEach(t=>{if(t[5])cuentas.add(String(t[5]).trim());});
+  sel.innerHTML=[...cuentas].map(c=>`<option value="${escHtml(c)}"${c===(seleccionada||'')?' selected':''}>${escHtml(c)}</option>`).join('');
 }
 
 function llenarSel(){
@@ -1180,7 +1188,7 @@ function abrirM(){
   document.getElementById('iMon').value='';
   document.getElementById('iDes').value='';
   setTipo('Gasto');
-  llenarSel();
+  llenarCuentas();
   document.getElementById('modal').classList.add('active');
   setTimeout(()=>document.getElementById('iDes').focus(),100);
 }
@@ -1189,6 +1197,7 @@ function editarTx(row){
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
   editando=String(getTxRow(t));
+  editandoFecha=t[0];
   document.getElementById('modalTitle').textContent='Editar transacción';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-d" onclick="eliminar()">Eliminar</button><button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   const f=pf(t[0]);
@@ -1197,20 +1206,19 @@ function editarTx(row){
   document.getElementById('iMon').value=t[4];
   document.getElementById('iDes').value=t[1];
   setTipo(t[3]||'Gasto');
-  llenarSel();
+  const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
+  llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''));
   // Pre-seleccionar categoría
   const cn=cleanName(t[2]);
   setTimeout(()=>{
     document.querySelectorAll('.cchip').forEach(c=>{
       if(norm(c.dataset.cat)===norm(cn))c.classList.add('selected');
     });
-    const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
-    document.getElementById('iCue').value=matchedCard?matchedCard.cuenta:(t[5]||'');
   },50);
   document.getElementById('modal').classList.add('active');
 }
 
-function cerrarM(){document.getElementById('modal').classList.remove('active');editando=null;}
+function cerrarM(){document.getElementById('modal').classList.remove('active');editando=null;editandoFecha=null;}
 
 function setTipo(t){
   tipoA=t;
@@ -1223,14 +1231,15 @@ async function eliminar(){
   if(!confirm('¿Eliminar esta transacción?'))return;
   const fd=new URLSearchParams();fd.append('action','delete');fd.append('row',editando);
   try{
-    await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error('HTTP '+res.status);
     toast('Eliminada','success');cerrarM();setTimeout(cargar,500);
   }
   catch(e){toast('Error al eliminar','error');}
 }
 
 async function guardar(){
-  const m=document.getElementById('iMon').value;
+  const m=String(document.getElementById('iMon').value).replace(/[^0-9.]/g,'').trim();
   const d=document.getElementById('iDes').value;
   const c=getCatSeleccionada();
   const cu=document.getElementById('iCue').value;
@@ -1238,14 +1247,31 @@ async function guardar(){
   if(!m||!d){toast('Completa monto y descripción','error');return;}
   if(!c){toast('Selecciona una categoría','error');return;}
   const[yy,mm,dd]=fec.split('-');
-  const ahora=new Date();
-  const f=`${+dd}/${+mm}/${yy}, ${ahora.getHours()}:${String(ahora.getMinutes()).padStart(2,'0')}`;
+  let f;
+  if(editando&&editandoFecha){
+    const orig=String(editandoFecha);
+    if(orig.includes('T')){
+      const od=new Date(orig);const oh=od.getHours();
+      const oa=oh>=12?'p. m.':'a. m.';const oh12=oh%12||12;
+      f=`${dd}/${mm}/${yy}, ${oh12}:${String(od.getMinutes()).padStart(2,'0')} ${oa}`;
+    } else if(orig.includes(',')){
+      f=`${dd}/${mm}/${yy},${orig.substring(orig.indexOf(','))}`;
+    } else {
+      const ahora=new Date();const hora=ahora.getHours();
+      f=`${dd}/${mm}/${yy}, ${hora%12||12}:${String(ahora.getMinutes()).padStart(2,'0')} ${hora>=12?'p. m.':'a. m.'}`;
+    }
+  } else {
+    const ahora=new Date();const hora=ahora.getHours();
+    const ampm=hora>=12?'p. m.':'a. m.';const h12=hora%12||12;
+    f=`${dd}/${mm}/${yy}, ${h12}:${String(ahora.getMinutes()).padStart(2,'0')} ${ampm}`;
+  }
   const fd=new URLSearchParams();
   fd.append('action',editando?'edit':'add');
   if(editando)fd.append('row',editando);
   fd.append('fecha',f);fd.append('descripcion',d);fd.append('categoria',c);fd.append('tipo',tipoA);fd.append('monto',m);fd.append('tarjeta',cu);
   try{
-    await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error('HTTP '+res.status);
     toast(editando?'Actualizada':'Guardada','success');cerrarM();setTimeout(cargar,500);
   }
   catch(e){toast('Error al guardar','error');}
