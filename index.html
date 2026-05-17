@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -664,7 +665,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
     <div class="cuenta-row">
       <span class="cuenta-lbl">Cuenta</span>
       <select class="sel" id="iCue">
-        <option>Mastercard BBVA</option><option>iO BCP</option><option>Visa BBVA</option><option>Visa Interbank</option><option>Yape</option><option>Plin</option><option>Efectivo</option>
+        <option>Mastercard Platinum</option><option>Visa iO</option><option>Visa BBVA</option><option>Visa Interbank</option><option>Yape</option><option>Plin</option><option>Efectivo</option>
       </select>
     </div>
 
@@ -757,7 +758,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 
 <script>
 const URL='https://script.google.com/macros/s/AKfycbzIOLHWNhZhXwUYK-H9XUZr8INJ3FQYayVJoeVcrTPNXUwAFEZFgw2Ti7wEc5YCGU1N5g/exec';
-let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[]};
+let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[],pagosTarjetas:[],ciclosOverride:[],configTarjetas:[]};
 let vista='mes',tipoA='Gasto',dT='me-deben';
 let mesOffset=0;
 let filtroCategoria=null;
@@ -840,6 +841,9 @@ async function cargar(){
   try{
     const r=await fetch(URL);
     datos=await r.json();
+    datos.pagosTarjetas=datos.pagosTarjetas||[];
+    datos.ciclosOverride=datos.ciclosOverride||[];
+    datos.configTarjetas=datos.configTarjetas||[];
     render();
     if(!primeraCarga)toast('Actualizado','success');
     primeraCarga=false;
@@ -1522,9 +1526,8 @@ function renderTrend(area,leg){
 
 
 const CREDIT_CARDS=[
-  // Ciclos ajustados: BBVA 10-9, iO BCP 25-24
-  {nombre:'Mastercard BBVA',emoji:'💳',cuenta:'Mastercard BBVA',inicioDia:10,finDia:9,pagoDia:5},
-  {nombre:'iO BCP',emoji:'💳',cuenta:'iO BCP',inicioDia:25,finDia:24,pagoDia:12}
+  {nombre:'Mastercard Platinum',emoji:'💳',cuenta:'Mastercard Platinum',aliases:['mastercard bbva'],inicioDia:10,finDia:9,pagoDia:5},
+  {nombre:'Visa iO',emoji:'💳',cuenta:'Visa iO',aliases:['io bcp'],inicioDia:25,finDia:24,pagoDia:12}
 ];
 
 
@@ -1576,17 +1579,53 @@ function getCardStatus(payDate){
   if(days<=3)return{text:'Vence pronto',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-warn'};
   return{text:'Pendiente',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-ok'};
 }
-function sameAccount(a,b){return norm(a)===norm(b);}
+function sameAccount(a,b){
+  if(norm(a)===norm(b))return true;
+  const card=CREDIT_CARDS.find(c=>norm(c.cuenta)===norm(b)||norm(c.cuenta)===norm(a));
+  if(card&&card.aliases){const na=norm(a),nb=norm(b);return card.aliases.some(al=>norm(al)===na||norm(al)===nb);}
+  return false;
+}
 
-function getCardPaymentKey(card,cycle){return 'finanzas_pago_'+norm(card.cuenta).replace(/\s+/g,'_')+'_'+getCycleKey(cycle);}
-function getCardPayment(card,cycle){const v=localStorage.getItem(getCardPaymentKey(card,cycle));return Math.max(0,parseFloat(v)||0);}
-function setCardPayment(card,cycle,value){const n=Math.max(0,parseFloat(value)||0);localStorage.setItem(getCardPaymentKey(card,cycle),String(n));}
 function getCycleKey(cycle){return cycle.end.getFullYear()+'-'+String(cycle.end.getMonth()+1).padStart(2,'0')+'-'+String(cycle.end.getDate()).padStart(2,'0');}
 function getTxRow(t){return t[6] ?? `${t[0]}_${t[1]}_${t[4]}_${t[5]}`;}
-function getTxCycleOverrideKey(card,t){return 'finanzas_card_cycle_'+norm(card.cuenta).replace(/\s+/g,'_')+'_'+getTxRow(t);}
-function getTxCycleOverride(card,t){return localStorage.getItem(getTxCycleOverrideKey(card,t));}
-function setTxCycleOverride(card,t,cycle){localStorage.setItem(getTxCycleOverrideKey(card,t),getCycleKey(cycle));}
-function clearTxCycleOverride(card,t){localStorage.removeItem(getTxCycleOverrideKey(card,t));}
+
+function getCardPayment(card,cycle){
+  const key=getCycleKey(cycle);
+  const row=(datos.pagosTarjetas||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key);
+  return row?Math.max(0,parseFloat(row[3])||0):0;
+}
+async function setCardPayment(card,cycle,value){
+  const n=Math.max(0,parseFloat(value)||0);const key=getCycleKey(cycle);
+  const ex=(datos.pagosTarjetas||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key);
+  if(ex){ex[3]=n;}else{datos.pagosTarjetas.push([null,card.cuenta,key,n,'','']);}
+  const fd=new URLSearchParams();fd.append('action','setPago');fd.append('tarjeta',card.cuenta);fd.append('cicloKey',key);fd.append('monto',String(n));fd.append('fecha',new Date().toISOString().split('T')[0]);
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+}
+async function deleteCardPayment(card,cycle){
+  const key=getCycleKey(cycle);
+  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key));
+  const fd=new URLSearchParams();fd.append('action','deletePago');fd.append('tarjeta',card.cuenta);fd.append('cicloKey',key);
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+}
+
+function getTxCycleOverride(card,t){
+  const txId=String(getTxRow(t));
+  const row=(datos.ciclosOverride||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===txId);
+  return row?String(row[3]):null;
+}
+async function setTxCycleOverride(card,t,cycle){
+  const txId=String(getTxRow(t));const key=getCycleKey(cycle);
+  const ex=(datos.ciclosOverride||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===txId);
+  if(ex){ex[3]=key;}else{datos.ciclosOverride.push([null,card.cuenta,txId,key]);}
+  const fd=new URLSearchParams();fd.append('action','setCicloOverride');fd.append('tarjeta',card.cuenta);fd.append('txId',txId);fd.append('cicloKey',key);
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+}
+async function clearTxCycleOverride(card,t){
+  const txId=String(getTxRow(t));
+  datos.ciclosOverride=datos.ciclosOverride.filter(r=>!(norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===txId));
+  const fd=new URLSearchParams();fd.append('action','clearCicloOverride');fd.append('tarjeta',card.cuenta);fd.append('txId',txId);
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+}
 function txBelongsToCycle(card,t,cycle){
   const override=getTxCycleOverride(card,t);
   if(override)return override===getCycleKey(cycle);
@@ -1624,24 +1663,28 @@ function renderCardMiniList(gastos,limit=3){
 
 
 function getCreditLimit(card){
-  const key='finanzas_credit_limit_'+norm(card.cuenta).replace(/\s+/g,'_');
-  const def=sameAccount(card.cuenta,'Mastercard BBVA')?1000:sameAccount(card.cuenta,'iO BCP')?500:0;
-  const v=localStorage.getItem(key);
-  const n=parseFloat(v);
-  return Number.isFinite(n)&&n>0?n:def;
+  const row=(datos.configTarjetas||[]).find(r=>norm(String(r[0]))===norm(card.cuenta));
+  if(row){const n=parseFloat(row[1]);if(Number.isFinite(n)&&n>0)return n;}
+  return 0;
 }
-function setCreditLimit(card,value){
-  const key='finanzas_credit_limit_'+norm(card.cuenta).replace(/\s+/g,'_');
+async function setCreditLimit(card,value){
   const n=Math.max(0,parseFloat(value)||0);
-  localStorage.setItem(key,String(n));
+  const row=(datos.configTarjetas||[]).find(r=>norm(String(r[0]))===norm(card.cuenta));
+  if(row){row[1]=n;}else{datos.configTarjetas.push([card.cuenta,n,30]);}
+  const fd=new URLSearchParams();fd.append('action','setConfig');fd.append('tarjeta',card.cuenta);fd.append('limiteCredito',String(n));
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
 }
 function getCreditGoalPct(){
-  const v=parseFloat(localStorage.getItem('finanzas_credit_goal_pct'));
-  return Number.isFinite(v)&&v>0?v:30;
+  const row=(datos.configTarjetas||[]).find(r=>String(r[0])==='__global__');
+  if(row){const n=parseFloat(row[2]);if(Number.isFinite(n)&&n>0)return n;}
+  return 30;
 }
-function setCreditGoalPct(value){
+async function setCreditGoalPct(value){
   const n=Math.max(1,Math.min(100,parseFloat(value)||30));
-  localStorage.setItem('finanzas_credit_goal_pct',String(n));
+  const row=(datos.configTarjetas||[]).find(r=>String(r[0])==='__global__');
+  if(row){row[2]=n;}else{datos.configTarjetas.push(['__global__',0,n]);}
+  const fd=new URLSearchParams();fd.append('action','setConfig');fd.append('tarjeta','__global__');fd.append('metaPct',String(n));
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
 }
 function getLineState(used,limit,goalPct=getCreditGoalPct()){
   const pct=limit>0?(used/limit)*100:0;
@@ -1694,9 +1737,9 @@ function renderLineasCreditoConfig(){
     <button class="btn btn-p" onclick="guardarLineasCredito()">Guardar cambios</button>
   </div>`;
 }
-function guardarLineasCredito(){
-  CREDIT_CARDS.forEach((card,i)=>setCreditLimit(card,document.getElementById('creditLimit'+i).value));
-  const goalEl=document.getElementById('creditGoalPct'); if(goalEl)setCreditGoalPct(goalEl.value);
+async function guardarLineasCredito(){
+  await Promise.all(CREDIT_CARDS.map((card,i)=>setCreditLimit(card,document.getElementById('creditLimit'+i).value)));
+  const goalEl=document.getElementById('creditGoalPct'); if(goalEl)await setCreditGoalPct(goalEl.value);
   cerrarLineasCredito(); renderCardsPage(); renderCardDetail(); toast('Líneas actualizadas','success');
 }
 
@@ -1771,21 +1814,21 @@ function renderCardCyclePickerGrid(){
 
 function abrirCardDetail(cuenta){selectedCardCuenta=cuenta;renderCardDetail();document.getElementById('cardDetailModal').classList.add('active');}
 function cerrarCardDetail(){document.getElementById('cardDetailModal').classList.remove('active');selectedCardCuenta=null;}
-function guardarPagoTarjeta(){
+async function guardarPagoTarjeta(){
   const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
   const data=getCardData(card,cardCycleOffset); const val=document.getElementById('cardPaidInput').value;
-  setCardPayment(card,data.cycle,val); renderCardsPage(); renderCardDetail(); toast('Pago actualizado','success');
+  await setCardPayment(card,data.cycle,val); renderCardsPage(); renderCardDetail(); toast('Pago actualizado','success');
 }
-function limpiarPagoTarjeta(){
+async function limpiarPagoTarjeta(){
   const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
-  const data=getCardData(card,cardCycleOffset); localStorage.removeItem(getCardPaymentKey(card,data.cycle));
-  renderCardsPage(); renderCardDetail(); toast('Pago reiniciado','success');
+  const data=getCardData(card,cardCycleOffset);
+  await deleteCardPayment(card,data.cycle); renderCardsPage(); renderCardDetail(); toast('Pago reiniciado','success');
 }
-function moverConsumoCiclo(row,targetOffset){
+async function moverConsumoCiclo(row,targetOffset){
   const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
   const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
-  if(targetOffset==='auto')clearTxCycleOverride(card,tx);
-  else setTxCycleOverride(card,tx,getCardCycle(card,Number(targetOffset)));
+  if(targetOffset==='auto')await clearTxCycleOverride(card,tx);
+  else await setTxCycleOverride(card,tx,getCardCycle(card,Number(targetOffset)));
   renderCardsPage(); renderCardDetail(); toast('Ciclo actualizado','success');
 }
 
@@ -2058,11 +2101,11 @@ function renderManualMovedSection(card,cycle){
     return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
   }).join('');
 }
-function moverConsumoCiclo(row,targetOffset){
+async function moverConsumoCiclo(row,targetOffset){
   const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
   const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
-  if(targetOffset==='auto')clearTxCycleOverride(card,tx);
-  else setTxCycleOverride(card,tx,getCardCycle(card,cardCycleOffset+Number(targetOffset)));
+  if(targetOffset==='auto')await clearTxCycleOverride(card,tx);
+  else await setTxCycleOverride(card,tx,getCardCycle(card,cardCycleOffset+Number(targetOffset)));
   forceKnownMastercardRecoveries();
   renderCardsPage(); renderCardDetail(); renderCardTxDetail(); toast('Ciclo actualizado','success');
 }
@@ -2080,43 +2123,37 @@ renderCardsPage=function(){
 };
 
 
-/* === Pagos por tarjeta: historial localStorage + estados avanzados === */
-function getCardPaymentListKey(card,cycle){return 'finanzas_pagos_lista_'+norm(card.cuenta).replace(/\s+/g,'_')+'_'+getCycleKey(cycle);}
-function safeJsonParse(v,def){try{return JSON.parse(v)||def}catch(e){return def}}
+/* === Pagos por tarjeta: Sheets + estados avanzados === */
 function getCardPaymentRecords(card,cycle){
-  const key=getCardPaymentListKey(card,cycle);
-  let arr=safeJsonParse(localStorage.getItem(key),[]);
-  if(!Array.isArray(arr))arr=[];
-  const legacy=parseFloat(localStorage.getItem(getCardPaymentKey(card,cycle))||'0')||0;
-  if(arr.length===0 && legacy>0){
-    arr=[{id:'legacy_'+Date.now(),amount:legacy,date:new Date().toISOString().slice(0,10),note:'Pago registrado anterior'}];
-    localStorage.setItem(key,JSON.stringify(arr));
-    localStorage.removeItem(getCardPaymentKey(card,cycle));
-  }
-  return arr.map(p=>({id:p.id||('pay_'+Date.now()+Math.random()),amount:Math.max(0,parseFloat(p.amount)||0),date:p.date||new Date().toISOString().slice(0,10),note:p.note||''}));
+  const key=getCycleKey(cycle);
+  return (datos.pagosTarjetas||[])
+    .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key)
+    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:String(r[4]||'').slice(0,10),note:String(r[5]||'')}));
 }
-function saveCardPaymentRecords(card,cycle,records){localStorage.setItem(getCardPaymentListKey(card,cycle),JSON.stringify(records||[]));}
 function getCardPayment(card,cycle){return getCardPaymentRecords(card,cycle).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);}
-function setCardPayment(card,cycle,value){
-  const n=Math.max(0,parseFloat(value)||0);
-  const rec=n>0?[{id:'pay_'+Date.now(),amount:n,date:new Date().toISOString().slice(0,10),note:'Pago registrado'}]:[];
-  saveCardPaymentRecords(card,cycle,rec);
-  localStorage.removeItem(getCardPaymentKey(card,cycle));
-}
-function addCardPaymentRecord(card,cycle,amount,date,note){
+async function addCardPaymentRecord(card,cycle,amount,date,note){
   const n=Math.max(0,parseFloat(amount)||0); if(!n)return false;
-  const arr=getCardPaymentRecords(card,cycle);
-  arr.push({id:'pay_'+Date.now()+'_'+Math.floor(Math.random()*9999),amount:n,date:date||new Date().toISOString().slice(0,10),note:note||''});
-  saveCardPaymentRecords(card,cycle,arr); return true;
+  const key=getCycleKey(cycle); const tempId='temp_'+Date.now();
+  datos.pagosTarjetas.push([tempId,card.cuenta,key,n,date||hoyISO(),note||'']);
+  const fd=new URLSearchParams();fd.append('action','addPago');fd.append('tarjeta',card.cuenta);fd.append('cicloKey',key);fd.append('monto',String(n));fd.append('fecha',date||hoyISO());fd.append('nota',note||'');
+  const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.json()).catch(()=>({}));
+  if(res.id){const row=datos.pagosTarjetas.find(r=>r[0]===tempId);if(row)row[0]=res.id;}
+  return true;
 }
-function updateCardPaymentRecord(card,cycle,id,amount,date,note){
-  const arr=getCardPaymentRecords(card,cycle).map(p=>p.id===id?{...p,amount:Math.max(0,parseFloat(amount)||0),date:date||p.date,note:note||''}:p).filter(p=>p.amount>0);
-  saveCardPaymentRecords(card,cycle,arr);
+async function updateCardPaymentRecord(card,cycle,id,amount,date,note){
+  const n=Math.max(0,parseFloat(amount)||0);
+  const row=datos.pagosTarjetas.find(r=>String(r[0])===String(id));
+  if(row){row[3]=n;row[4]=date||row[4];row[5]=note||'';}
+  const fd=new URLSearchParams();fd.append('action','updatePago');fd.append('id',String(id));fd.append('monto',String(n));fd.append('fecha',date||hoyISO());fd.append('nota',note||'');
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
 }
-function deleteCardPaymentRecord(card,cycle,id){saveCardPaymentRecords(card,cycle,getCardPaymentRecords(card,cycle).filter(p=>p.id!==id));}
+async function deleteCardPaymentRecord(card,cycle,id){
+  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>String(r[0])!==String(id));
+  const fd=new URLSearchParams();fd.append('action','deletePagoById');fd.append('id',String(id));
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+}
 function getPaymentStatus(total,pagado,payDate){
-  const pendiente=Math.max(total-pagado,0);
-  const days=getDaysDiff(new Date(),payDate);
+  const pendiente=Math.max(total-pagado,0);const days=getDaysDiff(new Date(),payDate);
   if(total<=0)return{text:'Sin pagar',detail:'Sin consumos',cls:'status-ok'};
   if(pendiente<=0)return{text:'Pagado',detail:'Saldo cubierto',cls:'status-ok'};
   if(days<0)return{text:'Vencido',detail:`Venció hace ${Math.abs(days)} día${Math.abs(days)===1?'':'s'}`,cls:'status-bad'};
@@ -2128,7 +2165,7 @@ function getCardData(card,offset=cardCycleOffset){
   const cycle=getCardCycle(card,offset);
   const gastos=datos.transacciones.filter(t=>{
     const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
-    return tipo!=='Ingreso' && monto>0 && sameAccount(cuenta,card.cuenta) && txBelongsToCycle(card,t,cycle);
+    return tipo!=='Ingreso'&&monto>0&&sameAccount(cuenta,card.cuenta)&&txBelongsToCycle(card,t,cycle);
   }).sort((a,b)=>pf(b[0])-pf(a[0]));
   const total=gastos.reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
   const pagado=Math.min(getCardPayment(card,cycle),total);
@@ -2139,39 +2176,42 @@ function getCardData(card,offset=cardCycleOffset){
 function hoyISO(){return new Date().toISOString().slice(0,10);}
 function formatISODate(iso){if(!iso)return '—';const [y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});}
 function getSelectedCardAndData(){const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta));return card?{card,data:getCardData(card,cardCycleOffset)}:null;}
-function guardarPagoTarjeta(){
+async function guardarPagoTarjeta(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   const amount=document.getElementById('cardPayAmount')?.value;
   const date=document.getElementById('cardPayDate')?.value||hoyISO();
   const note=document.getElementById('cardPayNote')?.value||'';
-  if(!addCardPaymentRecord(ctx.card,ctx.data.cycle,amount,date,note)){toast('Ingresa un monto válido','error');return;}
+  if(!await addCardPaymentRecord(ctx.card,ctx.data.cycle,amount,date,note)){toast('Ingresa un monto válido','error');return;}
   renderCardsPage(); renderCardDetail(); toast('Pago agregado','success');
 }
-function pagarSaldoCompleto(){
+async function pagarSaldoCompleto(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(ctx.data.pendiente<=0){toast('No hay saldo pendiente','success');return;}
-  addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo');
+  await addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo');
   renderCardsPage(); renderCardDetail(); toast('Saldo completo registrado','success');
 }
-function limpiarPagoTarjeta(){
+async function limpiarPagoTarjeta(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(!confirm('¿Eliminar todo el historial de pagos de este ciclo?'))return;
-  saveCardPaymentRecords(ctx.card,ctx.data.cycle,[]); localStorage.removeItem(getCardPaymentKey(ctx.card,ctx.data.cycle));
+  const key=getCycleKey(ctx.data.cycle);
+  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&String(r[2])===key));
+  const fd=new URLSearchParams();fd.append('action','clearPagos');fd.append('tarjeta',ctx.card.cuenta);fd.append('cicloKey',key);
+  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
   renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
 }
-function editarPagoTarjeta(id){
+async function editarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   const p=getCardPaymentRecords(ctx.card,ctx.data.cycle).find(x=>x.id===id); if(!p)return;
   const amount=prompt('Monto del pago:',p.amount.toFixed(2)); if(amount===null)return;
   const date=prompt('Fecha del pago (YYYY-MM-DD):',p.date); if(date===null)return;
   const note=prompt('Nota opcional:',p.note||''); if(note===null)return;
-  updateCardPaymentRecord(ctx.card,ctx.data.cycle,id,amount,date,note);
+  await updateCardPaymentRecord(ctx.card,ctx.data.cycle,id,amount,date,note);
   renderCardsPage(); renderCardDetail(); toast('Pago editado','success');
 }
-function eliminarPagoTarjeta(id){
+async function eliminarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(!confirm('¿Eliminar este pago?'))return;
-  deleteCardPaymentRecord(ctx.card,ctx.data.cycle,id);
+  await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,id);
   renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
 }
 function renderPaymentHistory(card,cycle){
