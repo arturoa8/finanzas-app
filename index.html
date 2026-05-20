@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,9 +8,33 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<link rel="apple-touch-icon" href="icon-180.jpeg">
-<link rel="icon" href="icon-180.jpeg">
+<link rel="apple-touch-icon" href="">
+<link rel="icon" href="">
 <title>Mis Finanzas</title>
+<script>
+try{
+  var _c=document.createElement('canvas');_c.width=_c.height=180;
+  var _x=_c.getContext('2d');
+  _x.fillStyle='#0a0a0a';
+  _x.beginPath();var _r=36;
+  _x.moveTo(_r,0);_x.lineTo(180-_r,0);_x.quadraticCurveTo(180,0,180,_r);
+  _x.lineTo(180,180-_r);_x.quadraticCurveTo(180,180,180-_r,180);
+  _x.lineTo(_r,180);_x.quadraticCurveTo(0,180,0,180-_r);
+  _x.lineTo(0,_r);_x.quadraticCurveTo(0,0,_r,0);_x.closePath();_x.fill();
+  _x.fillStyle='#00d68f';_x.beginPath();_x.arc(90,82,60,0,Math.PI*2);_x.fill();
+  _x.fillStyle='#000';_x.font='bold 60px Arial,sans-serif';
+  _x.textAlign='center';_x.textBaseline='middle';_x.fillText('S/',90,82);
+  var _u=_c.toDataURL('image/png');
+  document.querySelector('link[rel="apple-touch-icon"]').href=_u;
+  document.querySelector('link[rel="icon"]').href=_u;
+  var _m={name:'Mis Finanzas',short_name:'Finanzas',display:'standalone',
+    background_color:'#000000',theme_color:'#000000',
+    icons:[{src:_u,sizes:'180x180',type:'image/png'}]};
+  var _ml=document.createElement('link');_ml.rel='manifest';
+  _ml.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(_m));
+  document.head.appendChild(_ml);
+}catch(e){}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -147,6 +172,38 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .ddesc{font-size:0.7rem;color:var(--muted);margin-top:2px;}
 .damt{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums;}
 .damt.in{color:var(--green);}.damt.out{color:var(--red);}
+/* ── Deudas cards ── */
+.dcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:12px;}
+.dcard.vencida{border-color:#ff3b6b44;}
+.dcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.dcard-info{flex:1;min-width:0;}
+.dcard-person{font-size:0.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dcard-desc{font-size:0.7rem;color:var(--muted);margin-top:2px;}
+.dcard-right{text-align:right;flex-shrink:0;}
+.dcard-amt{font-size:1.02rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.dcard-amt.in{color:var(--green);}.dcard-amt.out{color:var(--red);}
+.dcard-subamt{font-size:0.68rem;color:var(--muted);margin-top:2px;}
+.dcard-prog{margin:10px 0 6px;}
+.dcard-progbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:5px;}
+.dcard-progfill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+.dcard-progfill.in{background:var(--green);}.dcard-progfill.out{background:var(--red);}
+.dcard-progmeta{font-size:0.65rem;color:var(--muted);display:flex;justify-content:space-between;}
+.dcard-dates{display:flex;gap:8px;margin:10px 0 6px;}
+.dcard-date{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:7px 10px;}
+.dcard-date-lbl{font-size:0.6rem;color:var(--muted);margin-bottom:3px;font-weight:600;letter-spacing:0.04em;}
+.dcard-date input[type=date]{background:none;border:none;color:var(--text);font-size:0.78rem;font-weight:600;width:100%;cursor:pointer;font-family:inherit;padding:0;outline:none;-webkit-appearance:none;}
+.dcard-date input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.4;cursor:pointer;margin:0;padding:0;}
+.dcard-actions{display:flex;gap:6px;margin-top:10px;}
+.dcard-btn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--dim);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:inherit;transition:transform .18s ease,background .22s ease,color .22s ease;}
+.dcard-btn:active{transform:scale(.95);}
+.dcard-btn.primary{background:var(--green);border-color:var(--green);color:#000;}
+.dcard-btn.danger{border-color:#ff3b6b44;color:var(--red);}
+.dcard-badge{font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:5px;}
+.dcard-badge.pagado{background:#00d68f1a;color:var(--green);}
+.dcard-badge.nopago{background:#ff3b6b1a;color:var(--red);}
+.dcard-badge.medeben{background:#7aa2ff1a;color:var(--blue);}
+.dcard-badge.lesdebo{background:#ff3b6b1a;color:var(--red);}
+.dcard-venc-warn{font-size:0.65rem;color:var(--red);margin-top:3px;}
 .ritem{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;}
 .rdesc{font-size:0.88rem;font-weight:600;}
 .rmeta{font-size:0.7rem;color:var(--muted);margin-top:2px;}
@@ -599,17 +656,21 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 <!-- DEUDAS -->
 <div class="page" id="p-deb">
   <div class="container">
-    <header class="header"><div class="page-title">Deudas</div></header>
+    <header class="header">
+      <div class="page-title">Deudas</div>
+      <button class="icon-btn" onclick="abrirModalDeuda()" aria-label="Nueva deuda" style="color:var(--green);border-color:var(--green);font-size:1.2rem;font-weight:700;">+</button>
+    </header>
     <div class="dtabs">
-      <button class="dt active" onclick="setDT('me-deben',this)">Me Deben</button>
-      <button class="dt" onclick="setDT('les-debo',this)">Les Debo</button>
+      <button class="dt active" id="dtMeDeben" onclick="setDT('me-deben',this)">Me Deben</button>
+      <button class="dt" id="dtLesDebo" onclick="setDT('les-debo',this)">Les Debo</button>
+      <button class="dt" id="dtArchivadas" onclick="setDT('archivadas',this)">Archivadas</button>
     </div>
     <div id="debs"></div>
   </div>
 </div>
 
 <!-- FAB -->
-<button class="fab" onclick="abrirM()" aria-label="Nueva transacción">+</button>
+<button class="fab" onclick="handleFab()" aria-label="Nueva">+</button>
 
 <!-- MES PICKER MODAL -->
 <div class="modal centered" id="mesPicker">
@@ -750,6 +811,74 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   </div>
 </div>
 
+<!-- MODAL NUEVA / EDITAR DEUDA -->
+<div class="modal" id="modalDeuda">
+  <div class="mc">
+    <div class="mc-top">
+      <div class="mt" id="deudaModalTitle">Nueva deuda</div>
+      <button class="mh-x" onclick="cerrarModalDeuda()">✕</button>
+    </div>
+    <div class="tt">
+      <button class="ttb active gasto" id="dTipoMeDeben" onclick="setDeudaTipo('me-deben',this)">Me Deben</button>
+      <button class="ttb ingreso" id="dTipoLesDebo" onclick="setDeudaTipo('les-debo',this)">Les Debo</button>
+    </div>
+    <input type="text" class="big-input" id="dPersona" placeholder="Persona o entidad (ej: Banco BCP)">
+    <input type="text" class="big-input" id="dDesc" placeholder="Descripción (ej: Préstamo personal)">
+    <input type="number" class="big-input muto" id="dMonto" placeholder="Monto total" step="0.01" inputmode="decimal">
+    <div class="dcard-dates" style="margin:14px 0 6px;">
+      <div class="dcard-date">
+        <div class="dcard-date-lbl">DESDE</div>
+        <input type="date" id="dFechaInicio">
+      </div>
+      <div class="dcard-date">
+        <div class="dcard-date-lbl">VENCE</div>
+        <input type="date" id="dFechaVenc">
+      </div>
+    </div>
+    <div class="brow" id="deudaModalBtns">
+      <button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ABONAR / PAGAR -->
+<div class="modal centered" id="modalAbono">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mt" id="abonoTitle">Registrar pago</div>
+      <button class="mh-x" onclick="cerrarModalAbono()">✕</button>
+    </div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:12px;" id="abonoPendienteLbl"></div>
+    <div class="pill-row">
+      <label class="mpill"><span>📅</span><input type="date" id="abonoFecha"></label>
+    </div>
+    <input type="number" class="big-input muto" id="abonoMonto" placeholder="Monto a abonar" step="0.01" inputmode="decimal">
+    <input type="text" class="big-input" id="abonoNota" placeholder="Nota (opcional)">
+    <div class="brow" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-p" style="flex:1;min-width:120px;" onclick="abonarTodo()">Pagar todo</button>
+      <button class="btn btn-s" style="flex:0 0 auto;" onclick="cerrarModalAbono()">Cancelar</button>
+      <button class="btn btn-p" style="flex:1;min-width:100px;" onclick="guardarAbono()">Abonar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ARCHIVAR DEUDA -->
+<div class="modal centered" id="modalArchivar">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mt">Archivar deuda</div>
+      <button class="mh-x" onclick="cerrarModalArchivar()">✕</button>
+    </div>
+    <div style="color:var(--muted);font-size:0.82rem;margin:4px 0 18px;">¿Por qué archivas esta deuda?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn btn-p" onclick="confirmarArchivar('pagado')">✓ Saldada / Pagada</button>
+      <button class="btn btn-d" onclick="confirmarArchivar('no pagó')">✗ No pagaron / Incobrable</button>
+      <button class="btn btn-s" onclick="cerrarModalArchivar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" onclick="ocultarToast()"></div>
 
 <!-- Bottom nav (5 tabs) -->
@@ -778,8 +907,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 
 <script>
 const URL='https://script.google.com/macros/s/AKfycbzIOLHWNhZhXwUYK-H9XUZr8INJ3FQYayVJoeVcrTPNXUwAFEZFgw2Ti7wEc5YCGU1N5g/exec';
-let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[],pagosTarjetas:[],ciclosOverride:[],configTarjetas:[]};
+let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[],pagosTarjetas:[],ciclosOverride:[],configTarjetas:[],deudasArchivadas:[],deudasAbonos:[]};
 let vista='mes',tipoA='Gasto',dT='me-deben';
+let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='me-deben';
 let mesOffset=0;
 let filtroCategoria=null;
 let filtroTipo='todos'; // 'todos' | 'gastos' | 'ingresos'
@@ -866,6 +996,8 @@ async function cargar(){
     datos.pagosTarjetas=datos.pagosTarjetas||[];
     datos.ciclosOverride=datos.ciclosOverride||[];
     datos.configTarjetas=datos.configTarjetas||[];
+    datos.deudasArchivadas=datos.deudasArchivadas||[];
+    datos.deudasAbonos=datos.deudasAbonos||[];
     render();
     if(!primeraCarga)toast('Actualizado','success');
     primeraCarga=false;
@@ -1126,15 +1258,95 @@ function renderRec(){
   }).join('');
 }
 
+function toDateInput(v){
+  if(!v)return '';
+  try{const d=pf(v);if(isNaN(d.getTime()))return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  catch(e){return '';}
+}
+
 function renderDeb(){
   const l=document.getElementById('debs');
-  if(!datos.deudas||datos.deudas.length===0){l.innerHTML='<div class="empty">Sin deudas registradas</div>';return;}
-  const filtro=dT==='me-deben'?'me deben':'les debo';
-  const f=datos.deudas.filter(d=>(d[4]||'').toString().toLowerCase().includes(filtro));
-  if(f.length===0){l.innerHTML='<div class="empty">Nada por aquí</div>';return;}
-  l.innerHTML=f.map(d=>{
-    const i=dT==='me-deben';const fe=pf(d[3]);const fs=fe.toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});
-    return `<div class="ditem"><div><div class="dperson">${d[0]||'?'}</div><div class="ddesc">${d[1]||''}</div><div class="ddesc" style="margin-top:4px">${fs}</div></div><div class="damt ${i?'in':'out'}">${i?'+':'−'}${fmtC(d[2])}</div></div>`;
+  if(dT==='archivadas'){renderDebArchivadas(l);return;}
+  const activas=(datos.deudas||[]).filter(d=>(d[7]||'').toString().toLowerCase()===dT);
+  if(activas.length===0){l.innerHTML='<div class="empty">Nada por aquí</div>';return;}
+  const esMeDeben=dT==='me-deben';
+  const hoy=new Date();
+  l.innerHTML=activas.map(d=>{
+    const id=String(d[0]);
+    const monto=parseFloat(d[3])||0;
+    const abonado=parseFloat(d[4])||0;
+    const pendiente=Math.max(0,monto-abonado);
+    const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
+    const fiVal=toDateInput(d[5]);const fvVal=toDateInput(d[6]);
+    const fvDate=fvVal?pf(fvVal):null;
+    const vencida=fvDate&&fvDate<hoy&&pendiente>0;
+    const cls=esMeDeben?'in':'out';const signo=esMeDeben?'+':'−';
+    const diasVenc=fvDate?Math.ceil((fvDate-hoy)/(1000*60*60*24)):null;
+    const warnVenc=fvDate&&diasVenc<=7&&diasVenc>=0&&pendiente>0;
+    return `<div class="dcard${vencida?' vencida':''}">
+      <div class="dcard-top">
+        <div class="dcard-info">
+          <div class="dcard-person">${escHtml(d[1]||'?')}</div>
+          <div class="dcard-desc">${escHtml(d[2]||'')}</div>
+          ${vencida?'<div class="dcard-venc-warn">⚠ Vencida</div>':''}
+          ${warnVenc?`<div class="dcard-venc-warn" style="color:var(--yellow)">⚡ Vence en ${diasVenc} día${diasVenc!==1?'s':''}</div>`:''}
+        </div>
+        <div class="dcard-right">
+          <div class="dcard-amt ${cls}">${signo}${fmtC(pendiente)}</div>
+          ${abonado>0?`<div class="dcard-subamt">de ${fmtC(monto)}</div>`:''}
+        </div>
+      </div>
+      ${abonado>0?`<div class="dcard-prog">
+        <div class="dcard-progbar"><div class="dcard-progfill ${cls}" style="width:${pct}%"></div></div>
+        <div class="dcard-progmeta"><span>Abonado ${fmtC(abonado)}</span><span>${pct}%</span></div>
+      </div>`:''}
+      <div class="dcard-dates">
+        <div class="dcard-date">
+          <div class="dcard-date-lbl">DESDE</div>
+          <input type="date" value="${fiVal}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
+        </div>
+        <div class="dcard-date">
+          <div class="dcard-date-lbl">VENCE</div>
+          <input type="date" value="${fvVal}" onchange="editarFechaDeuda('${id}','venc',this.value)">
+        </div>
+      </div>
+      <div class="dcard-actions">
+        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">Abonar</button>
+        <button class="dcard-btn" onclick="abrirModalDeudaEdit('${id}')">✎ Editar</button>
+        <button class="dcard-btn danger" onclick="abrirModalArchivar('${id}')">Archivar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderDebArchivadas(l){
+  const arch=datos.deudasArchivadas||[];
+  if(arch.length===0){l.innerHTML='<div class="empty">Sin deudas archivadas</div>';return;}
+  l.innerHTML=[...arch].reverse().map(d=>{
+    const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
+    const monto=parseFloat(d[3])||0;
+    const abonado=parseFloat(d[4])||0;
+    const motivo=(d[8]||'').toString().toLowerCase();
+    const isPagado=motivo.includes('pagado')||motivo.includes('saldada');
+    const cls=esMeDeben?'in':'out';const signo=esMeDeben?'+':'−';
+    const faDisp=d[9]?pf(d[9]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'';
+    return `<div class="dcard" style="opacity:0.75;">
+      <div class="dcard-top">
+        <div class="dcard-info">
+          <div class="dcard-person">${escHtml(d[1]||'?')}
+            <span class="dcard-badge ${esMeDeben?'medeben':'lesdebo'}">${esMeDeben?'Me debían':'Les debía'}</span>
+            <span class="dcard-badge ${isPagado?'pagado':'nopago'}">${isPagado?'Saldada':'No pagó'}</span>
+          </div>
+          <div class="dcard-desc">${escHtml(d[2]||'')}</div>
+          ${faDisp?`<div class="dcard-desc">Archivada ${faDisp}</div>`:''}
+        </div>
+        <div class="dcard-right">
+          <div class="dcard-amt ${cls}">${signo}${fmtC(monto)}</div>
+          ${abonado>0&&abonado<monto?`<div class="dcard-subamt">Abonado ${fmtC(abonado)}</div>`:''}
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -1190,6 +1402,143 @@ function setPg(p,b){
 }
 
 function setDT(t,b){dT=t;document.querySelectorAll('.dt').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
+
+// ── FAB contextual ───────────────────────────────────────────────────────────
+function handleFab(){
+  const pg=document.querySelector('.page.active');
+  if(pg&&pg.id==='p-deb')abrirModalDeuda();
+  else abrirM();
+}
+
+// ── Modal deuda ──────────────────────────────────────────────────────────────
+function abrirModalDeuda(){
+  editandoDeuda=null;
+  document.getElementById('deudaModalTitle').textContent='Nueva deuda';
+  document.getElementById('dPersona').value='';
+  document.getElementById('dDesc').value='';
+  document.getElementById('dMonto').value='';
+  document.getElementById('dFechaInicio').value=toDateInput(new Date());
+  document.getElementById('dFechaVenc').value='';
+  setDeudaTipo(dT==='les-debo'?'les-debo':'me-deben');
+  document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
+  document.getElementById('modalDeuda').classList.add('active');
+}
+
+function abrirModalDeudaEdit(id){
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
+  if(!d)return;
+  editandoDeuda=id;
+  document.getElementById('deudaModalTitle').textContent='Editar deuda';
+  document.getElementById('dPersona').value=d[1]||'';
+  document.getElementById('dDesc').value=d[2]||'';
+  document.getElementById('dMonto').value=d[3]||'';
+  document.getElementById('dFechaInicio').value=toDateInput(d[5]);
+  document.getElementById('dFechaVenc').value=toDateInput(d[6]);
+  setDeudaTipo(d[7]||'me-deben');
+  document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
+  document.getElementById('modalDeuda').classList.add('active');
+}
+
+function cerrarModalDeuda(){document.getElementById('modalDeuda').classList.remove('active');editandoDeuda=null;}
+
+function setDeudaTipo(t){
+  deudaTipoModal=t;
+  document.getElementById('dTipoMeDeben').classList.toggle('active',t==='me-deben');
+  document.getElementById('dTipoLesDebo').classList.toggle('active',t==='les-debo');
+}
+
+async function guardarDeuda(){
+  const persona=document.getElementById('dPersona').value.trim();
+  const desc=document.getElementById('dDesc').value.trim();
+  const monto=String(document.getElementById('dMonto').value).replace(/[^0-9.]/g,'').trim();
+  if(!persona){toast('Escribe el nombre de la persona o entidad','error');return;}
+  if(!monto||parseFloat(monto)<=0){toast('Ingresa un monto válido','error');return;}
+  const fd=new URLSearchParams();
+  fd.append('action',editandoDeuda?'deudaEdit':'deudaAdd');
+  if(editandoDeuda)fd.append('id',editandoDeuda);
+  fd.append('persona',persona);fd.append('descripcion',desc);fd.append('monto',monto);
+  fd.append('fechaInicio',document.getElementById('dFechaInicio').value);
+  fd.append('fechaVenc',document.getElementById('dFechaVenc').value);
+  fd.append('tipo',deudaTipoModal);
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast(editandoDeuda?'Deuda actualizada':'Deuda registrada','success');
+    cerrarModalDeuda();setTimeout(cargar,500);
+  }catch(e){toast('Error al guardar','error');}
+}
+
+// ── Modal abono ──────────────────────────────────────────────────────────────
+function abrirModalAbono(id){
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
+  if(!d)return;
+  abonosDeudaId=id;
+  const monto=parseFloat(d[3])||0;
+  const abonado=parseFloat(d[4])||0;
+  const pendiente=Math.max(0,monto-abonado);
+  const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
+  document.getElementById('abonoTitle').textContent=(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+escHtml(d[1]||'');
+  document.getElementById('abonoPendienteLbl').textContent='Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto);
+  document.getElementById('abonoFecha').value=toDateInput(new Date());
+  document.getElementById('abonoMonto').value='';
+  document.getElementById('abonoNota').value='';
+  document.getElementById('modalAbono').classList.add('active');
+}
+
+function cerrarModalAbono(){document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;}
+
+function abonarTodo(){
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
+  if(!d)return;
+  document.getElementById('abonoMonto').value=Math.max(0,(parseFloat(d[3])||0)-(parseFloat(d[4])||0)).toFixed(2);
+}
+
+async function guardarAbono(){
+  if(!abonosDeudaId)return;
+  const monto=String(document.getElementById('abonoMonto').value).replace(/[^0-9.]/g,'').trim();
+  if(!monto||parseFloat(monto)<=0){toast('Ingresa un monto válido','error');return;}
+  const fd=new URLSearchParams();
+  fd.append('action','deudaAbono');fd.append('id',abonosDeudaId);
+  fd.append('monto',monto);
+  fd.append('fecha',document.getElementById('abonoFecha').value);
+  fd.append('nota',document.getElementById('abonoNota').value.trim());
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Pago registrado','success');cerrarModalAbono();setTimeout(cargar,500);
+  }catch(e){toast('Error al registrar pago','error');}
+}
+
+// ── Modal archivar ───────────────────────────────────────────────────────────
+function abrirModalArchivar(id){archivarDeudaId=id;document.getElementById('modalArchivar').classList.add('active');}
+function cerrarModalArchivar(){document.getElementById('modalArchivar').classList.remove('active');archivarDeudaId=null;}
+
+async function confirmarArchivar(motivo){
+  if(!archivarDeudaId)return;
+  const fd=new URLSearchParams();
+  fd.append('action','deudaArchivar');fd.append('id',archivarDeudaId);fd.append('motivo',motivo);
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Deuda archivada','success');cerrarModalArchivar();setTimeout(cargar,500);
+  }catch(e){toast('Error al archivar','error');}
+}
+
+// ── Edición inline de fechas ─────────────────────────────────────────────────
+async function editarFechaDeuda(id,campo,valor){
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
+  if(!d)return;
+  if(campo==='inicio')d[5]=valor;else d[6]=valor;
+  const fd=new URLSearchParams();
+  fd.append('action','deudaEdit');fd.append('id',id);
+  fd.append('persona',d[1]||'');fd.append('descripcion',d[2]||'');fd.append('monto',d[3]||0);
+  fd.append('fechaInicio',toDateInput(d[5]));fd.append('fechaVenc',toDateInput(d[6]));fd.append('tipo',d[7]||'');
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Fecha guardada','success');
+  }catch(e){toast('Error al guardar fecha','error');}
+}
 
 function toggleSearch(){
   const w=document.getElementById('searchWrap');
