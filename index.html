@@ -74,11 +74,16 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .kpi.neg.active-pill{background:rgba(255,59,107,0.16);border-color:rgba(255,59,107,0.45);}
 .kpi.pos.active-pill{background:rgba(0,214,143,0.16);border-color:rgba(0,214,143,0.45);}
 
-/* Acumulado mode: only changes the main balance, does not hide the dashboard */
+/* Acumulado / Bruto mode: only changes the main balance */
 .chip.acumulado-active{
   border-color:var(--green);
   color:var(--green);
   background:rgba(0,214,143,0.06);
+}
+.chip.bruta-active{
+  border-color:var(--yellow);
+  color:var(--yellow);
+  background:rgba(255,184,77,0.06);
 }
 
 /* Filter chips */
@@ -560,6 +565,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
       <div class="chip" id="chipAcumulado" onclick="toggleAcumulado()">
         <span>Acumulado</span>
       </div>
+      <div class="chip" id="chipBruta" onclick="toggleBruta()">
+        <span>Bruto</span>
+      </div>
     </div>
 
     <div class="search-wrap" id="searchWrap">
@@ -825,15 +833,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
     <input type="text" class="big-input" id="dPersona" placeholder="Persona o entidad (ej: Banco BCP)">
     <input type="text" class="big-input" id="dDesc" placeholder="Descripción (ej: Préstamo personal)">
     <input type="number" class="big-input muto" id="dMonto" placeholder="Monto total" step="0.01" inputmode="decimal">
-    <div class="dcard-dates" style="margin:14px 0 6px;">
-      <div class="dcard-date">
-        <div class="dcard-date-lbl">DESDE</div>
-        <input type="date" id="dFechaInicio">
-      </div>
-      <div class="dcard-date">
-        <div class="dcard-date-lbl">VENCE</div>
-        <input type="date" id="dFechaVenc">
-      </div>
+    <div class="pill-row" style="margin:14px 0 6px;">
+      <label class="mpill"><span>Desde</span><input type="date" id="dFechaInicio"></label>
+      <label class="mpill"><span>Vence</span><input type="date" id="dFechaVenc"></label>
     </div>
     <div class="brow" id="deudaModalBtns">
       <button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button>
@@ -875,6 +877,39 @@ input,textarea{-webkit-user-select:text;user-select:text;}
       <button class="btn btn-p" onclick="confirmarArchivar('pagado')">✓ Saldada / Pagada</button>
       <button class="btn btn-d" onclick="confirmarArchivar('no pagó')">✗ No pagaron / Incobrable</button>
       <button class="btn btn-s" onclick="cerrarModalArchivar()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTORIAL ABONOS -->
+<div class="modal centered" id="modalHistorialAbonos">
+  <div class="mc compact-mc" style="max-height:85vh;display:flex;flex-direction:column;">
+    <div class="mc-top">
+      <div class="mt" id="historialAbonosTitle">Historial de abonos</div>
+      <button class="mh-x" onclick="cerrarHistorialAbonos()">✕</button>
+    </div>
+    <div id="historialAbonosList" style="overflow-y:auto;flex:1;min-height:0;"></div>
+    <div class="brow" style="margin-top:12px;">
+      <button class="btn btn-s" onclick="cerrarHistorialAbonos()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR ABONO -->
+<div class="modal centered" id="modalEditAbono">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mt">Editar abono</div>
+      <button class="mh-x" onclick="cerrarEditAbono()">✕</button>
+    </div>
+    <div class="pill-row">
+      <label class="mpill"><span>📅</span><input type="date" id="editAbonoFecha"></label>
+    </div>
+    <input type="number" class="big-input muto" id="editAbonoMonto" placeholder="Monto" step="0.01" inputmode="decimal">
+    <input type="text" class="big-input" id="editAbonoNota" placeholder="Nota (opcional)">
+    <div class="brow">
+      <button class="btn btn-s" onclick="cerrarEditAbono()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarEditAbono()">Guardar</button>
     </div>
   </div>
 </div>
@@ -928,6 +963,8 @@ let cardPageTab='resumen';
 let cardPickerYear=new Date().getFullYear();
 let cardPickerMonth=new Date().getMonth();
 let acumuladoMode=false;
+let brutaMode=false;
+let editandoAbonoId=null,historialDeudaId=null;
 let mesPickerYear=new Date().getFullYear();
 let mesPickerMes=new Date().getMonth();
 let mesPickerTodo=false;
@@ -974,6 +1011,7 @@ const cleanName=cat=>{
 const fmt=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtN=n=>Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtC=n=>{const x=Number(n||0);return Math.abs(x)>=1000?'S/ '+(x/1000).toFixed(1)+'k':'S/ '+x.toFixed(0);};
+const fmtD=n=>'S/ '+Number(n||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function pf(f){if(!f)return new Date();if(f instanceof Date)return f;if(typeof f==='string'){if(f.includes('/')){const[d]=f.split(',');const[a,b,c]=d.trim().split('/');return new Date(+c,+b-1,+a);}return new Date(f);}return new Date(f);}
 
@@ -1061,6 +1099,7 @@ function actualizarChips(){
   }
   // Acumulado chip activo cuando el modo está prendido
   document.getElementById('chipAcumulado').classList.toggle('acumulado-active',acumuladoMode);
+  document.getElementById('chipBruta').classList.toggle('bruta-active',brutaMode);
   // KPI pills active state
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out.classList.toggle('active-pill',filtroTipo==='gastos');
@@ -1127,9 +1166,15 @@ function togglePillTipo(t){
   render();
 }
 
-// === ACUMULADO MODE ===
+// === ACUMULADO / BRUTO MODE ===
 function toggleAcumulado(){
   acumuladoMode = !acumuladoMode;
+  if(acumuladoMode) brutaMode=false;
+  render();
+}
+function toggleBruta(){
+  brutaMode = !brutaMode;
+  if(brutaMode) acumuladoMode=false;
   render();
 }
 
@@ -1147,13 +1192,15 @@ function smoothSetText(el,newText,newValue=null){
 }
 
 function renderBal(){
-  /*
-    Si acumuladoMode está activo:
-    - Solo el número grande usa TODAS las transacciones.
-    - El resto de la app sigue mostrando el mes/filtro actual.
-  */
-
-  const txBalance = acumuladoMode ? datos.transacciones : filtrar();
+  const hoy = new Date(); hoy.setHours(23,59,59,999);
+  let txBalance;
+  if(brutaMode){
+    txBalance = datos.transacciones; // todo: pasado + futuro
+  } else if(acumuladoMode){
+    txBalance = datos.transacciones.filter(t=>{ try{return pf(t[0])<=hoy;}catch(e){return true;} });
+  } else {
+    txBalance = filtrar();
+  }
   const txPeriodo = filtrar();
 
   let iBal = 0, gBal = 0;
@@ -1177,9 +1224,9 @@ function renderBal(){
   dot.textContent = balance >= 0 ? '+' : '−';
   dot.classList.toggle('neg', balance < 0);
 
-  document.getElementById('balLbl').textContent = acumuladoMode
-    ? 'Saldo acumulado'
-    : 'Total';
+  document.getElementById('balLbl').textContent = brutaMode
+    ? 'Total bruto'
+    : acumuladoMode ? 'Saldo acumulado' : 'Total';
 
   smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
   smoothSetText(document.getElementById('kpiIn'), '+ ' + fmt(iPeriodo), iPeriodo);
@@ -1270,6 +1317,11 @@ function renderDeb(){
   if(dT==='archivadas'){renderDebArchivadas(l);return;}
   const activas=(datos.deudas||[]).filter(d=>(d[7]||'').toString().toLowerCase()===dT);
   if(activas.length===0){l.innerHTML='<div class="empty">Nada por aquí</div>';return;}
+  activas.sort((a,b)=>{
+    const fa=a[6]?pf(toDateInput(a[6])):null;
+    const fb=b[6]?pf(toDateInput(b[6])):null;
+    if(!fa&&!fb)return 0;if(!fa)return 1;if(!fb)return -1;return fa-fb;
+  });
   const esMeDeben=dT==='me-deben';
   const hoy=new Date();
   l.innerHTML=activas.map(d=>{
@@ -1293,13 +1345,13 @@ function renderDeb(){
           ${warnVenc?`<div class="dcard-venc-warn" style="color:var(--yellow)">⚡ Vence en ${diasVenc} día${diasVenc!==1?'s':''}</div>`:''}
         </div>
         <div class="dcard-right">
-          <div class="dcard-amt ${cls}">${signo}${fmtC(pendiente)}</div>
-          ${abonado>0?`<div class="dcard-subamt">de ${fmtC(monto)}</div>`:''}
+          <div class="dcard-amt ${cls}">${signo}${fmtD(pendiente)}</div>
+          ${abonado>0?`<div class="dcard-subamt">de ${fmtD(monto)}</div>`:''}
         </div>
       </div>
       ${abonado>0?`<div class="dcard-prog">
         <div class="dcard-progbar"><div class="dcard-progfill ${cls}" style="width:${pct}%"></div></div>
-        <div class="dcard-progmeta"><span>Abonado ${fmtC(abonado)}</span><span>${pct}%</span></div>
+        <div class="dcard-progmeta"><span>Abonado ${fmtD(abonado)}</span><span>${pct}%</span></div>
       </div>`:''}
       <div class="dcard-dates">
         <div class="dcard-date">
@@ -1313,6 +1365,7 @@ function renderDeb(){
       </div>
       <div class="dcard-actions">
         <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">Abonar</button>
+        <button class="dcard-btn" onclick="abrirHistorialAbonos('${id}')">Historial</button>
         <button class="dcard-btn" onclick="abrirModalDeudaEdit('${id}')">✎ Editar</button>
         <button class="dcard-btn danger" onclick="abrirModalArchivar('${id}')">Archivar</button>
       </div>
@@ -1342,9 +1395,12 @@ function renderDebArchivadas(l){
           ${faDisp?`<div class="dcard-desc">Archivada ${faDisp}</div>`:''}
         </div>
         <div class="dcard-right">
-          <div class="dcard-amt ${cls}">${signo}${fmtC(monto)}</div>
-          ${abonado>0&&abonado<monto?`<div class="dcard-subamt">Abonado ${fmtC(abonado)}</div>`:''}
+          <div class="dcard-amt ${cls}">${signo}${fmtD(monto)}</div>
+          ${abonado>0&&abonado<monto?`<div class="dcard-subamt">Abonado ${fmtD(abonado)}</div>`:''}
         </div>
+      </div>
+      <div class="dcard-actions">
+        <button class="dcard-btn" onclick="confirmarDesarchivar('${escHtml(String(d[0]))}')">Desarchivar</button>
       </div>
     </div>`;
   }).join('');
@@ -1497,11 +1553,13 @@ async function guardarAbono(){
   if(!abonosDeudaId)return;
   const monto=String(document.getElementById('abonoMonto').value).replace(/[^0-9.]/g,'').trim();
   if(!monto||parseFloat(monto)<=0){toast('Ingresa un monto válido','error');return;}
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   const fd=new URLSearchParams();
   fd.append('action','deudaAbono');fd.append('id',abonosDeudaId);
   fd.append('monto',monto);
   fd.append('fecha',document.getElementById('abonoFecha').value);
   fd.append('nota',document.getElementById('abonoNota').value.trim());
+  if(d)fd.append('tipo',(d[7]||'').toString().toLowerCase());
   try{
     const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     if(!res.ok)throw new Error();
@@ -1522,6 +1580,111 @@ async function confirmarArchivar(motivo){
     if(!res.ok)throw new Error();
     toast('Deuda archivada','success');cerrarModalArchivar();setTimeout(cargar,500);
   }catch(e){toast('Error al archivar','error');}
+}
+
+async function confirmarDesarchivar(id){
+  if(!confirm('¿Restaurar esta deuda a la lista activa?'))return;
+  const fd=new URLSearchParams();
+  fd.append('action','deudaDesarchivar');fd.append('id',id);
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Deuda restaurada','success');setTimeout(cargar,500);
+  }catch(e){toast('Error al restaurar','error');}
+}
+
+// ── Historial de abonos ──────────────────────────────────────────────────────
+function _abId(ab){return String(ab[0]).startsWith('A')?String(ab[0]):null;}
+function _abDeudaId(ab){return String(ab[0]).startsWith('A')?String(ab[1]):String(ab[0]);}
+function _abMonto(ab){return parseFloat(String(ab[0]).startsWith('A')?ab[2]:ab[1])||0;}
+function _abFecha(ab){return String(ab[0]).startsWith('A')?(ab[3]||''):(ab[2]||'');}
+function _abNota(ab){return String(ab[0]).startsWith('A')?(ab[4]||''):(ab[3]||'');}
+
+function abrirHistorialAbonos(id){
+  historialDeudaId=id;
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
+  document.getElementById('historialAbonosTitle').textContent='Abonos — '+(d?escHtml(d[1]||''):'');
+  renderHistorialAbonos();
+  document.getElementById('modalHistorialAbonos').classList.add('active');
+}
+
+function cerrarHistorialAbonos(){
+  document.getElementById('modalHistorialAbonos').classList.remove('active');
+  historialDeudaId=null;
+}
+
+function renderHistorialAbonos(){
+  const lista=document.getElementById('historialAbonosList');
+  const abs=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(historialDeudaId));
+  if(abs.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Sin abonos registrados</div>';return;}
+  lista.innerHTML=[...abs].reverse().map(ab=>{
+    const aid=_abId(ab);
+    const fDisp=_abFecha(ab)?pf(_abFecha(ab)).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'—';
+    const nota=_abNota(ab);
+    return `<div class="dcard" style="margin-bottom:8px;padding:10px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div>
+          <div style="font-weight:700;color:var(--green)">${fmtD(_abMonto(ab))}</div>
+          <div style="font-size:0.75rem;color:var(--dim)">${fDisp}${nota?' · '+escHtml(nota):''}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          ${aid?`<button class="dcard-btn" onclick="abrirEditAbono('${aid}')">✎</button>
+          <button class="dcard-btn danger" onclick="eliminarAbono('${aid}')">✕</button>`:'<span style="font-size:0.7rem;color:var(--muted)">sin ID</span>'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function abrirEditAbono(abonoId){
+  const ab=(datos.deudasAbonos||[]).find(x=>_abId(x)===String(abonoId));
+  if(!ab)return;
+  editandoAbonoId=abonoId;
+  document.getElementById('editAbonoMonto').value=_abMonto(ab);
+  document.getElementById('editAbonoFecha').value=toDateInput(_abFecha(ab));
+  document.getElementById('editAbonoNota').value=_abNota(ab);
+  document.getElementById('modalEditAbono').classList.add('active');
+}
+
+function cerrarEditAbono(){
+  document.getElementById('modalEditAbono').classList.remove('active');
+  editandoAbonoId=null;
+}
+
+async function guardarEditAbono(){
+  if(!editandoAbonoId)return;
+  const monto=String(document.getElementById('editAbonoMonto').value).replace(/[^0-9.]/g,'').trim();
+  if(!monto||parseFloat(monto)<=0){toast('Monto inválido','error');return;}
+  const fd=new URLSearchParams();
+  fd.append('action','deudaAbonoEdit');
+  fd.append('abonoId',editandoAbonoId);
+  fd.append('monto',monto);
+  fd.append('fecha',document.getElementById('editAbonoFecha').value);
+  fd.append('nota',document.getElementById('editAbonoNota').value.trim());
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Abono actualizado','success');
+    cerrarEditAbono();
+    await new Promise(r=>setTimeout(r,500));
+    await cargar();
+    if(historialDeudaId)renderHistorialAbonos();
+  }catch(e){toast('Error al actualizar','error');}
+}
+
+async function eliminarAbono(abonoId){
+  if(!confirm('¿Eliminar este abono? El monto abonado se ajustará.'))return;
+  const fd=new URLSearchParams();
+  fd.append('action','deudaAbonoDelete');
+  fd.append('abonoId',abonoId);
+  try{
+    const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!res.ok)throw new Error();
+    toast('Abono eliminado','success');
+    await new Promise(r=>setTimeout(r,500));
+    await cargar();
+    if(historialDeudaId)renderHistorialAbonos();
+  }catch(e){toast('Error al eliminar','error');}
 }
 
 // ── Edición inline de fechas ─────────────────────────────────────────────────
