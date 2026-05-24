@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1618,11 +1616,17 @@ async function confirmarDesarchivar(id){
 }
 
 // ── Historial de abonos ──────────────────────────────────────────────────────
-function _abId(ab){return String(ab[0]).startsWith('A')?String(ab[0]):null;}
-function _abDeudaId(ab){return String(ab[0]).startsWith('A')?String(ab[1]):String(ab[0]);}
-function _abMonto(ab){return parseFloat(String(ab[0]).startsWith('A')?ab[2]:ab[1])||0;}
-function _abFecha(ab){return String(ab[0]).startsWith('A')?(ab[3]||''):(ab[2]||'');}
-function _abNota(ab){return String(ab[0]).startsWith('A')?(ab[4]||''):(ab[3]||'');}
+function _abIsNew(ab){return String(ab[0]).startsWith('A');}
+function _abId(ab){return _abIsNew(ab)?String(ab[0]):null;}
+// Para formato antiguo genera clave compuesta L|deudaId|monto para el servidor
+function _abEffectiveId(ab){
+  if(_abIsNew(ab))return String(ab[0]);
+  return 'L|'+ab[0]+'|'+(ab[1]||'')+'|'+(ab[2]||'');
+}
+function _abDeudaId(ab){return _abIsNew(ab)?String(ab[1]):String(ab[0]);}
+function _abMonto(ab){return parseFloat(_abIsNew(ab)?ab[2]:ab[1])||0;}
+function _abFecha(ab){return _abIsNew(ab)?(ab[3]||''):(ab[2]||'');}
+function _abNota(ab){return _abIsNew(ab)?(ab[4]||''):(ab[3]||'');}
 
 function abrirHistorialAbonos(id){
   historialDeudaId=id;
@@ -1642,7 +1646,9 @@ function renderHistorialAbonos(){
   const abs=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(historialDeudaId));
   if(abs.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Sin abonos registrados</div>';return;}
   lista.innerHTML=[...abs].reverse().map(ab=>{
-    const aid=_abId(ab);
+    const aid=_abId(ab);          // null si es formato antiguo
+    const eid=_abEffectiveId(ab); // siempre tiene valor (real o compuesto)
+    const eidEsc=escHtml(eid);
     const fDisp=_abFecha(ab)?pf(_abFecha(ab)).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'—';
     const nota=_abNota(ab);
     return `<div class="dcard" style="margin-bottom:8px;padding:10px 14px;">
@@ -1652,8 +1658,8 @@ function renderHistorialAbonos(){
           <div style="font-size:0.75rem;color:var(--dim)">${fDisp}${nota?' · '+escHtml(nota):''}</div>
         </div>
         <div style="display:flex;gap:6px;">
-          ${aid?`<button class="dcard-btn" onclick="abrirEditAbono('${aid}')">✎</button>
-          <button class="dcard-btn danger" onclick="eliminarAbono('${aid}')">✕</button>`:'<span style="font-size:0.7rem;color:var(--muted)">sin ID</span>'}
+          ${aid?`<button class="dcard-btn" onclick="abrirEditAbono('${aid}')">✎</button>`:''}
+          <button class="dcard-btn danger" onclick="eliminarAbono('${eidEsc}')">✕</button>
         </div>
       </div>
     </div>`;
@@ -1719,14 +1725,19 @@ async function eliminarAbono(abonoId){
 async function editarFechaDeuda(id,campo,valor){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
-  if(campo==='inicio')d[5]=valor;else d[6]=valor;
   const fd=new URLSearchParams();
   fd.append('action','deudaEdit');fd.append('id',id);
   fd.append('persona',d[1]||'');fd.append('descripcion',d[2]||'');fd.append('monto',d[3]||0);
-  fd.append('fechaInicio',toDateInput(d[5]));fd.append('fechaVenc',toDateInput(d[6]));fd.append('tipo',d[7]||'');
+  // Usar 'valor' directamente para el campo cambiado (ya viene como YYYY-MM-DD del input,
+  // sin conversión de timezone). Para el campo no cambiado, toDateInput() del valor del sheet.
+  fd.append('fechaInicio', campo==='inicio' ? valor : toDateInput(d[5]));
+  fd.append('fechaVenc',   campo==='venc'   ? valor : toDateInput(d[6]));
+  fd.append('tipo',d[7]||'');
   try{
     const res=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
     if(!res.ok)throw new Error();
+    // Actualizar cache local con el valor correcto para evitar desfase hasta el próximo cargar()
+    if(campo==='inicio') d[5]=valor; else d[6]=valor;
     toast('Fecha guardada','success');
   }catch(e){toast('Error al guardar fecha','error');}
 }
