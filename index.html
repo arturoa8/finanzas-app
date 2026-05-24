@@ -1396,7 +1396,8 @@ function renderDebArchivadas(l){
   l.innerHTML=[...arch].reverse().map(d=>{
     const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
     const monto=parseFloat(d[3])||0;
-    const abonado=parseFloat(d[4])||0;
+    const logAb=calcAbonadoFromLog(d[0]);
+    const abonado=logAb>0?logAb:(parseFloat(d[4])||0);
     const motivo=(d[8]||'').toString().toLowerCase();
     const isPagado=motivo.includes('pagado')||motivo.includes('saldada');
     const cls=esMeDeben?'in':'out';const signo=esMeDeben?'+':'−';
@@ -1542,12 +1543,19 @@ async function guardarDeuda(){
 }
 
 // ── Modal abono ──────────────────────────────────────────────────────────────
+// Calcula abonado siempre desde DeudasAbonos (fuente de verdad), nunca desde d[4]
+function calcAbonadoFromLog(deudaId){
+  return (datos.deudasAbonos||[])
+    .filter(ab=>_abDeudaId(ab)===String(deudaId))
+    .reduce((s,ab)=>s+_abMonto(ab),0);
+}
+
 function abrirModalAbono(id){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
   abonosDeudaId=id;
   const monto=parseFloat(d[3])||0;
-  const abonado=parseFloat(d[4])||0;
+  const abonado=calcAbonadoFromLog(id);
   const pendiente=Math.max(0,monto-abonado);
   const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
   document.getElementById('abonoTitle').textContent=(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+escHtml(d[1]||'');
@@ -1561,9 +1569,12 @@ function abrirModalAbono(id){
 function cerrarModalAbono(){document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;}
 
 function abonarTodo(){
+  if(!abonosDeudaId)return;
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   if(!d)return;
-  document.getElementById('abonoMonto').value=Math.max(0,(parseFloat(d[3])||0)-(parseFloat(d[4])||0)).toFixed(2);
+  const monto=parseFloat(d[3])||0;
+  const abonado=calcAbonadoFromLog(abonosDeudaId);
+  document.getElementById('abonoMonto').value=Math.max(0,monto-abonado).toFixed(2);
 }
 
 async function guardarAbono(){
@@ -1610,15 +1621,22 @@ async function confirmarDesarchivar(id){
 }
 
 // ── Historial de abonos ──────────────────────────────────────────────────────
-function _abIsNew(ab){return String(ab[0]).startsWith('A');}
+// Formato nuevo: [AbonoID('A...'), DeudaID('D...'), Monto, Fecha, Nota]
+// Formato viejo: [DeudaID('D...'), Monto, Fecha, Nota]
+function _abIsNew(ab){return String(ab&&ab[0]||'').startsWith('A');}
 function _abId(ab){return _abIsNew(ab)?String(ab[0]):null;}
-// Para formato antiguo genera clave compuesta L|deudaId|monto para el servidor
 function _abEffectiveId(ab){
   if(_abIsNew(ab))return String(ab[0]);
   return 'L|'+ab[0]+'|'+(ab[1]||'')+'|'+(ab[2]||'');
 }
-function _abDeudaId(ab){return _abIsNew(ab)?String(ab[1]):String(ab[0]);}
-function _abMonto(ab){return parseFloat(_abIsNew(ab)?ab[2]:ab[1])||0;}
+function _abDeudaId(ab){return _abIsNew(ab)?String(ab[1]||''):String(ab[0]||'');}
+// Solo cuenta como monto un número finito y > 0. Esto evita que un valor tipo "D1747…"
+// (cuando la hoja quedó desalineada) se interprete como monto y rompa el total abonado.
+function _abMonto(ab){
+  const raw=_abIsNew(ab)?ab[2]:ab[1];
+  const n=parseFloat(String(raw||'').replace(/[^0-9.\-]/g,''));
+  return Number.isFinite(n)&&n>0?n:0;
+}
 function _abFecha(ab){return _abIsNew(ab)?(ab[3]||''):(ab[2]||'');}
 function _abNota(ab){return _abIsNew(ab)?(ab[4]||''):(ab[3]||'');}
 
