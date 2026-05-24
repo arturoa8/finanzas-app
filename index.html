@@ -74,13 +74,13 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .kpi.neg.active-pill{background:rgba(255,59,107,0.16);border-color:rgba(255,59,107,0.45);}
 .kpi.pos.active-pill{background:rgba(0,214,143,0.16);border-color:rgba(0,214,143,0.45);}
 
-/* Acumulado / Bruto mode: only changes the main balance */
+/* Acumulado / Neto mode: only changes the main balance */
 .chip.acumulado-active{
   border-color:var(--green);
   color:var(--green);
   background:rgba(0,214,143,0.06);
 }
-.chip.bruta-active{
+.chip.neta-active{
   border-color:var(--yellow);
   color:var(--yellow);
   background:rgba(255,184,77,0.06);
@@ -565,8 +565,8 @@ input,textarea{-webkit-user-select:text;user-select:text;}
       <div class="chip" id="chipAcumulado" onclick="toggleAcumulado()">
         <span>Acumulado</span>
       </div>
-      <div class="chip" id="chipBruta" onclick="toggleBruta()">
-        <span>Bruto</span>
+      <div class="chip" id="chipNeta" onclick="toggleNeta()">
+        <span>Neto</span>
       </div>
     </div>
 
@@ -963,7 +963,7 @@ let cardPageTab='resumen';
 let cardPickerYear=new Date().getFullYear();
 let cardPickerMonth=new Date().getMonth();
 let acumuladoMode=false;
-let brutaMode=false;
+let netaMode=false;
 let editandoAbonoId=null,historialDeudaId=null;
 let mesPickerYear=new Date().getFullYear();
 let mesPickerMes=new Date().getMonth();
@@ -1099,7 +1099,7 @@ function actualizarChips(){
   }
   // Acumulado chip activo cuando el modo está prendido
   document.getElementById('chipAcumulado').classList.toggle('acumulado-active',acumuladoMode);
-  document.getElementById('chipBruta').classList.toggle('bruta-active',brutaMode);
+  document.getElementById('chipNeta').classList.toggle('neta-active',netaMode);
   // KPI pills active state
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out.classList.toggle('active-pill',filtroTipo==='gastos');
@@ -1166,15 +1166,15 @@ function togglePillTipo(t){
   render();
 }
 
-// === ACUMULADO / BRUTO MODE ===
+// === ACUMULADO / NETO MODE ===
 function toggleAcumulado(){
   acumuladoMode = !acumuladoMode;
-  if(acumuladoMode) brutaMode=false;
+  if(acumuladoMode) netaMode=false;
   render();
 }
-function toggleBruta(){
-  brutaMode = !brutaMode;
-  if(brutaMode) acumuladoMode=false;
+function toggleNeta(){
+  netaMode = !netaMode;
+  if(netaMode) acumuladoMode=false;
   render();
 }
 
@@ -1194,8 +1194,8 @@ function smoothSetText(el,newText,newValue=null){
 function renderBal(){
   const hoy = new Date(); hoy.setHours(23,59,59,999);
   let txBalance;
-  if(brutaMode){
-    txBalance = datos.transacciones; // todo: pasado + futuro
+  if(netaMode){
+    txBalance = datos.transacciones; // pasado + futuro sin filtro
   } else if(acumuladoMode){
     txBalance = datos.transacciones.filter(t=>{ try{return pf(t[0])<=hoy;}catch(e){return true;} });
   } else {
@@ -1217,16 +1217,28 @@ function renderBal(){
     else gPeriodo += m;
   });
 
-  const balance = iBal - gBal;
+  let balance = iBal - gBal;
+
+  // En modo Acumulado: sumar saldo pendiente de tarjetas de crédito
+  // (el banco aún no lo ha descontado porque no has pagado la tarjeta)
+  if(acumuladoMode){
+    const ccCuentas = new Set(CREDIT_CARDS.map(c=>c.cuenta.toLowerCase().trim()));
+    const totalCargos = txBalance
+      .filter(t => t[3]==='Gasto' && t[5] && ccCuentas.has(String(t[5]).toLowerCase().trim()))
+      .reduce((s,t) => s+(parseFloat(t[4])||0), 0);
+    const totalPagos = (datos.pagosTarjetas||[])
+      .reduce((s,p) => s+(parseFloat(p[3])||0), 0);
+    balance += Math.max(0, totalCargos - totalPagos);
+  }
 
   smoothSetText(document.getElementById('balAmt'), fmtN(Math.abs(balance)), Math.abs(balance));
   const dot=document.getElementById('balDot');
   dot.textContent = balance >= 0 ? '+' : '−';
   dot.classList.toggle('neg', balance < 0);
 
-  document.getElementById('balLbl').textContent = brutaMode
-    ? 'Total bruto'
-    : acumuladoMode ? 'Saldo acumulado' : 'Total';
+  document.getElementById('balLbl').textContent = netaMode
+    ? 'Total neto'
+    : acumuladoMode ? 'Saldo + tarjetas' : 'Total';
 
   smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
   smoothSetText(document.getElementById('kpiIn'), '+ ' + fmt(iPeriodo), iPeriodo);
@@ -1320,7 +1332,19 @@ function renderDeb(){
   activas.sort((a,b)=>{
     const fa=a[6]?pf(toDateInput(a[6])):null;
     const fb=b[6]?pf(toDateInput(b[6])):null;
-    if(!fa&&!fb)return 0;if(!fa)return 1;if(!fb)return -1;return fa-fb;
+    if(!fa&&!fb){
+      // ambas sin vencimiento: ordenar por FechaInicio ascendente
+      const ia=a[5]?pf(toDateInput(a[5])):null;
+      const ib=b[5]?pf(toDateInput(b[5])):null;
+      if(!ia&&!ib)return 0;if(!ia)return 1;if(!ib)return -1;return ia-ib;
+    }
+    if(!fa)return 1;if(!fb)return -1;
+    const diff=fa-fb;
+    if(diff!==0)return diff;
+    // misma FechaVenc: ordenar por FechaInicio ascendente (el más antiguo primero)
+    const ia=a[5]?pf(toDateInput(a[5])):null;
+    const ib=b[5]?pf(toDateInput(b[5])):null;
+    if(!ia&&!ib)return 0;if(!ia)return 1;if(!ib)return -1;return ia-ib;
   });
   const esMeDeben=dT==='me-deben';
   const hoy=new Date();
@@ -1643,12 +1667,16 @@ function abrirEditAbono(abonoId){
   document.getElementById('editAbonoMonto').value=_abMonto(ab);
   document.getElementById('editAbonoFecha').value=toDateInput(_abFecha(ab));
   document.getElementById('editAbonoNota').value=_abNota(ab);
+  // Cierra el historial para evitar conflicto de z-index entre modales
+  document.getElementById('modalHistorialAbonos').classList.remove('active');
   document.getElementById('modalEditAbono').classList.add('active');
 }
 
 function cerrarEditAbono(){
   document.getElementById('modalEditAbono').classList.remove('active');
   editandoAbonoId=null;
+  // Reabre el historial si venía de ahí
+  if(historialDeudaId) document.getElementById('modalHistorialAbonos').classList.add('active');
 }
 
 async function guardarEditAbono(){
