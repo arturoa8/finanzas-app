@@ -2154,6 +2154,8 @@ function getCreditCards(){
   rows.forEach(r=>{
     const cuenta=String(r[0]).trim();
     const limite=parseFloat(r[1])||0;
+    const metaRaw=parseFloat(r[2]);
+    const meta=Number.isFinite(metaRaw)&&metaRaw>0?metaRaw:null;
     const nombre=String(r[3]||'').trim()||cuenta;
     const emoji=String(r[4]||'').trim()||'💳';
     const finDia=parseInt(r[5],10);
@@ -2169,6 +2171,7 @@ function getCreditCards(){
       inicioDia:inicioFromFin(fin),
       pagoDia:pago,
       limite,
+      metaPct:meta,
       _hasFullConfig:finOk&&pagoOk
     };
   });
@@ -2181,6 +2184,7 @@ function getCreditCards(){
         inicioDia:inicioFromFin(d.finDia),
         pagoDia:d.pagoDia,
         limite:0,
+        metaPct:null,
         _hasFullConfig:false
       };
     }
@@ -2331,8 +2335,12 @@ function getLineState(used,limit,goalPct=getCreditGoalPct()){
 function renderLineProgress(pct,cls){
   return `<div class="line-progress"><div class="line-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div>`;
 }
+function getCardGoalPct(card){
+  if(card && Number.isFinite(card.metaPct) && card.metaPct>0) return card.metaPct;
+  return getCreditGoalPct();
+}
 function renderCreditLineBlock(card,used){
-  const limit=getCreditLimit(card); const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
+  const limit=getCreditLimit(card); const goal=getCardGoalPct(card); const st=getLineState(used,limit,goal);
   const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)}`:`Te pasaste ${fmt(Math.abs(st.remaining))}`;
   return `<div class="credit-line-block">
     <div class="credit-line-title"><span>Línea usada</span><span>${fmt(used)} de ${fmt(limit)}</span></div>
@@ -2362,10 +2370,13 @@ function renderLineasCreditoConfig(){
         <div class="line-field"><label>Emoji</label><input class="cardEmojiInput" type="text" maxlength="4" value="${escAttr(card.emoji)}"></div>
         <div class="line-field"><label>Nombre</label><input class="cardNameInput" type="text" value="${escAttr(card.nombre)}"></div>
       </div>
-      <div class="line-config-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+      <div class="line-config-row" style="grid-template-columns:1fr 1fr;margin-top:8px">
         <div class="line-field"><label>Día corte</label><input class="cardCorteInput" type="number" min="1" max="31" inputmode="numeric" value="${card.finDia}"></div>
         <div class="line-field"><label>Día pago</label><input class="cardPagoInput" type="number" min="1" max="31" inputmode="numeric" value="${card.pagoDia}"></div>
+      </div>
+      <div class="line-config-row" style="grid-template-columns:1fr 1fr;margin-top:8px">
         <div class="line-field"><label>Línea</label><input class="cardLimitInput" type="number" inputmode="decimal" step="0.01" value="${card.limite}"></div>
+        <div class="line-field"><label>Meta % (esta tarjeta)</label><input class="cardMetaInput" type="number" inputmode="decimal" step="1" min="1" max="100" value="${Number.isFinite(card.metaPct)&&card.metaPct>0?card.metaPct:''}" placeholder="usa global (${goal}%)"></div>
       </div>
       <button class="btn btn-p" style="margin-top:10px" onclick="guardarTarjetaInline(${i})">Guardar tarjeta</button>
     </div>`).join('');
@@ -2385,10 +2396,13 @@ function renderLineasCreditoConfig(){
           <div class="line-field"><label>Emoji</label><input id="newCardEmoji" type="text" maxlength="4" value="💳"></div>
           <div class="line-field"><label>Nombre</label><input id="newCardName" type="text" placeholder="Ej. Visa Gold"></div>
         </div>
-        <div class="line-config-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+        <div class="line-config-row" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="line-field"><label>Día corte</label><input id="newCardCorte" type="number" min="1" max="31" inputmode="numeric"></div>
           <div class="line-field"><label>Día pago</label><input id="newCardPago" type="number" min="1" max="31" inputmode="numeric"></div>
+        </div>
+        <div class="line-config-row" style="grid-template-columns:1fr 1fr;margin-top:8px">
           <div class="line-field"><label>Línea</label><input id="newCardLimit" type="number" inputmode="decimal" step="0.01" value="0"></div>
+          <div class="line-field"><label>Meta % (opcional)</label><input id="newCardMeta" type="number" inputmode="decimal" step="1" min="1" max="100" placeholder="usa global (${goal}%)"></div>
         </div>
         <button class="btn btn-p" style="margin-top:10px" onclick="agregarTarjeta()">Agregar tarjeta</button>
       </div>
@@ -2410,11 +2424,14 @@ async function guardarTarjetaInline(i){
   const corteDia=parseInt(item.querySelector('.cardCorteInput').value,10);
   const pagoDia=parseInt(item.querySelector('.cardPagoInput').value,10);
   const limite=parseFloat(item.querySelector('.cardLimitInput').value)||0;
+  const metaRaw=item.querySelector('.cardMetaInput').value.trim();
+  const metaPct=metaRaw===''?null:parseFloat(metaRaw);
   if(!nombre){toast('Nombre requerido','error');return;}
   if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
   if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
+  if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
   try{
-    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,oldCuenta});
+    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct,oldCuenta});
     await recargarConfigTarjetas();
     renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta guardada','success');
   }catch(e){toast(e.message||'Error al guardar','error');}
@@ -2426,12 +2443,15 @@ async function agregarTarjeta(){
   const corteDia=parseInt(document.getElementById('newCardCorte').value,10);
   const pagoDia=parseInt(document.getElementById('newCardPago').value,10);
   const limite=parseFloat(document.getElementById('newCardLimit').value)||0;
+  const metaRaw=document.getElementById('newCardMeta').value.trim();
+  const metaPct=metaRaw===''?null:parseFloat(metaRaw);
   if(!nombre){toast('Nombre requerido','error');return;}
   if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
   if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
+  if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
   if(getCreditCards().some(c=>norm(c.cuenta)===norm(nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
   try{
-    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite});
+    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct});
     await recargarConfigTarjetas();
     renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta agregada','success');
   }catch(e){toast(e.message||'Error al agregar','error');}
@@ -2451,7 +2471,7 @@ async function eliminarTarjeta(cuenta){
   }catch(e){toast('Error al eliminar','error');}
 }
 
-async function saveCardConfig({cuenta,nombre,emoji,corteDia,pagoDia,limiteCredito,oldCuenta}){
+async function saveCardConfig({cuenta,nombre,emoji,corteDia,pagoDia,limiteCredito,metaPct,oldCuenta}){
   const fd=new URLSearchParams();
   fd.append('action','cardSave');
   fd.append('cuenta',cuenta);
@@ -2460,6 +2480,9 @@ async function saveCardConfig({cuenta,nombre,emoji,corteDia,pagoDia,limiteCredit
   fd.append('corteDia',String(corteDia));
   fd.append('pagoDia',String(pagoDia));
   fd.append('limiteCredito',String(limiteCredito));
+  // metaPct: null/'' = usar global (no se envía); número = meta individual
+  if(metaPct!==undefined && metaPct!==null && metaPct!=='') fd.append('metaPct',String(metaPct));
+  else fd.append('metaPct','');
   if(oldCuenta) fd.append('oldCuenta',oldCuenta);
   const r=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
   const res=await r.json();
@@ -2523,16 +2546,24 @@ function renderCreditLineSummary(){
   const usedNext=nextItems.reduce((s,x)=>s+x.data.pendiente,0);
   const used=usedCurrent+usedNext;
   const limit=CREDIT_CARDS.reduce((s,card)=>s+getCreditLimit(card),0);
-  const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
-  const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(st.remaining))} sobre la meta recomendada`;
+  // Meta total = suma de (limite_i * meta_i / 100) por tarjeta (no aplicar % global al total)
+  const goalAmount=CREDIT_CARDS.reduce((s,card)=>s+(getCreditLimit(card)*getCardGoalPct(card)/100),0);
+  const effectiveGoalPct=limit>0?(goalAmount/limit)*100:getCreditGoalPct();
+  const pct=limit>0?(used/limit)*100:0;
+  const remaining=goalAmount-used;
+  let cls='ok';
+  if(pct>=80)cls='danger';
+  else if(used>goalAmount)cls='bad';
+  else if(used>=goalAmount*.8)cls='warn';
+  const advice=remaining>=0?`Te quedan ${fmt(remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(remaining))} sobre la meta recomendada`;
   cont.innerHTML=`<div class="line-summary-card">
     <div class="line-summary-top">
       <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
       <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar tarjetas</button>
     </div>
-    ${renderLineProgress(st.pct,st.cls)}
+    ${renderLineProgress(pct,cls)}
     <div class="line-summary-breakdown"><span>Actual: <strong>${fmt(usedCurrent)}</strong></span><span>Siguiente: <strong>${fmt(usedNext)}</strong></span></div>
-    <div class="line-summary-meta"><span><strong>${st.pct.toFixed(1)}%</strong> usado · meta ${goal}% = <strong>${fmt(st.goalAmount)}</strong></span><span class="line-advice ${st.cls}">${advice}</span></div>
+    <div class="line-summary-meta"><span><strong>${pct.toFixed(1)}%</strong> usado · meta ponderada ${effectiveGoalPct.toFixed(1)}% = <strong>${fmt(goalAmount)}</strong></span><span class="line-advice ${cls}">${advice}</span></div>
   </div>`;
 }
 
