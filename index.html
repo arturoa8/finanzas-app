@@ -784,7 +784,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 <div class="modal centered" id="creditLineModal">
   <div class="mc compact-mc">
     <div class="mc-top">
-      <div class="mc-title-big">Líneas de crédito</div>
+      <div class="mc-title-big">Tarjetas y meta</div>
       <button class="mh-x" onclick="cerrarLineasCredito()">✕</button>
     </div>
     <div id="creditLineConfig"></div>
@@ -2132,10 +2132,72 @@ function renderTrend(area,leg){
 }
 
 
-const CREDIT_CARDS=[
-  {nombre:'Mastercard Platinum',emoji:'💳',cuenta:'Mastercard Platinum',inicioDia:10,finDia:9,pagoDia:5},
-  {nombre:'Visa iO',emoji:'💳',cuenta:'Visa iO',inicioDia:25,finDia:24,pagoDia:12}
+// Defaults legacy: se usan si ConfigTarjetas no tiene día de corte/pago
+// para alguna cuenta conocida. Permite migración suave del primer load.
+const LEGACY_CARD_DEFAULTS=[
+  {nombre:'Mastercard Platinum',emoji:'💳',cuenta:'Mastercard Platinum',finDia:9,pagoDia:5},
+  {nombre:'Visa iO',emoji:'💳',cuenta:'Visa iO',finDia:24,pagoDia:12}
 ];
+
+function inicioFromFin(finDia){
+  const n=parseInt(finDia,10);
+  if(!Number.isFinite(n)||n<1) return 1;
+  return n>=31?1:n+1;
+}
+
+function getCreditCards(){
+  const rows=(datos.configTarjetas||[]).filter(r=>{
+    const k=String(r&&r[0]||'').trim();
+    return k && k!=='__global__';
+  });
+  const byCuenta={};
+  rows.forEach(r=>{
+    const cuenta=String(r[0]).trim();
+    const limite=parseFloat(r[1])||0;
+    const nombre=String(r[3]||'').trim()||cuenta;
+    const emoji=String(r[4]||'').trim()||'💳';
+    const finDia=parseInt(r[5],10);
+    const pagoDia=parseInt(r[6],10);
+    const legacy=LEGACY_CARD_DEFAULTS.find(c=>norm(c.cuenta)===norm(cuenta));
+    const finOk=Number.isFinite(finDia)&&finDia>=1&&finDia<=31;
+    const pagoOk=Number.isFinite(pagoDia)&&pagoDia>=1&&pagoDia<=31;
+    const fin=finOk?finDia:(legacy?legacy.finDia:9);
+    const pago=pagoOk?pagoDia:(legacy?legacy.pagoDia:5);
+    byCuenta[norm(cuenta)]={
+      cuenta,nombre,emoji,
+      finDia:fin,
+      inicioDia:inicioFromFin(fin),
+      pagoDia:pago,
+      limite,
+      _hasFullConfig:finOk&&pagoOk
+    };
+  });
+  // Incluir defaults legacy si no estaban en la hoja
+  LEGACY_CARD_DEFAULTS.forEach(d=>{
+    if(!byCuenta[norm(d.cuenta)]){
+      byCuenta[norm(d.cuenta)]={
+        cuenta:d.cuenta,nombre:d.nombre,emoji:d.emoji,
+        finDia:d.finDia,
+        inicioDia:inicioFromFin(d.finDia),
+        pagoDia:d.pagoDia,
+        limite:0,
+        _hasFullConfig:false
+      };
+    }
+  });
+  return Object.values(byCuenta);
+}
+
+// Proxy con .map/.forEach/.find/.reduce/.length que delega a getCreditCards()
+const CREDIT_CARDS={
+  get length(){return getCreditCards().length;},
+  map(fn){return getCreditCards().map(fn);},
+  forEach(fn){return getCreditCards().forEach(fn);},
+  find(fn){return getCreditCards().find(fn);},
+  filter(fn){return getCreditCards().filter(fn);},
+  reduce(fn,init){return getCreditCards().reduce(fn,init);},
+  [Symbol.iterator](){return getCreditCards()[Symbol.iterator]();}
+};
 
 
 function setCardPageTab(tab,btn){
@@ -2283,23 +2345,139 @@ function abrirLineasCredito(){
   document.getElementById('creditLineModal').classList.add('active');
 }
 function cerrarLineasCredito(){document.getElementById('creditLineModal').classList.remove('active');}
+
+function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
 function renderLineasCreditoConfig(){
   const cont=document.getElementById('creditLineConfig'); if(!cont)return;
   const goal=getCreditGoalPct();
-  cont.innerHTML=`<div class="line-config-grid">
-    ${CREDIT_CARDS.map((card,i)=>`<div class="line-config-item"><div class="line-config-name">${card.emoji} ${card.nombre}</div><div class="line-config-row"><div class="line-field"><label>Línea</label><input id="creditLimit${i}" type="number" inputmode="decimal" step="0.01" value="${getCreditLimit(card)}"></div><div class="line-field"><label>Meta %</label><input class="creditGoalPctInput" type="number" inputmode="decimal" step="1" value="${goal}"></div></div></div>`).join('')}
-    <button class="btn btn-p" onclick="guardarLineasCredito()">Guardar cambios</button>
-  </div>`;
+  const cards=getCreditCards();
+  const cardItems=cards.map((card,i)=>`
+    <div class="line-config-item" data-card-idx="${i}" data-old-cuenta="${escAttr(card.cuenta)}">
+      <div class="line-config-name" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+        <span>${card.emoji} ${card.nombre}</span>
+        <button class="line-edit-btn" style="background:#ff3b6b1a;border-color:#ff3b6b66;color:var(--red)" onclick="eliminarTarjeta('${escAttr(card.cuenta)}')">Eliminar</button>
+      </div>
+      <div class="line-config-row" style="grid-template-columns:80px 1fr;margin-top:8px">
+        <div class="line-field"><label>Emoji</label><input class="cardEmojiInput" type="text" maxlength="4" value="${escAttr(card.emoji)}"></div>
+        <div class="line-field"><label>Nombre</label><input class="cardNameInput" type="text" value="${escAttr(card.nombre)}"></div>
+      </div>
+      <div class="line-config-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+        <div class="line-field"><label>Día corte</label><input class="cardCorteInput" type="number" min="1" max="31" inputmode="numeric" value="${card.finDia}"></div>
+        <div class="line-field"><label>Día pago</label><input class="cardPagoInput" type="number" min="1" max="31" inputmode="numeric" value="${card.pagoDia}"></div>
+        <div class="line-field"><label>Línea</label><input class="cardLimitInput" type="number" inputmode="decimal" step="0.01" value="${card.limite}"></div>
+      </div>
+      <button class="btn btn-p" style="margin-top:10px" onclick="guardarTarjetaInline(${i})">Guardar tarjeta</button>
+    </div>`).join('');
+  cont.innerHTML=`
+    <div class="line-config-grid">
+      <div class="line-config-item">
+        <div class="line-config-name">Meta % global</div>
+        <div class="line-config-row" style="grid-template-columns:1fr auto;margin-top:8px">
+          <div class="line-field"><label>Meta %</label><input id="creditGoalPctInput" type="number" inputmode="decimal" step="1" min="1" max="100" value="${goal}"></div>
+          <button class="btn btn-p" style="align-self:end" onclick="guardarMetaPct()">Guardar meta</button>
+        </div>
+      </div>
+      ${cardItems || '<div class="empty" style="padding:18px 8px">Aún no tienes tarjetas. Agrega la primera abajo.</div>'}
+      <div class="line-config-item" style="border:1px dashed var(--border)">
+        <div class="line-config-name">Nueva tarjeta</div>
+        <div class="line-config-row" style="grid-template-columns:80px 1fr;margin-top:8px">
+          <div class="line-field"><label>Emoji</label><input id="newCardEmoji" type="text" maxlength="4" value="💳"></div>
+          <div class="line-field"><label>Nombre</label><input id="newCardName" type="text" placeholder="Ej. Visa Gold"></div>
+        </div>
+        <div class="line-config-row" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px">
+          <div class="line-field"><label>Día corte</label><input id="newCardCorte" type="number" min="1" max="31" inputmode="numeric"></div>
+          <div class="line-field"><label>Día pago</label><input id="newCardPago" type="number" min="1" max="31" inputmode="numeric"></div>
+          <div class="line-field"><label>Línea</label><input id="newCardLimit" type="number" inputmode="decimal" step="0.01" value="0"></div>
+        </div>
+        <button class="btn btn-p" style="margin-top:10px" onclick="agregarTarjeta()">Agregar tarjeta</button>
+      </div>
+    </div>`;
 }
-async function guardarLineasCredito(){
-  await Promise.all(CREDIT_CARDS.map((card,i)=>setCreditLimit(card,document.getElementById('creditLimit'+i).value)));
-  const inputs=document.querySelectorAll('.creditGoalPctInput');
-  const currentGoal=getCreditGoalPct();
-  let nuevoGoal=null;
-  inputs.forEach(el=>{const v=parseFloat(el.value);if(Number.isFinite(v)&&v!==currentGoal)nuevoGoal=v;});
-  if(nuevoGoal===null&&inputs.length)nuevoGoal=parseFloat(inputs[0].value);
-  if(nuevoGoal!==null&&Number.isFinite(nuevoGoal))await setCreditGoalPct(nuevoGoal);
-  cerrarLineasCredito(); renderCardsPage(); renderCardDetail(); toast('Líneas actualizadas','success');
+
+async function guardarMetaPct(){
+  const v=parseFloat(document.getElementById('creditGoalPctInput').value);
+  if(!Number.isFinite(v)||v<=0){toast('Meta inválida','error');return;}
+  await setCreditGoalPct(v);
+  renderCardsPage(); renderCardDetail(); toast('Meta actualizada','success');
+}
+
+async function guardarTarjetaInline(i){
+  const item=document.querySelector(`.line-config-item[data-card-idx="${i}"]`); if(!item)return;
+  const oldCuenta=item.getAttribute('data-old-cuenta')||'';
+  const nombre=item.querySelector('.cardNameInput').value.trim();
+  const emoji=item.querySelector('.cardEmojiInput').value.trim()||'💳';
+  const corteDia=parseInt(item.querySelector('.cardCorteInput').value,10);
+  const pagoDia=parseInt(item.querySelector('.cardPagoInput').value,10);
+  const limite=parseFloat(item.querySelector('.cardLimitInput').value)||0;
+  if(!nombre){toast('Nombre requerido','error');return;}
+  if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
+  if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
+  try{
+    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,oldCuenta});
+    await recargarConfigTarjetas();
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta guardada','success');
+  }catch(e){toast(e.message||'Error al guardar','error');}
+}
+
+async function agregarTarjeta(){
+  const nombre=document.getElementById('newCardName').value.trim();
+  const emoji=document.getElementById('newCardEmoji').value.trim()||'💳';
+  const corteDia=parseInt(document.getElementById('newCardCorte').value,10);
+  const pagoDia=parseInt(document.getElementById('newCardPago').value,10);
+  const limite=parseFloat(document.getElementById('newCardLimit').value)||0;
+  if(!nombre){toast('Nombre requerido','error');return;}
+  if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
+  if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
+  if(getCreditCards().some(c=>norm(c.cuenta)===norm(nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
+  try{
+    await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite});
+    await recargarConfigTarjetas();
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta agregada','success');
+  }catch(e){toast(e.message||'Error al agregar','error');}
+}
+
+async function eliminarTarjeta(cuenta){
+  if(!confirm(`¿Eliminar la tarjeta "${cuenta}"? Las transacciones permanecerán en el historial.`))return;
+  const fd=new URLSearchParams();
+  fd.append('action','cardDelete');
+  fd.append('cuenta',cuenta);
+  try{
+    const r=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    const res=await r.json();
+    if(!res.success){toast(res.error||'No se pudo eliminar','error');return;}
+    await recargarConfigTarjetas();
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta eliminada','success');
+  }catch(e){toast('Error al eliminar','error');}
+}
+
+async function saveCardConfig({cuenta,nombre,emoji,corteDia,pagoDia,limiteCredito,oldCuenta}){
+  const fd=new URLSearchParams();
+  fd.append('action','cardSave');
+  fd.append('cuenta',cuenta);
+  fd.append('nombre',nombre);
+  fd.append('emoji',emoji);
+  fd.append('corteDia',String(corteDia));
+  fd.append('pagoDia',String(pagoDia));
+  fd.append('limiteCredito',String(limiteCredito));
+  if(oldCuenta) fd.append('oldCuenta',oldCuenta);
+  const r=await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+  const res=await r.json();
+  if(!res.success) throw new Error(res.error||'No se pudo guardar la tarjeta');
+  return res;
+}
+
+async function recargarConfigTarjetas(){
+  try{
+    const r=await fetch(URL);
+    const fresh=await r.json();
+    if(fresh && typeof fresh==='object'){
+      if(Array.isArray(fresh.configTarjetas))   datos.configTarjetas=fresh.configTarjetas;
+      if(Array.isArray(fresh.transacciones))    datos.transacciones=fresh.transacciones;
+      if(Array.isArray(fresh.pagosTarjetas))    datos.pagosTarjetas=fresh.pagosTarjetas;
+      if(Array.isArray(fresh.ciclosOverride))   datos.ciclosOverride=fresh.ciclosOverride;
+    }
+  }catch(e){/* mantener estado local */}
 }
 
 function abrirCardCyclePicker(){
@@ -2350,7 +2528,7 @@ function renderCreditLineSummary(){
   cont.innerHTML=`<div class="line-summary-card">
     <div class="line-summary-top">
       <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
-      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar líneas</button>
+      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar tarjetas</button>
     </div>
     ${renderLineProgress(st.pct,st.cls)}
     <div class="line-summary-breakdown"><span>Actual: <strong>${fmt(usedCurrent)}</strong></span><span>Siguiente: <strong>${fmt(usedNext)}</strong></span></div>
