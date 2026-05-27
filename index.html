@@ -2179,36 +2179,11 @@ function getDaysDiff(from,to){
   return Math.ceil((b-a)/(1000*60*60*24));
 }
 
-function getCardStatus(payDate){
-  const today=new Date();
-  const days=getDaysDiff(today,payDate);
-  if(days<0)return{text:'Vencido',detail:`Venció hace ${Math.abs(days)} día${Math.abs(days)===1?'':'s'}`,cls:'status-bad'};
-  if(days<=3)return{text:'Vence pronto',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-warn'};
-  return{text:'Pendiente',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-ok'};
-}
 function sameAccount(a,b){return norm(a)===norm(b);}
 
 function getCycleKey(cycle){return cycle.end.getFullYear()+'-'+String(cycle.end.getMonth()+1).padStart(2,'0')+'-'+String(cycle.end.getDate()).padStart(2,'0');}
 function getTxRow(t){return t[6] || `${t[0]}_${t[1]}_${t[4]}_${t[5]}`;}
 
-function getCardPayment(card,cycle){
-  const key=getCycleKey(cycle);
-  const row=(datos.pagosTarjetas||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key);
-  return row?Math.max(0,parseFloat(row[3])||0):0;
-}
-async function setCardPayment(card,cycle,value){
-  const n=Math.max(0,parseFloat(value)||0);const key=getCycleKey(cycle);
-  const ex=(datos.pagosTarjetas||[]).find(r=>norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key);
-  if(ex){ex[3]=n;}else{datos.pagosTarjetas.push([null,card.cuenta,key,n,'','']);}
-  const fd=new URLSearchParams();fd.append('action','setPago');fd.append('tarjeta',card.cuenta);fd.append('cicloKey',key);fd.append('monto',String(n));fd.append('fecha',new Date().toISOString().split('T')[0]);
-  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-}
-async function deleteCardPayment(card,cycle){
-  const key=getCycleKey(cycle);
-  datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(card.cuenta)&&String(r[2])===key));
-  const fd=new URLSearchParams();fd.append('action','deletePago');fd.append('tarjeta',card.cuenta);fd.append('cicloKey',key);
-  await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-}
 
 function getTxCycleOverride(card,t){
   const txId=String(getTxRow(t));
@@ -2249,32 +2224,11 @@ function txBelongsToCycle(card,t,cycle){
   return fecha>=cycle.start && fecha<=cycle.end;
 }
 
-function getCardData(card,offset=cardCycleOffset){
-  const cycle=getCardCycle(card,offset);
-  const gastos=datos.transacciones.filter(t=>{
-    const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
-    return tipo!=='Ingreso' && monto>0 && sameAccount(cuenta,card.cuenta) && txBelongsToCycle(card,t,cycle);
-  }).sort((a,b)=>pf(b[0])-pf(a[0]));
-  const total=gastos.reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
-  const pagado=Math.min(getCardPayment(card,cycle),total);
-  const pendiente=Math.max(total-pagado,0);
-  const status=getCardStatus(cycle.pay);
-  return{cycle,gastos,total,pagado,pendiente,status};
-}
-
 function cardStats(gastos,total){
   const cats={}; let maxTx=null;
   gastos.forEach(t=>{const m=parseFloat(t[4])||0;const c=cleanName(t[2]);cats[c]=(cats[c]||0)+m;if(!maxTx||m>(parseFloat(maxTx[4])||0))maxTx=t;});
   const top=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
   return{topCat:top?top[0]:'—',topCatVal:top?top[1]:0,avg:gastos.length?total/gastos.length:0,maxTx,cats};
-}
-
-function renderCardMiniList(gastos,limit=3){
-  if(!gastos.length)return '<div class="empty" style="padding:18px 8px">Sin consumos en este ciclo</div>';
-  return `<div class="card-mini-list">${gastos.slice(0,limit).map(t=>{
-    const em=getEmoji(cleanName(t[2]));
-    return `<div class="card-mini-item"><div><div class="card-mini-desc">${em.e} ${t[1]||'Sin descripción'}</div><div class="card-mini-meta">${cleanName(t[2])} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
-  }).join('')}</div>`;
 }
 
 
@@ -2324,22 +2278,6 @@ function renderCreditLineBlock(card,used){
     <div class="credit-line-sub"><span>${st.pct.toFixed(1)}% usado · meta ${goal}% (${fmt(st.goalAmount)})</span><span class="line-advice ${st.cls}">${advice}</span></div>
   </div>`;
 }
-function renderCreditLineSummary(){
-  const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
-  const items=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
-  const used=items.reduce((s,x)=>s+x.data.pendiente,0);
-  const limit=items.reduce((s,x)=>s+getCreditLimit(x.card),0);
-  const goal=getCreditGoalPct(); const st=getLineState(used,limit,goal);
-  const advice=st.remaining>=0?`Te quedan ${fmt(st.remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(st.remaining))} sobre la meta recomendada`;
-  cont.innerHTML=`<div class="line-summary-card">
-    <div class="line-summary-top">
-      <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
-      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar líneas</button>
-    </div>
-    ${renderLineProgress(st.pct,st.cls)}
-    <div class="line-summary-meta"><span><strong>${st.pct.toFixed(1)}%</strong> usado · meta ${goal}% = <strong>${fmt(st.goalAmount)}</strong></span><span class="line-advice ${st.cls}">${advice}</span></div>
-  </div>`;
-}
 function abrirLineasCredito(){
   renderLineasCreditoConfig();
   document.getElementById('creditLineModal').classList.add('active');
@@ -2362,53 +2300,6 @@ async function guardarLineasCredito(){
   if(nuevoGoal===null&&inputs.length)nuevoGoal=parseFloat(inputs[0].value);
   if(nuevoGoal!==null&&Number.isFinite(nuevoGoal))await setCreditGoalPct(nuevoGoal);
   cerrarLineasCredito(); renderCardsPage(); renderCardDetail(); toast('Líneas actualizadas','success');
-}
-
-function renderCardsPage(){
-  renderCreditLineSummary();
-  const cont=document.getElementById('cardsPage'); if(!cont)return;
-  const selected=getSelectedCycleEndMonth();
-  const lbl=document.getElementById('chipCardCycleLbl');
-  if(lbl)lbl.textContent=`Ciclo ${mesesC[selected.getMonth()]}. ${selected.getFullYear()}`;
-
-  if(cardPageTab==='resumen'){
-    cont.innerHTML=CREDIT_CARDS.map(card=>{
-      const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
-      const pct=total>0?Math.min((pagado/total)*100,100):0;
-      return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
-        <div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
-        <div class="credit-info">
-          <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
-          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}</span></div>
-          <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
-          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
-          <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
-          <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
-        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver detalle</div></div>`;
-    }).join('');
-    return;
-  }
-
-  if(cardPageTab==='consumos'){
-    cont.innerHTML=CREDIT_CARDS.map(card=>{
-      const data=getCardData(card,cardCycleOffset);
-      const txRows=data.gastos.length
-        ?data.gastos.map(t=>{
-            const em=getEmoji(cleanName(t[2]));
-            const override=getTxCycleOverride(card,t);
-            const row=String(getTxRow(t)).replace(/'/g,"\\'");
-            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><div class="card-tx-amt">− ${fmt(t[4])}</div><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
-          }).join('')
-        :'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
-      return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-tx-list">${txRows}</div></div>`;
-    }).join('');
-    return;
-  }
-
-  cont.innerHTML=CREDIT_CARDS.map(card=>{
-    const data=getCardData(card,cardCycleOffset); const st=cardStats(data.gastos,data.total); const topEmoji=getEmoji(st.topCat);
-    return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Estadísticas del ciclo</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${data.gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="hint">Toca para ver detalle</div></div>`;
-  }).join('');
 }
 
 function abrirCardCyclePicker(){
@@ -2443,75 +2334,9 @@ function renderCardCyclePickerGrid(){
 
 function abrirCardDetail(cuenta){selectedCardCuenta=cuenta;renderCardDetail();document.getElementById('cardDetailModal').classList.add('active');}
 function cerrarCardDetail(){document.getElementById('cardDetailModal').classList.remove('active');selectedCardCuenta=null;}
-async function guardarPagoTarjeta(){
-  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
-  const data=getCardData(card,cardCycleOffset); const val=document.getElementById('cardPaidInput').value;
-  await setCardPayment(card,data.cycle,val); renderCardsPage(); renderCardDetail(); toast('Pago actualizado','success');
-}
-async function limpiarPagoTarjeta(){
-  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
-  const data=getCardData(card,cardCycleOffset);
-  await deleteCardPayment(card,data.cycle); renderCardsPage(); renderCardDetail(); toast('Pago reiniciado','success');
-}
-async function moverConsumoCiclo(row,targetOffset){
-  const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!card)return;
-  const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
-  if(targetOffset==='auto')await clearTxCycleOverride(card,tx);
-  else await setTxCycleOverride(card,tx,getCardCycle(card,Number(targetOffset)));
-  renderCardsPage(); renderCardDetail(); toast('Ciclo actualizado','success');
-}
-
-function renderCardTxList(card,gastos,cycle){
-  if(!gastos.length)return '<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
-  return gastos.map(t=>{
-    const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const isManual=!!override; const row=getTxRow(t);
-    return `<div class="card-tx-item">
-      <div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${isManual?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div><div class="tx-actions"><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}','auto')">Auto</button><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}',-1)">Ciclo ant.</button><button class="mini-action active" onclick="event.stopPropagation();moverConsumoCiclo('${row}',0)">Este ciclo</button><button class="mini-action" onclick="event.stopPropagation();moverConsumoCiclo('${row}',1)">Sig. ciclo</button></div></div>
-      <div class="card-tx-amt" onclick="editarTx('${String(getTxRow(t)).replace(/'/g,"\\'")}')" style="cursor:pointer">− ${fmt(t[4])}</div>
-    </div>`;
-  }).join('');
-}
-
-function renderCardDetail(){
-  const cont=document.getElementById('cardDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!cont||!card)return;
-  const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data; const st=cardStats(gastos,total);
-  const pct=total>0?Math.min((pagado/total)*100,100):0; const topEmoji=getEmoji(st.topCat);
-  const catRows=Object.entries(st.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="credit-row"><span>${getEmoji(k).e} ${k}</span><span>${fmt(v)}</span></div>`).join('');
-  cont.innerHTML=`
-    <div class="card-detail-head"><div class="card-detail-name">${card.emoji} ${card.nombre}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>
-    <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
-    ${renderCreditLineBlock(card,pendiente)}
-    <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>=60?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
-    <div class="pay-input-row"><input id="cardPaidInput" class="pay-input" type="number" inputmode="decimal" step="0.01" value="${pagado?pagado.toFixed(2):''}" placeholder="Pagado hasta hoy"><button class="btn btn-p" style="flex:0 0 auto;padding:13px 16px" onclick="guardarPagoTarjeta()">Guardar</button></div>
-    <button class="btn btn-s" style="width:100%;margin-bottom:14px" onclick="limpiarPagoTarjeta()">Reiniciar pago registrado</button>
-    <div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div>
-    <div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>
-    <div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>`;
-}
-
-/* === Overrides finales: ciclos rápidos, línea total con siguiente ciclo, consumos/stats diferenciados === */
 function cardCycleTotal(offset=cardCycleOffset){
   return CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,offset).pendiente,0);
 }
-
-function goNextCardCycle(){
-  cardCycleOffset += 1;
-  renderCardsPage();
-}
-
-function updateCardCycleQuickUI(){
-  const selected=getSelectedCycleEndMonth();
-  const next=addMonths(selected,1);
-  const lbl=document.getElementById('chipCardCycleLbl');
-  const amt=document.getElementById('chipCardCycleAmt');
-  const nextLbl=document.getElementById('chipNextCycleLbl');
-  const nextAmt=document.getElementById('chipNextCycleAmt');
-  if(lbl)lbl.textContent=`Ciclo ${mesesC[selected.getMonth()]}. ${selected.getFullYear()}`;
-  if(amt)amt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
-  if(nextLbl)nextLbl.textContent=`${mesesC[next.getMonth()]}. ${next.getFullYear()}`;
-  if(nextAmt)nextAmt.textContent=`Siguiente: ${fmt(cardCycleTotal(cardCycleOffset+1))}`;
-}
-
 function renderCreditLineSummary(){
   const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
   const currentItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
@@ -2618,52 +2443,7 @@ function renderCardTxDetail(){
     <div class="tx-actions"><button class="mini-action ${!override?'active':''}" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}','auto');renderCardTxDetail();">Auto</button><button class="mini-action" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',-1);cerrarCardTxDetail();">Ciclo ant.</button><button class="mini-action ${override===getCycleKey(cycle)?'active':''}" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',0);renderCardTxDetail();">Este ciclo</button><button class="mini-action" onclick="moverConsumoCiclo('${String(getTxRow(tx)).replace(/'/g,"\\'")}',1);cerrarCardTxDetail();">Sig. ciclo</button></div>`;
 }
 
-function renderCardTxList(card,gastos,cycle){
-  if(!gastos.length)return '<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
-  return gastos.map(t=>{
-    const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const isManual=!!override; const row=getTxRow(t);
-    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')">
-      <div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${isManual?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div>
-      <div class="card-tx-amt">− ${fmt(t[4])}</div>
-    </div>`;
-  }).join('');
-}
 
-function renderCardDetail(){
-  const cont=document.getElementById('cardDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!cont||!card)return;
-  const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data; const st=cardStats(gastos,total);
-  const prev=getCardData(card,cardCycleOffset-1); const prevSt=cardStats(prev.gastos,prev.total); const topEmoji=getEmoji(st.topCat);
-  const pct=total>0?Math.min((pagado/total)*100,100):0; const delta=total-prev.total; const pctDelta=prev.total>0?(delta/prev.total)*100:(total>0?100:0);
-  const deltaCls=delta<0?'stat-delta-pos':delta>0?'stat-delta-neg':'stat-delta-flat';
-  const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pctDelta>0?'+':''}${pctDelta.toFixed(0)}%`;
-  const head=`<div class="card-detail-head"><div class="card-detail-name">${card.emoji} ${card.nombre}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>`;
-  if(cardPageTab==='consumos'){
-    cont.innerHTML=head+`<div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>`;
-    return;
-  }
-  if(cardPageTab==='stats'){
-    const catRows=Object.entries(st.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="credit-row"><span>${getEmoji(k).e} ${k}</span><span>${fmt(v)}</span></div>`).join('');
-    cont.innerHTML=head+`<div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Este ciclo</div><div class="card-stat-val">${fmt(total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${deltaCls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>`;
-    return;
-  }
-  cont.innerHTML=head+`
-    <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
-    ${renderCreditLineBlock(card,pendiente)}
-    <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>=60?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
-    <div class="pay-input-row"><input id="cardPaidInput" class="pay-input" type="number" inputmode="decimal" step="0.01" value="${pagado?pagado.toFixed(2):''}" placeholder="Pagado hasta hoy"><button class="btn btn-p" style="flex:0 0 auto;padding:13px 16px" onclick="guardarPagoTarjeta()">Guardar</button></div>
-    <button class="btn btn-s" style="width:100%;margin-bottom:14px" onclick="limpiarPagoTarjeta()">Reiniciar pago registrado</button>`;
-}
-
-
-/* === Fix final Arturo: carrusel + recuperación de consumos === */
-function goPrevCardCycle(){
-  cardCycleOffset=Math.max(0,cardCycleOffset-1);
-  renderCardsPage();
-}
-function goNextCardCycle(){
-  cardCycleOffset += 1;
-  renderCardsPage();
-}
 function cycleMonthLabel(date){return `${mesesC[date.getMonth()]}. ${date.getFullYear()}`;}
 function pulseCycleBar(){
   const bar=document.querySelector('.card-cycle-bar');
@@ -2673,51 +2453,8 @@ function pulseCycleBar(){
   bar.classList.add('animating');
   setTimeout(()=>bar.classList.remove('animating'),320);
 }
-function updateCardCycleQuickUI(){
-  const selected=getSelectedCycleEndMonth();
-  const next=addMonths(selected,1);
-  const prev=addMonths(selected,-1);
-  const main=document.querySelector('.card-cycle-main');
-  const side=document.querySelector('.card-cycle-next');
-  const bar=document.querySelector('.card-cycle-bar');
-  if(!main||!side||!bar)return;
-  const mainTitle=main.querySelector('.card-cycle-title');
-  const sideTitle=side.querySelector('.card-cycle-title');
-  const mainLbl=document.getElementById('chipCardCycleLbl');
-  const mainAmt=document.getElementById('chipCardCycleAmt');
-  const sideLbl=document.getElementById('chipNextCycleLbl');
-  const sideAmt=document.getElementById('chipNextCycleAmt');
-  bar.classList.toggle('offset-next',cardCycleOffset>0);
-  if(cardCycleOffset>0){
-    if(mainTitle)mainTitle.textContent='Ciclo anterior';
-    if(mainLbl)mainLbl.textContent=cycleMonthLabel(prev);
-    if(mainAmt)mainAmt.textContent=`Anterior: ${fmt(cardCycleTotal(cardCycleOffset-1))}`;
-    main.onclick=()=>goPrevCardCycle();
-    const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='‹';
-    if(sideTitle)sideTitle.textContent='Ciclo seleccionado';
-    if(sideLbl)sideLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`;
-    if(sideAmt)sideAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
-    side.onclick=()=>abrirCardCyclePicker();
-    const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='⌄';
-  }else{
-    if(mainTitle)mainTitle.textContent='Ciclo seleccionado';
-    if(mainLbl)mainLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`;
-    if(mainAmt)mainAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`;
-    main.onclick=()=>abrirCardCyclePicker();
-    const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='⌄';
-    if(sideTitle)sideTitle.textContent='Siguiente ciclo';
-    if(sideLbl)sideLbl.textContent=cycleMonthLabel(next);
-    if(sideAmt)sideAmt.textContent=`Siguiente: ${fmt(cardCycleTotal(cardCycleOffset+1))}`;
-    side.onclick=()=>goNextCardCycle();
-    const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='›';
-  }
-  pulseCycleBar();
-}
 function txDateParts(t){const d=pf(t[0]);return {day:d.getDate(),month:d.getMonth(),year:d.getFullYear()};}
 function isCardExpenseFor(card,t){return t && t[3]!=='Ingreso' && (parseFloat(t[4])||0)>0 && sameAccount((t[5]||'').toString().trim(),card.cuenta);}
-function forceKnownMastercardRecoveries(){
-  // Los ciclos ahora se guardan en Sheets (CiclosOverride), no se necesita lógica hardcodeada
-}
 function getManualMovedTxs(card){return (datos.transacciones||[]).filter(t=>isCardExpenseFor(card,t)&&!!getTxCycleOverride(card,t)).sort((a,b)=>pf(b[0])-pf(a[0]));}
 function renderManualMovedSection(card,cycle){
   const moved=getManualMovedTxs(card).filter(t=>!txBelongsToCycle(card,t,cycle));
@@ -2732,7 +2469,6 @@ async function moverConsumoCiclo(row,targetOffset){
   const tx=datos.transacciones.find(x=>String(getTxRow(x))===String(row)); if(!tx)return;
   if(targetOffset==='auto')await clearTxCycleOverride(card,tx);
   else await setTxCycleOverride(card,tx,getCardCycle(card,cardCycleOffset+Number(targetOffset)));
-  forceKnownMastercardRecoveries();
   renderCardsPage(); renderCardDetail(); renderCardTxDetail(); toast('Ciclo actualizado','success');
 }
 function renderCardTxList(card,gastos,cycle){
@@ -2742,11 +2478,6 @@ function renderCardTxList(card,gastos,cycle){
   }).join(''):'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
   return list+renderManualMovedSection(card,cycle);
 }
-const _renderCardsPageBeforeRecover=renderCardsPage;
-renderCardsPage=function(){
-  forceKnownMastercardRecoveries();
-  _renderCardsPageBeforeRecover();
-};
 
 
 /* === Pagos por tarjeta: Sheets + estados avanzados === */
