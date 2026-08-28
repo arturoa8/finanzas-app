@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1213,15 +1212,11 @@ function renderBal(){
 
   // En modo Acumulado: sumar saldo pendiente de tarjetas de crédito
   // (el banco aún no lo ha descontado porque no has pagado la tarjeta)
+  // FIX: usar getCardData por tarjeta/ciclo en vez de un agregado global de
+  // cargos-pagos, que se desincroniza si una tarjeta tiene historial irregular.
   if(acumuladoMode){
-    const ccCuentas = new Set(CREDIT_CARDS.map(c=>c.cuenta.toLowerCase().trim()));
-    const totalCargos = txBalance
-      .filter(t => t[3]==='Gasto' && t[5] && ccCuentas.has(String(t[5]).toLowerCase().trim()))
-      .reduce((s,t) => s+(parseFloat(t[4])||0), 0);
-    const totalPagos = (datos.pagosTarjetas||[])
-      .filter(p=>{ try{return pf(p[4])<=hoy;}catch(e){return true;} })
-      .reduce((s,p) => s+(parseFloat(p[3])||0), 0);
-    balance += Math.max(0, totalCargos - totalPagos);
+    const totalPendienteTarjetas = CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,0).pendiente,0);
+    balance += totalPendienteTarjetas;
   }
 
   smoothSetText(document.getElementById('balAmt'), fmtN(Math.abs(balance)), Math.abs(balance));
@@ -2760,13 +2755,13 @@ async function guardarPagoTarjeta(){
   const date=document.getElementById('cardPayDate')?.value||hoyISO();
   const note=document.getElementById('cardPayNote')?.value||'';
   if(!await addCardPaymentRecord(ctx.card,ctx.data.cycle,amount,date,note)){toast('Ingresa un monto válido','error');return;}
-  renderCardsPage(); renderCardDetail(); toast('Pago agregado','success');
+  renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago agregado','success');
 }
 async function pagarSaldoCompleto(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(ctx.data.pendiente<=0){toast('No hay saldo pendiente','success');return;}
   await addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo');
-  renderCardsPage(); renderCardDetail(); toast('Saldo completo registrado','success');
+  renderBal(); renderCardsPage(); renderCardDetail(); toast('Saldo completo registrado','success');
 }
 async function limpiarPagoTarjeta(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
@@ -2775,7 +2770,7 @@ async function limpiarPagoTarjeta(){
   datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key));
   const fd=new URLSearchParams();fd.append('action','clearPagos');fd.append('tarjeta',ctx.card.cuenta);fd.append('cicloKey',key);
   await fetch(URL,{method:'POST',body:fd,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-  renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
+  renderBal(); renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
 }
 let editandoPagoId=null;
 function editarPagoTarjeta(id){
@@ -2800,20 +2795,20 @@ async function guardarEditPago(){
   const note=document.getElementById('payEditNote').value||'';
   if(!amount||parseFloat(amount)<=0){toast('Ingresa un monto válido','error');return;}
   await updateCardPaymentRecord(ctx.card,ctx.data.cycle,editandoPagoId,amount,date,note);
-  cerrarEditPago(); renderCardsPage(); renderCardDetail(); toast('Pago editado','success');
+  cerrarEditPago(); renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago editado','success');
 }
 async function confirmarEliminarPago(){
   if(!editandoPagoId)return;
   if(!confirm('¿Eliminar este pago?'))return;
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,editandoPagoId);
-  cerrarEditPago(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
+  cerrarEditPago(); renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
 }
 async function eliminarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(!confirm('¿Eliminar este pago?'))return;
   await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,id);
-  renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
+  renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
 }
 function renderPaymentHistory(card,cycle){
   const pagos=getCardPaymentRecords(card,cycle).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
