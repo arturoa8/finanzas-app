@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1240,12 +1238,12 @@ function renderBal(){
 
   let balance = iBal - gBal;
 
-  // En modo Acumulado: sumar saldo pendiente de tarjetas de crédito
-  // (el banco aún no lo ha descontado porque no has pagado la tarjeta)
-  // FIX: usar getCardData por tarjeta/ciclo en vez de un agregado global de
-  // cargos-pagos, que se desincroniza si una tarjeta tiene historial irregular.
+  // En modo Acumulado: sumar TODO lo consumido en tarjeta que aún no ha
+  // salido de la cuenta (gasto devengado sin pagar), incluyendo el ciclo que
+  // está corriendo ahora mismo y todavía no cierra — no solo el último ciclo
+  // ya cerrado. Así el Acumulado refleja flujo de caja libre real.
   if(acumuladoMode){
-    const totalPendienteTarjetas = CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,0).pendiente,0);
+    const totalPendienteTarjetas = CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
     balance += totalPendienteTarjetas;
   }
 
@@ -2766,6 +2764,17 @@ function getPaymentStatus(total,pagado,payDate){
   if(pagado>0)return{text:'Pago parcial',detail:`Pendiente ${fmt(pendiente)}`,cls:days<=3?'status-warn':'status-ok'};
   if(days<=3)return{text:'Vence pronto',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-warn'};
   return{text:'Sin pagar',detail:`Faltan ${days} día${days===1?'':'s'}`,cls:'status-bad'};
+}
+// Total adeudado real de la tarjeta ahora mismo: todo lo gastado hasta hoy
+// menos todo lo pagado, sin importar el ciclo (a diferencia de getCardData,
+// que es por-ciclo para la pestaña Tarjetas). Usado solo por el Acumulado.
+function getCardOutstandingTotal(card){
+  const consumo=datos.transacciones.filter(t=>{
+    const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
+    return tipo!=='Ingreso'&&monto>0&&sameAccount(cuenta,card.cuenta);
+  }).reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
+  const pagado=(datos.pagosTarjetas||[]).filter(p=>sameAccount(String(p[1]||''),card.cuenta)).reduce((sum,p)=>sum+(parseFloat(p[3])||0),0);
+  return Math.max(consumo-pagado,0);
 }
 function getCardData(card,offset=cardCycleOffset){
   const cycle=getCardCycle(card,offset);
