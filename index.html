@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -42,7 +44,7 @@ try{
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
 html{touch-action:manipulation;}
-body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:120px;padding-top:env(safe-area-inset-top);min-height:100vh;-webkit-user-select:none;user-select:none;}
+body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:120px;padding-top:env(safe-area-inset-top);min-height:100vh;-webkit-user-select:none;user-select:none;overflow-x:hidden;overscroll-behavior-x:none;}
 input,textarea{-webkit-user-select:text;user-select:text;}
 .container{max-width:600px;margin:0 auto;padding:0 20px;}
 
@@ -219,7 +221,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 /* Modal (image 3 style) */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);display:none;align-items:flex-end;justify-content:center;z-index:200;}
 .modal.active{display:flex;}
-.mc{background:#0a0a0a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:600px;max-height:92vh;overflow-y:auto;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);}
+.mc{background:#0a0a0a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:600px;max-height:92vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);}
 @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
 .mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .mh-x{width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--dim);font-size:1.05rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -400,7 +402,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .credit-card::after{content:''!important;display:none!important;}
 .credit-card .hint{margin-top:12px;font-size:.68rem;color:var(--muted);font-weight:600;}
 .stat-bar-row{margin-top:10px;}
-.card-detail-scroll{max-height:52vh;overflow-y:auto;padding-right:4px;}
+.card-detail-scroll{max-height:52vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;padding-right:4px;}
 .card-detail-actions{display:flex;gap:8px;margin-top:12px;}
 .card-detail-actions .btn{padding:12px 14px;}
 
@@ -591,8 +593,14 @@ input,textarea{-webkit-user-select:text;user-select:text;}
     <div class="metric-grid">
       <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
       <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
+      <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
       <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
       <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo por cuenta</div><div class="s-sub">Ingresos − gastos − pagos de tarjeta</div></div>
+      <div id="saldoCuentas" class="card-stat-grid"></div>
     </div>
 
     <div class="chart-card">
@@ -1037,7 +1045,7 @@ async function cargar(){
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelect('transacciones','?select=fecha,descripcion,categoria,tipo,monto,cuenta,id&order=fecha.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
-      sbSelect('pagos_tarjetas','?select=id,tarjeta,ciclo_key,monto,fecha,nota&order=fecha.asc'),
+      sbSelect('pagos_tarjetas','?select=id,tarjeta,ciclo_key,monto,fecha,nota,cuenta_origen&order=fecha.asc'),
       sbSelect('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key'),
       sbSelect('categorias','?select=nombre,color'),
       sbSelect('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo'),
@@ -1047,7 +1055,7 @@ async function cargar(){
     ]);
     datos.transacciones=tx.map(t=>[t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id]);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
-    datos.pagosTarjetas=pagos.map(p=>[p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota]);
+    datos.pagosTarjetas=pagos.map(p=>[p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota,p.cuenta_origen]);
     datos.ciclosOverride=ciclos.map(c=>[c.id,c.tarjeta,c.tx_id,c.ciclo_key]);
     datos.categorias=cats.map(c=>[c.nombre,c.color]);
     datos.deudas=deu.filter(d=>!d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo]);
@@ -2003,6 +2011,31 @@ function gastosPorCat(tx){
   return c;
 }
 
+// Saldo real de una cuenta de efectivo (Plin/Yape): ingresos y gastos hechos
+// directo desde ahí, menos los pagos de tarjeta que salieron de esa cuenta
+// (los consumos EN la tarjeta no cuentan aquí, porque no salen de la cuenta
+// hasta que se paga la tarjeta — eso ya está cubierto por pagos_tarjetas).
+function getCuentaBalance(cuenta){
+  let bal=0;
+  datos.transacciones.forEach(t=>{
+    if(!sameAccount((t[5]||'').toString().trim(),cuenta))return;
+    const m=parseFloat(t[4])||0;
+    bal+=t[3]==='Ingreso'?m:-m;
+  });
+  (datos.pagosTarjetas||[]).forEach(p=>{
+    if(sameAccount(String(p[6]||''),cuenta))bal-=(parseFloat(p[3])||0);
+  });
+  return bal;
+}
+function renderSaldoCuentas(){
+  const cont=document.getElementById('saldoCuentas'); if(!cont)return;
+  const cuentas=['Plin','Yape'];
+  cont.innerHTML=cuentas.map(c=>{
+    const b=getCuentaBalance(c);
+    return `<div class="card-stat"><div class="card-stat-lbl">${c}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
+  }).join('');
+}
+
 function renderAnalisis(){
   const tx=getTxAn();const tot=totales(tx);
   // Tasa de ahorro
@@ -2012,7 +2045,9 @@ function renderAnalisis(){
   eA.className='m-val '+(ahorro>=0?'pos':'neg');
   document.getElementById('mAhorroSub').textContent=tot.i>0?fmt(tot.bal)+' de '+fmt(tot.i):'sin ingresos';
 
-  // Promedio diario gastos
+  // Promedio diario gastos — excluye 'Estudios' (cuotas de universidad): son
+  // montos grandes y puntuales que no representan el gasto diario real, y
+  // sesgan tanto el promedio como la proyección de fin de período.
   let dias=1;
   if(anPeriodo==='mes'){
     const ma=getMesActivo();const ahora=new Date();
@@ -2023,9 +2058,25 @@ function renderAnalisis(){
     const start=new Date(yr,0,1);
     dias=Math.floor((ahora-start)/(1000*60*60*24))+1;
   }
-  const prom=dias>0?tot.g/dias:0;
+  const gSinEstudios=tx.filter(t=>t[3]!=='Ingreso'&&norm(t[2])!=='estudios').reduce((s,t)=>s+(parseFloat(t[4])||0),0);
+  const prom=dias>0?gSinEstudios/dias:0;
   document.getElementById('mProm').textContent=fmt(prom);
-  document.getElementById('mPromSub').textContent='gasto promedio en '+dias+' día'+(dias>1?'s':'');
+  document.getElementById('mPromSub').textContent='gasto promedio en '+dias+' día'+(dias>1?'s':'')+' (sin Estudios)';
+
+  // Proyección de fin de período (mes o año), con el mismo promedio sin Estudios
+  let diasTotalesPeriodo;
+  if(anPeriodo==='mes'){
+    const ma=getMesActivo();
+    diasTotalesPeriodo=new Date(ma.getFullYear(),ma.getMonth()+1,0).getDate();
+  }else{
+    const yr=new Date().getFullYear();
+    diasTotalesPeriodo=Math.round((new Date(yr,11,31)-new Date(yr,0,1))/(1000*60*60*24))+1;
+  }
+  const proyeccion=prom*diasTotalesPeriodo;
+  document.getElementById('mProy').textContent=fmt(proyeccion);
+  document.getElementById('mProySub').textContent=`a este ritmo, ~${fmt(proyeccion)} en gastos ${anPeriodo==='mes'?'este mes':'este año'} (sin Estudios)`;
+
+  renderSaldoCuentas();
 
   // Categoría más cara
   const cats=gastosPorCat(tx);
@@ -2736,14 +2787,19 @@ function getCardPaymentRecords(card,cycle){
   const key=getCycleKey(cycle);
   return (datos.pagosTarjetas||[])
     .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&normCycleKey(r[2])===key)
-    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:normCycleKey(r[4]),note:String(r[5]||'')}));
+    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:normCycleKey(r[4]),note:String(r[5]||''),cuentaOrigen:r[6]||null}));
 }
 function getCardPayment(card,cycle){return getCardPaymentRecords(card,cycle).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);}
-async function addCardPaymentRecord(card,cycle,amount,date,note){
+// Cuenta de la que normalmente sale el pago de cada tarjeta (editable por pago).
+function defaultCuentaOrigen(card){
+  if(sameAccount(card.cuenta,'Visa iO'))return 'Yape';
+  return 'Plin';
+}
+async function addCardPaymentRecord(card,cycle,amount,date,note,cuentaOrigen){
   const n=Math.max(0,parseFloat(amount)||0); if(!n)return false;
   const key=getCycleKey(cycle);
-  const row=await sbInsert('pagos_tarjetas',{tarjeta:card.cuenta,ciclo_key:key,monto:n,fecha:date||hoyISO(),nota:note||null});
-  datos.pagosTarjetas.push([row.id,row.tarjeta,row.ciclo_key,row.monto,row.fecha,row.nota]);
+  const row=await sbInsert('pagos_tarjetas',{tarjeta:card.cuenta,ciclo_key:key,monto:n,fecha:date||hoyISO(),nota:note||null,cuenta_origen:cuentaOrigen||defaultCuentaOrigen(card)});
+  datos.pagosTarjetas.push([row.id,row.tarjeta,row.ciclo_key,row.monto,row.fecha,row.nota,row.cuenta_origen]);
   return true;
 }
 async function updateCardPaymentRecord(card,cycle,id,amount,date,note){
@@ -2802,13 +2858,15 @@ async function guardarPagoTarjeta(){
   const amount=document.getElementById('cardPayAmount')?.value;
   const date=document.getElementById('cardPayDate')?.value||hoyISO();
   const note=document.getElementById('cardPayNote')?.value||'';
-  if(!await addCardPaymentRecord(ctx.card,ctx.data.cycle,amount,date,note)){toast('Ingresa un monto válido','error');return;}
+  const cuenta=document.getElementById('cardPayCuenta')?.value||defaultCuentaOrigen(ctx.card);
+  if(!await addCardPaymentRecord(ctx.card,ctx.data.cycle,amount,date,note,cuenta)){toast('Ingresa un monto válido','error');return;}
   renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago agregado','success');
 }
 async function pagarSaldoCompleto(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(ctx.data.pendiente<=0){toast('No hay saldo pendiente','success');return;}
-  await addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo');
+  const cuenta=document.getElementById('cardPayCuenta')?.value||defaultCuentaOrigen(ctx.card);
+  await addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo',cuenta);
   renderBal(); renderCardsPage(); renderCardDetail(); toast('Saldo completo registrado','success');
 }
 async function limpiarPagoTarjeta(){
@@ -2864,8 +2922,11 @@ function renderPaymentHistory(card,cycle){
   if(!pagos.length)return '<div class="pay-history"><div class="pay-history-title">Historial de pagos</div><div class="empty" style="padding:18px 8px">Aún no registras pagos para este ciclo</div></div>';
   return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.note||'Sin nota'}</div><div class="pay-item-actions"><button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button><button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${fmt(p.amount)}</div></div>`).join('')}</div>`;
 }
-function renderPaymentForm(pendiente){
-  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>`;
+function renderPaymentForm(pendiente,card){
+  const def=defaultCuentaOrigen(card);
+  const cuentas=['Plin','Yape'];
+  const opts=cuentas.map(c=>`<option value="${c}"${c===def?' selected':''}>${c}</option>`).join('');
+  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>`;
 }
 function goPrevCardCycle(){cardCycleOffset -= 1; renderCardsPage();}
 function goNextCardCycle(){cardCycleOffset += 1; renderCardsPage();}
@@ -2903,7 +2964,7 @@ function renderCardDetail(){
     <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
     ${renderCreditLineBlock(card,pendiente)}
     <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
-    ${renderPaymentForm(pendiente)}
+    ${renderPaymentForm(pendiente,card)}
     ${renderPaymentHistory(card,cycle)}`;
 }
 
