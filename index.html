@@ -521,6 +521,23 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 </head>
 <body>
 
+<!-- AUTH GATE -->
+<div id="authGate" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:360px;">
+    <div class="logo" style="text-align:center;font-size:1.6rem;margin-bottom:28px;">Mis <span>Finanzas</span></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;">
+      <div id="authTitle" style="font-weight:700;font-size:1rem;margin-bottom:16px;">Iniciar sesión</div>
+      <input type="email" id="authEmail" class="search-inp" style="margin-bottom:10px;" placeholder="Correo" autocomplete="username">
+      <input type="password" id="authPassword" class="search-inp" style="margin-bottom:6px;" placeholder="Contraseña" autocomplete="current-password">
+      <div id="authError" style="color:var(--red);font-size:0.78rem;min-height:18px;margin:6px 0 4px;"></div>
+      <button class="btn btn-p" style="width:100%;margin-top:8px;" onclick="submitAuth()" id="authSubmitBtn">Entrar</button>
+      <div style="text-align:center;margin-top:14px;font-size:0.8rem;color:var(--dim);">
+        <span id="authToggleLbl">¿Primera vez?</span> <a href="#" onclick="toggleAuthMode();return false;" style="color:var(--green);" id="authToggleLink">Crear cuenta</a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div class="page active" id="p-dash">
   <div class="container">
@@ -532,6 +549,9 @@ input,textarea{-webkit-user-select:text;user-select:text;}
         </button>
         <button class="icon-btn" id="refreshBtn" onclick="cargar()" aria-label="Actualizar">
           <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+        </button>
+        <button class="icon-btn" onclick="if(confirm('¿Cerrar sesión?'))signOut()" aria-label="Cerrar sesión">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
     </header>
@@ -942,10 +962,43 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 // ── Supabase ──────────────────────────────────────────────────────────────
 const SUPABASE_URL='https://uyaitpzjrzzvspwcvgrn.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5YWl0cHpqcnp6dnNwd2N2Z3JuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5MjYxMDYsImV4cCI6MjEwMzUwMjEwNn0.LaL1MRc1e1J8sVaF-oSZIWiOhICXgHM8wgC6tZQ1hSI';
-const SB_HEADERS={apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'};
+// ── Auth (email + contraseña) ────────────────────────────────────────────
+// Sin login, la anon key sola le da acceso a cualquiera a todos los datos
+// (queda visible en el HTML público). Con esto, las políticas RLS en Supabase
+// exigen además una sesión válida de tu propia cuenta.
+const AUTH_URL=`${SUPABASE_URL}/auth/v1`;
+function getSession(){try{return JSON.parse(localStorage.getItem('sb_session')||'null');}catch(e){return null;}}
+function setSession(s){if(s)localStorage.setItem('sb_session',JSON.stringify(s));else localStorage.removeItem('sb_session');}
+async function authRequest(path,body){
+  const r=await fetch(`${AUTH_URL}${path}`,{method:'POST',headers:{apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error_description||data.msg||data.error||'Error de autenticación');
+  return data;
+}
+async function signIn(email,password){
+  const data=await authRequest('/token?grant_type=password',{email,password});
+  setSession({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+(data.expires_in*1000)});
+  return data;
+}
+async function signUp(email,password){return authRequest('/signup',{email,password});}
+async function refreshSession(){
+  const s=getSession(); if(!s||!s.refresh_token)return null;
+  try{
+    const data=await authRequest('/token?grant_type=refresh_token',{refresh_token:s.refresh_token});
+    setSession({access_token:data.access_token,refresh_token:data.refresh_token,expires_at:Date.now()+(data.expires_in*1000)});
+    return data;
+  }catch(e){setSession(null);return null;}
+}
+function signOut(){setSession(null);location.reload();}
+async function authHeader(){
+  let s=getSession();
+  if(s&&s.expires_at-Date.now()<60000)s=await refreshSession();
+  return s?('Bearer '+s.access_token):('Bearer '+SUPABASE_ANON_KEY);
+}
 
 async function sbFetch(path,opts={}){
-  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers:{...SB_HEADERS,...(opts.headers||{})}});
+  const headers={apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json',Authorization:await authHeader(),...(opts.headers||{})};
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers});
   if(!r.ok){let msg;try{msg=(await r.json()).message;}catch(e){msg=await r.text().catch(()=>r.statusText);}throw new Error(msg||('HTTP '+r.status));}
   const ct=r.headers.get('content-type')||'';
   return ct.includes('application/json')?r.json():null;
@@ -1337,7 +1390,7 @@ function renderRec(){
   if(!datos.recurrentes||datos.recurrentes.length===0){l.innerHTML='<div class="empty">Sin recurrentes<br><span style="font-size:0.7rem">Añádelas en la pestaña Recurrentes del Sheet</span></div>';return;}
   l.innerHTML=datos.recurrentes.filter(r=>r[5]!==false&&r[5]!=='No').map(r=>{
     const i=r[2]==='Ingreso';
-    return `<div class="ritem"><div><div class="rdesc">${r[0]}</div><div class="rmeta">${cleanName(r[1])} • Día ${r[4]}</div></div><div class="ramt ${i?'in':''}">${i?'+':'−'}${fmtC(r[3])}</div></div>`;
+    return `<div class="ritem"><div><div class="rdesc">${escHtml(r[0])}</div><div class="rmeta">${escHtml(cleanName(r[1]))} • Día ${r[4]}</div></div><div class="ramt ${i?'in':''}">${i?'+':'−'}${fmtC(r[3])}</div></div>`;
   }).join('');
 }
 
@@ -2463,7 +2516,7 @@ function renderLineasCreditoConfig(){
   const cardItems=cards.map((card,i)=>`
     <div class="line-config-item" data-card-idx="${i}" data-old-cuenta="${escAttr(card.cuenta)}">
       <div class="line-config-name" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
-        <span>${card.emoji} ${card.nombre}</span>
+        <span>${escHtml(card.emoji)} ${escHtml(card.nombre)}</span>
         <button class="line-edit-btn" style="background:#ff3b6b1a;border-color:#ff3b6b66;color:var(--red)" onclick="eliminarTarjeta('${escAttr(card.cuenta)}')">Eliminar</button>
       </div>
       <div class="line-config-row" style="grid-template-columns:80px 1fr;margin-top:8px">
@@ -2658,7 +2711,7 @@ function renderCardMiniList(gastos,limit=3,card=null){
   if(!gastos.length)return '<div class="empty" style="padding:18px 8px">Sin consumos en este ciclo</div>';
   return `<div class="card-mini-list">${gastos.slice(0,limit).map(t=>{
     const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const cta=card?card.cuenta:(t[5]||'');
-    return `<div class="card-mini-item" onclick="event.stopPropagation();abrirCardTxDetail('${String(cta).replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-mini-desc">${em.e} ${t[1]||'Sin descripción'}</div><div class="card-mini-meta">${cleanName(t[2])} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
+    return `<div class="card-mini-item" onclick="event.stopPropagation();abrirCardTxDetail('${String(cta).replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-mini-desc">${em.e} ${escHtml(t[1]||'Sin descripción')}</div><div class="card-mini-meta">${cleanName(t[2])} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
   }).join('')}</div>`;
 }
 
@@ -2672,7 +2725,7 @@ function renderCardsPage(){
       const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
       const pct=total>0?Math.min((pagado/total)*100,100):0;
       return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
-        <div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
+        <div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
         <div class="credit-info">
           <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
           <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}</span></div>
@@ -2693,10 +2746,10 @@ function renderCardsPage(){
             const em=getEmoji(cleanName(t[2]));
             const override=getTxCycleOverride(card,t);
             const row=String(getTxRow(t)).replace(/'/g,"\\'");
-            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><span class="card-tx-amt">− ${fmt(t[4])}</span><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
+            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><span class="card-tx-amt">− ${fmt(t[4])}</span><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
           }).join('')
         :'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
-      return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-tx-list">${txRows}</div></div>`;
+      return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-tx-list">${txRows}</div></div>`;
     }).join('');
     return;
   }
@@ -2706,7 +2759,7 @@ function renderCardsPage(){
     const delta=data.total-prev.total; const pct=prev.total>0?(delta/prev.total)*100:(data.total>0?100:0);
     const cls=delta<0?'stat-delta-pos':delta>0?'stat-delta-neg':'stat-delta-flat';
     const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pct>0?'+':''}${pct.toFixed(0)}%`;
-    return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${card.emoji} ${card.nombre}</div><div class="credit-sub">Stats vs ciclo anterior</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${cls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${data.gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="hint">Toca para ver estadísticas completas</div></div>`;
+    return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')"><div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">Stats vs ciclo anterior</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${cls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${data.gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${st.topCat} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${st.maxTx[1]} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="hint">Toca para ver estadísticas completas</div></div>`;
   }).join('');
 }
 
@@ -2727,7 +2780,7 @@ function renderCardTxDetail(){
   if(!tx){cont.innerHTML='<div class="empty">No encontré este consumo</div>';return;}
   const em=getEmoji(cleanName(tx[2])); const cycle=getCardCycle(card,cardCycleOffset); const override=getTxCycleOverride(card,tx);
   const modo=override?'Manual':'Automático';
-  cont.innerHTML=`<div class="card-detail-head"><div class="card-detail-name">${em.e} ${tx[1]||'Sin descripción'}</div><div class="card-detail-sub">${card.nombre} · ${fmtDateLong(pf(tx[0]))}</div></div>
+  cont.innerHTML=`<div class="card-detail-head"><div class="card-detail-name">${em.e} ${escHtml(tx[1]||'Sin descripción')}</div><div class="card-detail-sub">${escHtml(card.nombre)} · ${fmtDateLong(pf(tx[0]))}</div></div>
     <div class="tx-detail-grid">
       <div class="tx-detail-row"><span>Monto</span><span style="color:var(--red)">− ${fmt(tx[4])}</span></div>
       <div class="tx-detail-row"><span>Categoría</span><span>${cleanName(tx[2])}</span></div>
@@ -2757,7 +2810,7 @@ function renderManualMovedSection(card,cycle){
   if(!moved.length)return '';
   return `<div class="manual-section-title">Movidos manualmente fuera de este ciclo</div>`+moved.map(t=>{
     const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const key=getTxCycleOverride(card,t);
-    return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+    return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
   }).join('');
 }
 async function moverConsumoCiclo(row,targetOffset){
@@ -2770,7 +2823,7 @@ async function moverConsumoCiclo(row,targetOffset){
 function renderCardTxList(card,gastos,cycle){
   const list=gastos.length?gastos.map(t=>{
     const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const row=getTxRow(t);
-    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${t[1]||'Sin descripción'} ${override?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} ${override?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${cleanName(t[2])} · ${fmtDateLong(pf(t[0]))}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
   }).join(''):'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
   return list+renderManualMovedSection(card,cycle);
 }
@@ -2920,7 +2973,7 @@ async function eliminarPagoTarjeta(id){
 function renderPaymentHistory(card,cycle){
   const pagos=getCardPaymentRecords(card,cycle).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!pagos.length)return '<div class="pay-history"><div class="pay-history-title">Historial de pagos</div><div class="empty" style="padding:18px 8px">Aún no registras pagos para este ciclo</div></div>';
-  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.note||'Sin nota'}</div><div class="pay-item-actions"><button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button><button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${fmt(p.amount)}</div></div>`).join('')}</div>`;
+  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions"><button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button><button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${fmt(p.amount)}</div></div>`).join('')}</div>`;
 }
 function renderPaymentForm(pendiente,card){
   const def=defaultCuentaOrigen(card);
@@ -2952,7 +3005,7 @@ function renderCardDetail(){
   const pct=total>0?Math.min((pagado/total)*100,100):0; const delta=total-prev.total; const pctDelta=prev.total>0?(delta/prev.total)*100:(total>0?100:0);
   const deltaCls=delta<0?'stat-delta-pos':delta>0?'stat-delta-neg':'stat-delta-flat';
   const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pctDelta>0?'+':''}${pctDelta.toFixed(0)}%`;
-  const head=`<div class="card-detail-head"><div class="card-detail-name">${card.emoji} ${card.nombre}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>`;
+  const head=`<div class="card-detail-head"><div class="card-detail-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)} · paga hasta ${fmtDateLong(cycle.pay)}</div></div>`;
   if(cardPageTab==='consumos'){
     cont.innerHTML=head+`<div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>`; return;
   }
@@ -2968,7 +3021,66 @@ function renderCardDetail(){
     ${renderPaymentHistory(card,cycle)}`;
 }
 
-cargar();
+// ── Protección contra doble clic ─────────────────────────────────────────────
+// Si el usuario toca "Guardar"/"Eliminar" dos veces rápido (común en botones
+// táctiles), la segunda llamada se ignora mientras la primera sigue en curso,
+// evitando registros o eliminaciones duplicadas.
+function guardedOnce(fn){
+  let busy=false;
+  return async function(...args){
+    if(busy)return;
+    busy=true;
+    try{ return await fn.apply(this,args); }
+    finally{ busy=false; }
+  };
+}
+[
+  'guardar','eliminar','guardarDeuda','guardarAbono','confirmarArchivar',
+  'confirmarDesarchivar','guardarEditAbono','eliminarAbono','editarFechaDeuda',
+  'guardarPagoTarjeta','pagarSaldoCompleto','limpiarPagoTarjeta',
+  'guardarEditPago','confirmarEliminarPago','eliminarPagoTarjeta',
+  'guardarTarjetaInline','agregarTarjeta','eliminarTarjeta','guardarMetaPct',
+  'cargar'
+].forEach(name=>{ window[name]=guardedOnce(window[name]); });
+
+// ── Arranque: exige sesión antes de mostrar la app ───────────────────────
+let authMode='signin';
+function toggleAuthMode(){
+  authMode=authMode==='signin'?'signup':'signin';
+  document.getElementById('authTitle').textContent=authMode==='signin'?'Iniciar sesión':'Crear cuenta';
+  document.getElementById('authSubmitBtn').textContent=authMode==='signin'?'Entrar':'Crear cuenta';
+  document.getElementById('authToggleLbl').textContent=authMode==='signin'?'¿Primera vez?':'¿Ya tienes cuenta?';
+  document.getElementById('authToggleLink').textContent=authMode==='signin'?'Crear cuenta':'Iniciar sesión';
+  document.getElementById('authError').textContent='';
+}
+async function submitAuth(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  const errEl=document.getElementById('authError');
+  errEl.style.color='var(--red)';
+  errEl.textContent='';
+  if(!email||!password){errEl.textContent='Completa correo y contraseña';return;}
+  try{
+    if(authMode==='signin'){
+      await signIn(email,password);
+      ocultarAuthGate();
+      cargar();
+    }else{
+      await signUp(email,password);
+      toggleAuthMode();
+      errEl.style.color='var(--green)';
+      errEl.textContent='Cuenta creada. Revisa tu correo si te pide confirmarlo, luego inicia sesión.';
+    }
+  }catch(e){errEl.style.color='var(--red)';errEl.textContent=e.message||'Error de autenticación';}
+}
+function ocultarAuthGate(){document.getElementById('authGate').style.display='none';}
+async function bootAuth(){
+  let s=getSession();
+  if(s&&s.expires_at-Date.now()<60000)s=await refreshSession();
+  if(s){ocultarAuthGate();cargar();}
+  // si no hay sesión, se queda mostrando #authGate (visible por defecto)
+}
+bootAuth();
 </script>
 </body>
 </html>
