@@ -605,38 +605,87 @@ input,textarea{-webkit-user-select:text;user-select:text;}
   <div class="container">
     <header class="header"><div class="page-title">Análisis</div></header>
 
-    <div class="an-tabs">
-      <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
-      <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
+    <div class="detail-tabs page-tabs" id="anTopTabs">
+      <button class="detail-tab active" onclick="setAnTopTab('portafolio',this)">Mi Portafolio</button>
+      <button class="detail-tab" onclick="setAnTopTab('finanzas',this)">Finanzas</button>
     </div>
 
-    <div class="metric-grid">
-      <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
-      <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
-      <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
-      <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
-      <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
-    </div>
+    <!-- MI PORTAFOLIO (IBKR) -->
+    <div id="anPanelPortafolio">
+      <div id="pfEstado"></div>
 
-    <div class="chart-card">
-      <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo por cuenta</div><div class="s-sub">Ingresos − gastos − pagos de tarjeta</div></div>
-      <div id="saldoCuentas" class="card-stat-grid"></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="s-head" style="margin-bottom:14px"><div class="s-title">Gastos por categoría</div></div>
-      <div class="an-tabs" style="margin-bottom:12px">
-        <button class="antb active" onclick="setChart('bar',this)">Barras</button>
-        <button class="antb" onclick="setChart('donut',this)">Circular</button>
-        <button class="antb" onclick="setChart('trend',this)">Tendencia</button>
+      <div class="chart-card" id="pfResumenCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px">
+          <div class="s-title">Valor total</div>
+          <div class="s-sub" id="pfFechaEfectiva">—</div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
+          <div class="metric"><div class="m-lbl">Efectivo disponible</div><div class="m-val" id="pfEfectivo">—</div><div class="m-sub">cash</div></div>
+          <div class="metric full"><div class="m-lbl">P&amp;L no realizado</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">posiciones abiertas</div></div>
+        </div>
+        <div class="s-sub" id="pfUltimaSync" style="margin-top:8px">—</div>
       </div>
-      <div id="chartArea"></div>
-      <div class="legend" id="chartLegend"></div>
+
+      <div class="chart-card" id="pfChartCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Histórico</div></div>
+        <div class="an-tabs" id="pfPeriodoTabs">
+          <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1M</button>
+          <button class="antb" data-p="3M" onclick="setPfPeriodo('3M',this)">3M</button>
+          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6M</button>
+          <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">Año actual</button>
+          <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
+        </div>
+        <div id="pfChartArea"></div>
+      </div>
+
+      <div class="chart-card" id="pfDistCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Distribución</div></div>
+        <div id="pfDistArea"></div>
+        <div class="legend" id="pfDistLegend"></div>
+      </div>
+
+      <div class="chart-card" id="pfPosicionesCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Posiciones</div></div>
+        <div id="pfPosicionesLista"></div>
+      </div>
     </div>
 
-    <div class="chart-card" id="yearCard" style="display:none">
-      <div class="s-head" style="margin-bottom:14px"><div class="s-title">Vista anual</div></div>
-      <div class="year-mini" id="yearMini"></div>
+    <!-- FINANZAS (contenido original de Análisis, sin cambios) -->
+    <div id="anPanelFinanzas" style="display:none">
+      <div class="an-tabs">
+        <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
+        <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
+        <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
+        <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
+        <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
+        <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo por cuenta</div><div class="s-sub">Ingresos − gastos − pagos de tarjeta</div></div>
+        <div id="saldoCuentas" class="card-stat-grid"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="s-head" style="margin-bottom:14px"><div class="s-title">Gastos por categoría</div></div>
+        <div class="an-tabs" style="margin-bottom:12px">
+          <button class="antb active" onclick="setChart('bar',this)">Barras</button>
+          <button class="antb" onclick="setChart('donut',this)">Circular</button>
+          <button class="antb" onclick="setChart('trend',this)">Tendencia</button>
+        </div>
+        <div id="chartArea"></div>
+        <div class="legend" id="chartLegend"></div>
+      </div>
+
+      <div class="chart-card" id="yearCard" style="display:none">
+        <div class="s-head" style="margin-bottom:14px"><div class="s-title">Vista anual</div></div>
+        <div class="year-mini" id="yearMini"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -803,6 +852,17 @@ input,textarea{-webkit-user-select:text;user-select:text;}
       <button class="mh-x" onclick="cerrarCardTxDetail()">✕</button>
     </div>
     <div id="cardTxDetailContent"></div>
+  </div>
+</div>
+
+<!-- DETALLE DE POSICIÓN (PORTAFOLIO IBKR) -->
+<div class="modal centered" id="pfPosModal">
+  <div class="mc">
+    <div class="mc-top">
+      <div class="mt" id="pfPosModalTitle">Posición</div>
+      <button class="mh-x" onclick="cerrarPfPosModal()">✕</button>
+    </div>
+    <div id="pfPosModalBody"></div>
   </div>
 </div>
 
@@ -1554,7 +1614,10 @@ function setPg(p,b){
   document.getElementById('p-'+p).classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
-  if(p==='ana')renderAnalisis();
+  if(p==='ana'){
+    renderAnalisis();
+    setAnTopTab('portafolio', document.querySelector('#anTopTabs .detail-tab'));
+  }
   if(p==='card')renderCardsPage();
   if(p==='bud')renderBud();
 }
@@ -2088,6 +2151,302 @@ function renderSaldoCuentas(){
     return `<div class="card-stat"><div class="card-stat-lbl">${c}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
   }).join('');
 }
+
+// ============ MI PORTAFOLIO (IBKR) ============
+let anTopTab='portafolio';
+let pfPeriodo='6M';
+let pfHistoricoCache=[];
+let pfPosicionesCache=[];
+let pfModalPeriodo='6M';
+let pfModalHistoricoCache=[];
+let pfModalContractId=null;
+
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function parseDateOnly(s){
+  if(!s)return null;
+  const[y,m,d]=String(s).split('-').map(Number);
+  if(!y||!m||!d)return null;
+  return new Date(y,m-1,d);
+}
+function fmtMoneda(n,moneda){
+  if(n===null||n===undefined||!isFinite(n))return '—';
+  try{
+    return new Intl.NumberFormat('es-PE',{style:'currency',currency:moneda||'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+  }catch(e){
+    return (moneda?moneda+' ':'')+Number(n).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+}
+function fmtCompacto(n){const x=Number(n||0);return Math.abs(x)>=1000?(x/1000).toFixed(1)+'k':x.toFixed(0);}
+function fmtPct(n){return n===null||n===undefined||!isFinite(n)?'—':n.toFixed(1)+'%';}
+function hoyLocal(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function diasEntre(a,b){return Math.round((a-b)/86400000);}
+
+function setAnTopTab(tab,btn){
+  anTopTab=tab;
+  document.querySelectorAll('#anTopTabs .detail-tab').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.getElementById('anPanelPortafolio').style.display=tab==='portafolio'?'':'none';
+  document.getElementById('anPanelFinanzas').style.display=tab==='finanzas'?'':'none';
+  if(tab==='portafolio')renderPortafolio();
+}
+
+function filtrarPorPeriodo(rows,periodo,campoFecha){
+  if(periodo==='ALL')return rows;
+  const hoy=hoyLocal();
+  let desde;
+  if(periodo==='YTD')desde=new Date(hoy.getFullYear(),0,1);
+  else{
+    const dias={'1M':30,'3M':90,'6M':180}[periodo]||180;
+    desde=new Date(hoy);desde.setDate(desde.getDate()-dias);
+  }
+  return rows.filter(r=>{const f=parseDateOnly(r[campoFecha]);return f&&f>=desde;});
+}
+
+function construirLineChartSVG(puntos){
+  const validos=puntos.filter(p=>p.valor!==null&&p.valor!==undefined&&isFinite(p.valor));
+  if(validos.length<2){
+    if(validos.length===1)return `<div class="empty">Histórico insuficiente para graficar — disponible desde ${esc(fmtDateShort(parseDateOnly(validos[0].fecha)))}</div>`;
+    return '<div class="empty">Histórico insuficiente para graficar</div>';
+  }
+  const w=320,h=180,padL=44,padR=10,padT=10,padB=22;
+  const vals=validos.map(p=>p.valor);
+  const max=Math.max(...vals),min=Math.min(...vals);
+  const rango=(max-min)||Math.max(Math.abs(max),1);
+  const innerW=w-padL-padR,innerH=h-padT-padB;
+  const step=innerW/(validos.length-1);
+  let path='',area='';
+  validos.forEach((p,i)=>{
+    const x=padL+i*step;
+    const y=padT+innerH-((p.valor-min)/rango)*innerH;
+    path+=(i===0?'M':'L')+x+' '+y+' ';
+    if(i===0)area='M '+x+' '+(padT+innerH)+' L '+x+' '+y+' ';
+    else area+='L '+x+' '+y+' ';
+    if(i===validos.length-1)area+='L '+x+' '+(padT+innerH)+' Z';
+  });
+  let svg=`<svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet">`;
+  for(let i=0;i<=3;i++){
+    const yy=padT+innerH*(i/3);
+    const val=max-(max-min)*(i/3);
+    svg+=`<line x1="${padL}" y1="${yy}" x2="${w-padR}" y2="${yy}" stroke="#1f1f23" stroke-width="1"/>`;
+    svg+=`<text x="0" y="${yy+3}" fill="#52525b" font-size="8">${fmtCompacto(val)}</text>`;
+  }
+  svg+=`<path d="${area}" fill="var(--green)" opacity="0.12"/>`;
+  svg+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2"/>`;
+  [0,Math.floor((validos.length-1)/2),validos.length-1].forEach(i=>{
+    const x=padL+i*step;
+    svg+=`<text x="${x}" y="${h-4}" text-anchor="middle" fill="#52525b" font-size="8">${esc(fmtDateShort(parseDateOnly(validos[i].fecha)))}</text>`;
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+async function renderPortafolio(){
+  const estadoEl=document.getElementById('pfEstado');
+  ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
+  estadoEl.innerHTML='<div class="empty">Cargando portafolio…</div>';
+
+  let config,sync,historial,posiciones;
+  try{
+    [config,sync,historial,posiciones]=await Promise.all([
+      sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
+      sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
+      sbFetch('portafolio_historial?select=*&order=fecha_valoracion.asc'),
+      sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
+    ]);
+  }catch(e){
+    estadoEl.innerHTML=`<div class="empty">No se pudo conectar con el servidor para cargar tu portafolio.<br>${esc(e.message||'Error de red')}<br><span style="font-size:.68rem">Si tenías datos antes, no se han borrado — vuelve a intentarlo en un momento.</span></div>`;
+    return;
+  }
+
+  pfHistoricoCache=historial||[];
+  pfPosicionesCache=posiciones||[];
+  const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
+  const ultimaSync=(sync&&sync[0])||null;
+
+  if(!ultimoHistorial){
+    estadoEl.innerHTML=(config&&config[0])
+      ? '<div class="empty">Todavía no hay ninguna sincronización exitosa con IBKR.<br>Se mostrará aquí en cuanto corra la primera.</div>'
+      : '<div class="empty">La sincronización con IBKR aún no está configurada.</div>';
+    return;
+  }
+  estadoEl.innerHTML='';
+
+  // Aviso de datos desactualizados: la última fila de sincronizaciones_portafolio
+  // es más nueva que el último histórico válido y terminó en error.
+  if(ultimaSync && ultimaSync.estado==='error' && ultimoHistorial &&
+     new Date(ultimaSync.iniciado_en) > new Date(ultimoHistorial.creado_en||0)){
+    const dias=diasEntre(hoyLocal(),parseDateOnly(ultimoHistorial.fecha_valoracion));
+    estadoEl.innerHTML=`<div class="empty" style="color:var(--yellow);text-align:left;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
+      ⚠️ La última sincronización falló (${esc(fmtDateLong(new Date(ultimaSync.iniciado_en)))}). Mostrando los últimos datos válidos, de hace ${dias} día${dias!==1?'s':''}.
+    </div>`;
+  }
+
+  renderPfResumen(ultimoHistorial, ultimaSync);
+  document.getElementById('pfResumenCard').style.display='';
+
+  document.getElementById('pfChartCard').style.display='';
+  renderPfChart();
+
+  document.getElementById('pfDistCard').style.display='';
+  renderPfDistribucion(ultimoHistorial);
+
+  document.getElementById('pfPosicionesCard').style.display='';
+  renderPfPosiciones(pfPosicionesCache);
+}
+
+function renderPfResumen(row,ultimaSync){
+  document.getElementById('pfValorTotal').textContent=fmtMoneda(row.valor_total,row.moneda_base);
+  document.getElementById('pfMonedaBase').textContent='moneda base: '+(row.moneda_base||'—');
+  document.getElementById('pfEfectivo').textContent=fmtMoneda(row.efectivo,row.moneda_base);
+  const pnlEl=document.getElementById('pfPnl');
+  pnlEl.textContent=row.pnl_no_realizado!==null?fmtMoneda(row.pnl_no_realizado,row.moneda_base):'No disponible';
+  pnlEl.style.color=row.pnl_no_realizado>0?'var(--green)':(row.pnl_no_realizado<0?'var(--red)':'');
+  const fecha=parseDateOnly(row.fecha_valoracion);
+  document.getElementById('pfFechaEfectiva').textContent='Datos al '+fmtDateLong(fecha);
+  const ultOkTxt = ultimaSync && ultimaSync.estado!=='error'
+    ? `Última sincronización exitosa: ${fmtDateLong(new Date(ultimaSync.finalizado_en||ultimaSync.iniciado_en))}`
+    : `Última sincronización exitosa: ${fmtDateLong(fecha)} (reintentando)`;
+  document.getElementById('pfUltimaSync').textContent=ultOkTxt;
+}
+
+function setPfPeriodo(p,btn){
+  pfPeriodo=p;
+  document.querySelectorAll('#pfPeriodoTabs .antb').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderPfChart();
+}
+
+function renderPfChart(){
+  const filas=filtrarPorPeriodo(pfHistoricoCache,pfPeriodo,'fecha_valoracion');
+  const puntos=filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total}));
+  document.getElementById('pfChartArea').innerHTML=construirLineChartSVG(puntos);
+}
+
+function renderPfDistribucion(row){
+  const area=document.getElementById('pfDistArea');
+  const leg=document.getElementById('pfDistLegend');
+  const total=row.valor_total;
+  if(total===null||total===undefined){
+    area.innerHTML='<div class="empty">Sin datos de distribución</div>';leg.innerHTML='';return;
+  }
+  if(total<=0){
+    area.innerHTML='<div class="empty">Valor total de la cuenta es cero o negativo — no se puede calcular la distribución</div>';leg.innerHTML='';return;
+  }
+  const partes=[];
+  if(row.valor_posiciones)partes.push({nombre:'Activos',valor:row.valor_posiciones,color:'#00d68f'});
+  if(row.efectivo)partes.push({nombre:'Efectivo',valor:row.efectivo,color:'#7aa2ff'});
+  const suma=partes.reduce((s,p)=>s+p.valor,0);
+  const diferencia=total-suma;
+  if(Math.abs(diferencia)>Math.max(1,Math.abs(total)*0.005)){
+    partes.push({nombre:'Otros / ajustes',valor:diferencia,color:'#ffb84d'});
+  }
+  if(partes.length===0){
+    area.innerHTML='<div class="empty">Sin posiciones ni efectivo</div>';leg.innerHTML='';return;
+  }
+  const cx=110,cy=110,r=80,inner=50;
+  let svg=`<svg viewBox="0 0 220 220" class="chart-svg" preserveAspectRatio="xMidYMid meet">`;
+  let acc=0;
+  partes.forEach(p=>{
+    const frac=Math.max(p.valor,0)/total;
+    const a0=acc*Math.PI*2-Math.PI/2,a1=(acc+frac)*Math.PI*2-Math.PI/2;
+    const x0=cx+r*Math.cos(a0),y0=cy+r*Math.sin(a0);
+    const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1);
+    const xi0=cx+inner*Math.cos(a0),yi0=cy+inner*Math.sin(a0);
+    const xi1=cx+inner*Math.cos(a1),yi1=cy+inner*Math.sin(a1);
+    const large=frac>0.5?1:0;
+    svg+=`<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${xi1} ${yi1} A ${inner} ${inner} 0 ${large} 0 ${xi0} ${yi0} Z" fill="${p.color}" opacity="0.9"/>`;
+    acc+=frac;
+  });
+  svg+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#a1a1aa" font-size="10" font-weight="600">TOTAL</text>`;
+  svg+=`<text x="${cx}" y="${cy+14}" text-anchor="middle" fill="#fafafa" font-size="14" font-weight="800">${esc(fmtCompacto(total))}</text>`;
+  svg+='</svg>';
+  area.innerHTML=svg;
+  leg.innerHTML=partes.map(p=>`<span class="legend-item"><span class="legend-dot" style="background:${p.color}"></span>${esc(p.nombre)} · ${fmtPct(p.valor/total*100)}</span>`).join('');
+}
+
+function renderPfPosiciones(posiciones){
+  const cont=document.getElementById('pfPosicionesLista');
+  if(!posiciones||posiciones.length===0){
+    cont.innerHTML='<div class="empty">Sin posiciones abiertas — la cuenta está en efectivo</div>';
+    return;
+  }
+  cont.innerHTML=posiciones.map(p=>{
+    const pnlColor=p.pnl_no_realizado_base>0?'var(--green)':(p.pnl_no_realizado_base<0?'var(--red)':'var(--dim)');
+    const pnlTxt=p.pnl_no_realizado_base!==null?fmtMoneda(p.pnl_no_realizado_base,p.moneda_base):'—';
+    const badge=p.conversion_incompleta?'<span class="chip" style="padding:2px 8px;font-size:.6rem;margin-left:6px;color:var(--yellow);border-color:var(--yellow)">conversión pendiente</span>':'';
+    const fecha=parseDateOnly(p.fecha_datos);
+    return `<div class="ccard" style="margin-bottom:8px" onclick="abrirPfPosModal(${Number(p.contract_id)})">
+      <div class="cinfo">
+        <div style="font-weight:700">${esc(p.simbolo)}${badge}</div>
+        <div style="font-size:.72rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.nombre||'')}</div>
+        <div style="font-size:.66rem;color:var(--muted)">Cant. ${esc(fmtN(p.cantidad))} · Costo prom. ${esc(fmtMoneda(p.costo_promedio,p.moneda))} · Precio ${esc(fmtMoneda(p.precio_mercado,p.moneda))} (${esc(fmtDateShort(fecha))})</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-weight:800">${esc(fmtMoneda(p.valor_mercado,p.moneda))}</div>
+        <div style="font-size:.66rem;color:var(--dim)">${esc(fmtPct(p.porcentaje_portafolio))} del portafolio</div>
+        <div style="font-size:.72rem;font-weight:700;color:${pnlColor}">${esc(pnlTxt)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function abrirPfPosModal(contractId){
+  const pos=pfPosicionesCache.find(p=>Number(p.contract_id)===Number(contractId));
+  document.getElementById('pfPosModalTitle').textContent=pos?pos.simbolo+' · '+(pos.nombre||''):'Posición';
+  document.getElementById('pfPosModalBody').innerHTML='<div class="empty">Cargando histórico…</div>';
+  document.getElementById('pfPosModal').classList.add('active');
+  pfModalPeriodo='6M';
+  pfModalContractId=contractId;
+  try{
+    const hist=await sbFetch(`posiciones_historial?select=*&contract_id=eq.${Number(contractId)}&order=fecha_valoracion.asc`);
+    pfModalHistoricoCache=hist||[];
+  }catch(e){
+    document.getElementById('pfPosModalBody').innerHTML=`<div class="empty">No se pudo cargar el histórico de esta posición.<br>${esc(e.message||'')}</div>`;
+    return;
+  }
+  renderPfPosModalBody(pos);
+}
+
+function renderPfPosModalBody(pos){
+  const body=document.getElementById('pfPosModalBody');
+  const resumen=pos?`
+    <div class="metric-grid" style="margin-bottom:10px">
+      <div class="metric"><div class="m-lbl">Valor de mercado</div><div class="m-val">${esc(fmtMoneda(pos.valor_mercado,pos.moneda))}</div></div>
+      <div class="metric"><div class="m-lbl">% del portafolio</div><div class="m-val">${esc(fmtPct(pos.porcentaje_portafolio))}</div></div>
+      <div class="metric"><div class="m-lbl">Cantidad</div><div class="m-val">${esc(fmtN(pos.cantidad))}</div></div>
+      <div class="metric"><div class="m-lbl">Costo promedio</div><div class="m-val">${esc(fmtMoneda(pos.costo_promedio,pos.moneda))}</div></div>
+    </div>`:'';
+  body.innerHTML=`
+    ${resumen}
+    <div class="s-head" style="margin-bottom:10px"><div class="s-title">Valor de la posición</div></div>
+    <div class="an-tabs" id="pfModalPeriodoTabs" style="margin-bottom:10px">
+      <button class="antb" data-p="1M" onclick="setPfModalPeriodo('1M',this)">1M</button>
+      <button class="antb" data-p="3M" onclick="setPfModalPeriodo('3M',this)">3M</button>
+      <button class="antb active" data-p="6M" onclick="setPfModalPeriodo('6M',this)">6M</button>
+      <button class="antb" data-p="YTD" onclick="setPfModalPeriodo('YTD',this)">Año actual</button>
+      <button class="antb" data-p="ALL" onclick="setPfModalPeriodo('ALL',this)">Todo</button>
+    </div>
+    <div id="pfModalChartArea"></div>
+  `;
+  renderPfModalChart();
+}
+
+function setPfModalPeriodo(p,btn){
+  pfModalPeriodo=p;
+  document.querySelectorAll('#pfModalPeriodoTabs .antb').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderPfModalChart();
+}
+
+function renderPfModalChart(){
+  const filas=filtrarPorPeriodo(pfModalHistoricoCache,pfModalPeriodo,'fecha_valoracion');
+  const puntos=filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_mercado_base}));
+  document.getElementById('pfModalChartArea').innerHTML=construirLineChartSVG(puntos);
+}
+
+function cerrarPfPosModal(){document.getElementById('pfPosModal').classList.remove('active');}
 
 function renderAnalisis(){
   const tx=getTxAn();const tot=totales(tx);
