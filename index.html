@@ -534,7 +534,7 @@ body{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI'
 .nav{background:rgba(10,10,10,0.92);border-color:var(--border)}.fab{background:var(--green);color:var(--bg);box-shadow:0 8px 30px #0007}.modal{backdrop-filter:blur(7px)}.modal .mc{border:1px solid var(--border)}
 button,input,select,textarea{font-family:inherit}button{touch-action:manipulation}button:disabled{opacity:.5;cursor:wait}:focus-visible{outline:3px solid var(--green);outline-offset:4px}input,select,textarea{font-size:16px!important}.mh-x{min-width:44px;min-height:44px}.empty{color:var(--dim);line-height:1.7;border:1px dashed var(--border);border-radius:16px}.hint{line-height:1.6;color:var(--muted)}
 .quick-insight{padding:18px 20px;margin:0 0 22px;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;gap:14px;background:var(--card)}.quick-insight .symbol{font-size:22px;color:var(--green)}.quick-insight strong{display:block;font-size:13px;margin-bottom:5px}.quick-insight p{font-size:12px;color:var(--dim);line-height:1.6}.private .big-num,.private .kpi,.private .camt,.private .tamt-pill,.private .m-val,.private .credit-amount,.private .dcard-amt,.private .card-stat-val{filter:blur(8px)}
-@media(min-width:1050px){body{padding-left:200px;padding-bottom:40px}.nav{width:200px;right:auto;top:0;bottom:0;flex-direction:column;justify-content:center;gap:12px;padding:24px 16px;border-right:1px solid var(--border);border-top:0}.nav button{width:100%;min-height:64px;flex:none!important;border-radius:12px}.nav button.active{background:var(--card2)}.fab{right:40px;bottom:32px}.container{max-width:1000px}.cgrid{grid-template-columns:repeat(4,1fr)}#p-dash .container{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}#p-dash .header,#p-dash .hero2,#p-dash .quick-insight,#p-dash .filter-row,#p-dash .search-wrap,#filterPill{grid-column:1/-1}#p-dash .section{min-width:0}.cgrid{grid-template-columns:repeat(2,1fr)}#anPanelPortafolio{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}#pfEstado,#pfResumenCard,#pfPosicionesCard{grid-column:1/-1}.chart-card{margin-bottom:0}}
+@media(min-width:1050px){body{padding-left:200px;padding-bottom:40px}.nav{width:200px;right:auto;top:0;bottom:0;flex-direction:column;justify-content:center;gap:12px;padding:24px 16px;border-right:1px solid var(--border);border-top:0}.nav button{width:100%;min-height:64px;flex:none!important;border-radius:12px}.nav button.active{background:var(--card2)}.fab{right:40px;bottom:32px}.container{max-width:1000px}.cgrid{grid-template-columns:repeat(4,1fr)}#p-dash .container{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}#p-dash .header,#p-dash #expenseBreakdown,#p-dash .hero2,#p-dash .quick-insight,#p-dash .filter-row,#p-dash .search-wrap,#filterPill{grid-column:1/-1}#p-dash .section{min-width:0}.cgrid{grid-template-columns:repeat(2,1fr)}#anPanelPortafolio{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}#pfEstado,#pfResumenCard,#pfPosicionesCard{grid-column:1/-1}.chart-card{margin-bottom:0}}
 @media(max-width:480px){.container{padding:0 16px}.hero2{padding:23px 20px}.ccard{padding:12px;gap:8px}.camt{font-size:14px}.tamt-pill{font-size:12px}.tdesc{font-size:13px}.kpi{padding:10px 12px}.metric-grid{gap:8px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
@@ -548,6 +548,28 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 
 
 #pfMarketCard{grid-column:1/-1} .pf-market-total{font-size:clamp(25px,4vw,34px);font-weight:700;letter-spacing:-.03em;margin:12px 0}.pf-market-disclaimer{font-size:12px;line-height:1.6;color:var(--dim)}.pf-market-position{display:flex;flex-direction:column;gap:6px;padding-top:13px;margin-top:13px;border-top:1px dashed var(--border);font-size:10px;line-height:1.5;color:var(--dim)}.pf-market-position>strong{font-size:16px;color:var(--text)}.pf-market-label{font-size:9px;letter-spacing:.08em;color:var(--blue)}
+
+/* Preferencias y portafolio adaptable */
+:root{--accent:#00d68f}
+.logo span,.detail-tab.active,.nav button.active{color:var(--accent)}
+.btn-p{background:var(--accent)}
+#anPanelPortafolio{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+#anPanelPortafolio>*{min-width:0}.pf-source-strip{grid-column:1/-1}
+#pfChartCard{grid-column:1/-1}#pfChartArea,#pfModalChartArea{width:100%;min-width:0}
+#pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:280px;aspect-ratio:560/205}
+#pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
+.pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}
+.pf-position-head{flex-wrap:wrap}#settingsModal .sel{width:100%;margin-top:10px}
+#settingsModal .hint{margin:10px 0;line-height:1.5;color:var(--dim)}.line-config-row>*{min-width:0}
+.header{gap:10px;flex-wrap:wrap}.actions-row{flex-wrap:wrap}
+@media(max-width:600px){#anPanelPortafolio .s-head{flex-wrap:wrap;gap:8px}}
+
+#catChips[hidden],#transferFields[hidden],#refundFields[hidden]{display:none}
+#tr.active,#tre.active,.tamt-pill.transfer{color:var(--blue);background:#7aa2ff18}
+.transfer-note{color:var(--dim);line-height:1.6;margin-bottom:18px}
+.cuenta-row input{min-width:0;flex:1}.tt{flex-wrap:wrap}.ttb{min-width:0}
+
+#refundFields .sel{width:100%;margin:8px 0 12px}#refundFields label{font-size:13px}.ttb{flex:1 1 40%}
 </style>
 </head>
 <body>
@@ -575,6 +597,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     <header class="header">
       <div class="logo">Mis <span>Finanzas</span></div>
       <div class="actions-row">
+        <button class="line-edit-btn" onclick="abrirConfiguracion()" aria-label="Abrir configuración">⚙ Configuración</button>
         <button class="icon-btn" onclick="toggleSearch()" aria-label="Buscar">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
@@ -600,6 +623,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       </div>
     </div>
 
+    <p id="expenseBreakdown" class="s-sub" style="margin:0 0 16px;line-height:1.6"></p>
     <div class="quick-insight" id="quickInsight" aria-live="polite"></div>
     <div class="filter-row">
       <div class="chip" id="chipPeriodo" onclick="abrirMesPicker()">
@@ -609,6 +633,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <div class="chip" id="chipAcumulado" onclick="toggleAcumulado()">
         <span>Acumulado</span>
       </div>
+      <button class="chip" id="chipTransferencias" onclick="togglePillTipo('transferencias')" aria-pressed="false">↔ Transferencias</button>
       <div class="chip" id="chipNeta" onclick="toggleNeta()">
         <span>Neto</span>
       </div>
@@ -714,7 +739,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       </div>
 
       <div class="chart-card">
-        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo por cuenta</div><div class="s-sub">Ingresos − gastos − pagos de tarjeta</div></div>
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo registrado por cuenta · S/</div><div class="s-sub">Incluye transferencias y pagos de tarjeta</div></div>
         <div id="saldoCuentas" class="card-stat-grid"></div>
       </div>
 
@@ -740,7 +765,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 <!-- TARJETAS -->
 <div class="page" id="p-card">
   <div class="container">
-    <header class="header"><div class="page-title">Tarjetas</div></header>
+    <header class="header"><div class="page-title">Tarjetas</div><button class="line-edit-btn" onclick="abrirLineasCredito()">＋ Agregar / editar</button></header>
 
     <div class="card-cycle-bar">
       <div class="card-cycle-main" onclick="abrirCardCyclePicker()">
@@ -831,6 +856,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     <div class="tt">
       <button class="ttb active gasto" id="tg" onclick="setTipo('Gasto')">Gasto</button>
       <button class="ttb ingreso" id="ti" onclick="setTipo('Ingreso')">Ingreso</button>
+      <button class="ttb" id="tr" onclick="setTipo('Transferencia')">Transferencia</button>
+      <button class="ttb" id="tre" onclick="setTipo('Reembolso')">Reembolso</button>
     </div>
 
     <div class="pill-row">
@@ -848,10 +875,20 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     <div class="cat-chips" id="catChips"></div>
 
     <div class="cuenta-row">
-      <span class="cuenta-lbl">Cuenta</span>
-      <select class="sel" id="iCue"></select>
+      <label class="cuenta-lbl" for="iCue" id="accountLabel">Cuenta</label>
+      <input class="sel" id="iCue" list="accountOptions" placeholder="Ej. BCP, Yape" autocomplete="off"><datalist id="accountOptions"></datalist>
     </div>
 
+    <div id="refundFields" hidden>
+      <label for="iGastoOrigen">Gasto que te devolvieron</label>
+      <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso()"></select>
+      <p class="transfer-note" id="refundAvailable"></p>
+      <p class="transfer-note">La devolución reduce el gasto de su categoría en la fecha en que la recibes. No cuenta como ingreso. Si vuelve a una tarjeta, reduce su deuda.</p>
+    </div>
+    <div id="transferFields" hidden>
+      <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><input class="sel" id="iDestino" list="accountOptions" placeholder="Ej. IBKR" autocomplete="off"></div>
+      <p class="hint transfer-note">Importe en soles (S/). Mueve saldo entre tus cuentas sin contar como gasto o ingreso. En IBKR representa tus aportes registrados en soles, no el valor de mercado en dólares.</p>
+    </div>
     <div class="brow" id="modalBtns">
       <button class="btn btn-s" onclick="cerrarM()">Cancelar</button>
       <button class="btn btn-p" onclick="guardar()">Guardar</button>
@@ -913,6 +950,16 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   </div>
 </div>
 
+<div class="modal centered" id="settingsModal">
+  <div class="mc compact-mc">
+    <div class="mc-top"><div class="mc-title-big" id="settingsTitle">Configuración</div><button class="mh-x" onclick="cerrarConfiguracion()">✕</button></div>
+    <div class="line-config-grid">
+      <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
+      <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
+      <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala vertical</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="overview">Vista general (desde cero)</option><option value="detail">Detalle de variaciones</option></select><p class="hint">La vista general evita exagerar variaciones pequeñas. El valor del portafolio incluye aportes y retiros.</p></section>
+    </div>
+  </div>
+</div>
 <!-- CREDIT LINE CONFIG MODAL -->
 <div class="modal centered" id="creditLineModal">
   <div class="mc compact-mc">
@@ -1203,7 +1250,7 @@ async function cargar(){
   const b=document.getElementById('refreshBtn');b.classList.add('loading');
   try{
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
-      sbSelect('transacciones','?select=fecha,descripcion,categoria,tipo,monto,cuenta,id&order=fecha.asc'),
+      sbSelect('transacciones','?select=*&order=fecha.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
       sbSelect('pagos_tarjetas','?select=id,tarjeta,ciclo_key,monto,fecha,nota,cuenta_origen&order=fecha.asc'),
       sbSelect('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key'),
@@ -1213,7 +1260,7 @@ async function cargar(){
       sbSelect('presupuestos','?select=categoria,monto_limite,mes'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
-    datos.transacciones=tx.map(t=>[t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id]);
+    datos.transacciones=tx.map(t=>[t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id,t.cuenta_destino||null,t.transaccion_origen_id||null]);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
     datos.pagosTarjetas=pagos.map(p=>[p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota,p.cuenta_origen]);
     datos.ciclosOverride=ciclos.map(c=>[c.id,c.tarjeta,c.tx_id,c.ciclo_key]);
@@ -1241,9 +1288,10 @@ function filtrar(){
     tx=tx.filter(t=>{const f=pf(t[0]);return f.getMonth()===m&&f.getFullYear()===y;});
   }
   if(filtroCategoria){tx=tx.filter(t=>norm(t[2])===norm(filtroCategoria));}
-  if(filtroTipo==='gastos')tx=tx.filter(t=>t[3]!=='Ingreso');
+  if(filtroTipo==='gastos')tx=tx.filter(t=>gastoNeto(t)!==0);
   else if(filtroTipo==='ingresos')tx=tx.filter(t=>t[3]==='Ingreso');
-  if(busqueda)tx=tx.filter(t=>norm([t[1],t[2],t[5],t[4]].join(' ')).includes(norm(busqueda)));
+  else if(filtroTipo==='transferencias')tx=tx.filter(t=>t[3]==='Transferencia');
+  if(busqueda)tx=tx.filter(t=>norm([t[1],t[2],t[3],t[5],t[7],t[4]].join(' ')).includes(norm(busqueda)));
   return tx;
 }
 
@@ -1291,6 +1339,8 @@ function actualizarChips(){
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out.classList.toggle('active-pill',filtroTipo==='gastos');
   inn.classList.toggle('active-pill',filtroTipo==='ingresos');
+  document.getElementById('chipTransferencias').classList.toggle('active-cat',filtroTipo==='transferencias');
+  document.getElementById('chipTransferencias').setAttribute('aria-pressed',String(filtroTipo==='transferencias'));
 }
 
 // === MES PICKER ===
@@ -1328,7 +1378,7 @@ function renderMesPickerGrid(){
     const f=pf(t[0]);
     if(f.getFullYear()===mesPickerYear){
       const m=parseFloat(t[4])||0;
-      const sign=t[3]==='Ingreso'?1:-1;
+      const sign=t[3]==='Ingreso'||t[3]==='Reembolso'?1:t[3]==='Gasto'?-1:0;
       netos[f.getMonth()]=(netos[f.getMonth()]||0)+(m*sign);
     }
   });
@@ -1394,16 +1444,17 @@ function renderBal(){
   txBalance.forEach(t=>{
     const m = parseFloat(t[4]) || 0;
     if(t[3] === 'Ingreso') iBal += m;
-    else gBal += m;
+    gBal += gastoNeto(t);
   });
 
   let iPeriodo = 0, gPeriodo = 0;
   txPeriodo.forEach(t=>{
     const m = parseFloat(t[4]) || 0;
     if(t[3] === 'Ingreso') iPeriodo += m;
-    else gPeriodo += m;
+    gPeriodo += gastoNeto(t);
   });
 
+  document.getElementById('expenseBreakdown').textContent='Gasto bruto: '+fmt(txPeriodo.filter(t=>t[3]==='Gasto').reduce((sum,t)=>sum+Number(t[4]),0))+' · Reembolsos: '+fmt(txPeriodo.filter(t=>t[3]==='Reembolso').reduce((sum,t)=>sum+Number(t[4]),0))+' · Gasto neto: '+fmt(gPeriodo);
   let balance = iBal - gBal;
 
   // En modo Acumulado: sumar TODO lo consumido en tarjeta que aún no ha
@@ -1432,7 +1483,7 @@ function renderCat(){
   const tx=vista==='mes'?datos.transacciones.filter(t=>{const f=pf(t[0]);const ma=getMesActivo();return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();}):datos.transacciones;
   const g=document.getElementById('cats');
   const t={},c={};
-  tx.forEach(x=>{const k=cleanName(x[2]);const m=parseFloat(x[4])||0;const s=x[3]==='Ingreso'?1:-1;t[k]=(t[k]||0)+(m*s);c[k]=(c[k]||0)+1;});
+  tx.filter(x=>x[3]!=='Transferencia').forEach(x=>{const k=cleanName(x[2]);const m=parseFloat(x[4])||0;const s=x[3]==='Ingreso'||x[3]==='Reembolso'?1:-1;t[k]=(t[k]||0)+(m*s);c[k]=(c[k]||0)+1;});
   const cs=Object.entries(t).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
   if(cs.length===0){g.innerHTML='<div class="empty" style="grid-column:1/-1">Sin movimientos este período</div>';return;}
   g.innerHTML=cs.slice(0,8).map(([k,m])=>{
@@ -1456,7 +1507,7 @@ function renderTx(){
     const key=f.getFullYear()+'-'+f.getMonth()+'-'+f.getDate();
     if(!groups[key]){groups[key]={date:f,items:[],in:0,out:0};order.push(key);}
     const m=parseFloat(t[4])||0;
-    if(t[3]==='Ingreso')groups[key].in+=m;else groups[key].out+=m;
+    if(t[3]==='Ingreso')groups[key].in+=m;groups[key].out+=gastoNeto(t);
     groups[key].items.push(t);
   });
   l.innerHTML=order.map(key=>{
@@ -1467,11 +1518,11 @@ function renderTx(){
     const items=g.items.map(t=>{
       const c=cleanName(t[2]);
       const em=getEmoji(c);
-      const i=t[3]==='Ingreso';
-      const d=t[1]||'?';
+      const i=t[3]==='Ingreso'||t[3]==='Reembolso',transfer=t[3]==='Transferencia';
+      const d=transfer?`${t[5]} → ${t[7]||'Sin destino'} · ${t[1]||''}`:t[1]||'?';
       const m=parseFloat(t[4])||0;
       const row=getTxRow(t);
-      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(c||'—')}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${i?'in':'out'}"><span class="pdot"></span>${i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
+      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(t[3]==='Reembolso'?'Reembolso · '+c:c||'—')}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
     }).join('');
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
   }).join('');
@@ -1482,10 +1533,10 @@ function renderBud(){
   if(!datos.presupuestos||datos.presupuestos.length===0){l.innerHTML='<div class="empty">Sin presupuestos<br><span style="font-size:0.7rem">Añádelos en la pestaña Presupuestos del Sheet</span></div>';return;}
   const tx=vista==='mes'?datos.transacciones.filter(t=>{const f=pf(t[0]);const ma=getMesActivo();return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();}):datos.transacciones;
   const gc={};
-  tx.forEach(t=>{if(t[3]!=='Ingreso'){const k=cleanName(t[2]);gc[k]=(gc[k]||0)+(parseFloat(t[4])||0);}});
+  tx.forEach(t=>{if(gastoNeto(t)!==0){const k=cleanName(t[2]);gc[k]=(gc[k]||0)+gastoNeto(t);}});
   l.innerHTML=datos.presupuestos.map(p=>{
     const c=cleanName(p[0]),lim=parseFloat(p[1])||0,gas=gc[c]||0;
-    const pct=lim>0?Math.min((gas/lim)*100,100):0;
+    const pct=lim>0?Math.max(0,Math.min((gas/lim)*100,100)):0;
     const cls=pct>=100?'over':pct>=80?'warn':'ok';
     const em=getEmoji(c);
     return `<div class="bitem"><div class="bhead"><div class="bcat">${em.e} ${c}</div><div class="bamt"><span class="sp">${fmtC(gas)}</span> / ${fmtC(lim)}</div></div><div class="bbar"><div class="bfill ${cls}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% USADO</div></div>`;
@@ -1615,12 +1666,20 @@ function renderDebArchivadas(l){
   }).join('');
 }
 
+function cuentasDisponibles(){
+  const cuentas=['Plin','Yape','IBKR',...CREDIT_CARDS.map(c=>c.cuenta)];
+  datos.transacciones.forEach(t=>{if(t[5])cuentas.push(t[5]);if(t[7])cuentas.push(t[7]);});
+  return cuentas.map(c=>String(c).trim()).filter((c,i,a)=>c&&a.findIndex(v=>sameAccount(v,c))===i);
+}
 function llenarCuentas(seleccionada){
-  const sel=document.getElementById('iCue');
-  const cuentas=new Set();
-  CREDIT_CARDS.forEach(c=>cuentas.add(c.cuenta));
-  (datos.transacciones||[]).forEach(t=>{if(t[5])cuentas.add(String(t[5]).trim());});
-  sel.innerHTML=[...cuentas].map(c=>`<option value="${escHtml(c)}"${c===(seleccionada||'')?' selected':''}>${escHtml(c)}</option>`).join('');
+  document.getElementById('accountOptions').innerHTML=cuentasDisponibles().map(c=>`<option value="${escAttr(c)}"></option>`).join('');
+  if(seleccionada!==undefined)document.getElementById('iCue').value=seleccionada;
+}
+function validarTransferencia({origen,destino,monto},cards=CREDIT_CARDS){
+  if(!Number.isFinite(monto)||monto<=0)throw new Error('Ingresa un importe mayor que cero');
+  if(!origen.trim()||!destino.trim())throw new Error('Indica la cuenta de origen y destino');
+  if(sameAccount(origen.trim(),destino.trim()))throw new Error('Elige dos cuentas diferentes');
+  if(cards.some(c=>sameAccount(c.cuenta,origen.trim())||sameAccount(c.cuenta,destino.trim())))throw new Error('Para tarjetas de crédito, utiliza la opción de pagos de tarjeta');
 }
 
 function llenarSel(){
@@ -1971,6 +2030,9 @@ function abrirM(){
   document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
   document.getElementById('iMon').value='';
   document.getElementById('iDes').value='';
+  document.getElementById('iCue').value='';
+  document.getElementById('iDestino').value='';
+  document.getElementById('iGastoOrigen').value='';
   setTipo('Gasto');
   llenarCuentas();
   document.getElementById('modal').classList.add('active');
@@ -1989,7 +2051,9 @@ function editarTx(row){
   document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
   document.getElementById('iMon').value=t[4];
   document.getElementById('iDes').value=t[1];
+  document.getElementById('iDestino').value=t[7]||'';
   setTipo(t[3]||'Gasto');
+  if(t[3]==='Reembolso')llenarGastosReembolso(t[8]||'');
   const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
   llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''));
   // Pre-seleccionar categoría
@@ -2008,6 +2072,13 @@ function setTipo(t){
   tipoA=t;
   document.getElementById('tg').classList.toggle('active',t==='Gasto');
   document.getElementById('ti').classList.toggle('active',t==='Ingreso');
+  document.getElementById('tr').classList.toggle('active',t==='Transferencia');
+  document.getElementById('tre').classList.toggle('active',t==='Reembolso');
+  document.getElementById('refundFields').hidden=t!=='Reembolso';
+  if(t==='Reembolso')llenarGastosReembolso(document.getElementById('iGastoOrigen').value);
+  document.getElementById('transferFields').hidden=t!=='Transferencia';
+  document.getElementById('catChips').hidden=t==='Transferencia'||t==='Reembolso';
+  document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':'Cuenta';
   llenarSel();
 }
 
@@ -2018,7 +2089,7 @@ async function eliminar(){
     datos.transacciones=datos.transacciones.filter(t=>String(getTxRow(t))!==String(editando));
     toast('Eliminada','success');cerrarM();render();
   }
-  catch(e){toast('Error al eliminar','error');}
+  catch(e){toast(e.message||'Error al eliminar','error');}
 }
 
 // Peru es UTC-5 todo el año (sin horario de verano).
@@ -2034,13 +2105,22 @@ function buildFechaISO(yy,mm,dd,timePart){
   return new Date(Date.UTC(+yy,+mm-1,+dd,hh+5,min)).toISOString();
 }
 
+let guardandoTx=false;
 async function guardar(){
-  const m=String(document.getElementById('iMon').value).replace(/[^0-9.]/g,'').trim();
+  if(guardandoTx)return;
+  const m=Number(document.getElementById('iMon').value);
   const d=document.getElementById('iDes').value;
-  const c=getCatSeleccionada();
-  const cu=document.getElementById('iCue').value;
+  let c=tipoA==='Transferencia'?'Transferencias':getCatSeleccionada();
+  const origenReembolso=document.getElementById('iGastoOrigen').value;
+  const cu=document.getElementById('iCue').value.trim();
+  const destino=document.getElementById('iDestino').value.trim();
   const fec=document.getElementById('iFec').value;
-  if(!m||!d){toast('Completa monto y descripción','error');return;}
+  if(!Number.isFinite(m)||m<=0||!d.trim()||!fec){toast('Completa fecha, monto positivo y descripción','error');return;}
+  if(tipoA==='Transferencia'){
+    try{validarTransferencia({origen:cu,destino,monto:m});}catch(e){toast(e.message,'error');return;}
+    if(editando&&datos.deudasAbonos.some(a=>String(a[5])===String(editando))){toast('Este movimiento está vinculado a un abono de deuda','error');return;}
+  }
+  if(tipoA==='Reembolso'){try{c=validarReembolso(origenReembolso,m,cu,fec,editando)[2];}catch(e){toast(e.message,'error');return;}}
   if(!c){toast('Selecciona una categoría','error');return;}
   const[yy,mm,dd]=fec.split('-');
   const fmtHora=(h,min)=>{const ampm=h>=12?'p. m.':'a. m.';return `${h%12||12}:${String(min).padStart(2,'0')} ${ampm}`;};
@@ -2061,22 +2141,29 @@ async function guardar(){
       }
     }
   }
-  const fechaISO=buildFechaISO(yy,mm,dd,timePart);
-  const body={fecha:fechaISO,descripcion:d,categoria:c,tipo:tipoA,monto:parseFloat(m),cuenta:cu};
+  let fechaISO=buildFechaISO(yy,mm,dd,timePart);
+  if(editando&&editandoFecha&&toDateInput(editandoFecha)===fec)fechaISO=editandoFecha;
+  const body={fecha:fechaISO,descripcion:d,categoria:c,tipo:tipoA,monto:m,cuenta:cu};
+  const anterior=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
+  if(tipoA==='Transferencia'||anterior?.[3]==='Transferencia')body.cuenta_destino=tipoA==='Transferencia'?destino:null;
+  const idGuardado=editando;
+  if(tipoA==='Reembolso'||anterior?.[3]==='Reembolso')body.transaccion_origen_id=tipoA==='Reembolso'?origenReembolso:null;
+  guardandoTx=true;
   try{
-    if(editando){
-      await sbUpdate('transacciones',editando,body);
-      const t=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
-      if(t){t[0]=fechaISO;t[1]=d;t[2]=c;t[3]=tipoA;t[4]=parseFloat(m);t[5]=cu;}
+    if(idGuardado){
+      await sbUpdate('transacciones',idGuardado,body);
+      const t=datos.transacciones.find(x=>String(getTxRow(x))===String(idGuardado));
+      if(t){t[0]=fechaISO;t[1]=d;t[2]=c;t[3]=body.tipo;t[4]=m;t[5]=cu;t[7]=body.cuenta_destino||null;t[8]=body.transaccion_origen_id||null;}
       toast('Actualizada','success');
     } else {
       const row=await sbInsert('transacciones',body);
-      datos.transacciones.push([row.fecha,row.descripcion,row.categoria,row.tipo,row.monto,row.cuenta,row.id]);
+      datos.transacciones.push([row.fecha,row.descripcion,row.categoria,row.tipo,row.monto,row.cuenta,row.id,row.cuenta_destino||null,row.transaccion_origen_id||null]);
       toast('Guardada','success');
     }
     cerrarM();render();
   }
-  catch(e){toast('Error al guardar','error');}
+  catch(e){toast(/cuenta_destino|transaccion_origen_id|transacciones_tipo_check|schema cache/i.test(e.message||'')?'Falta activar movimientos en Supabase. Ejecuta el SQL de transferencias y reembolsos.':(e.message||'Error al guardar'),'error');}
+  finally{guardandoTx=false;}
 }
 
 // TOAST robusto: limpia timer previo, tap-to-dismiss, expira siempre
@@ -2164,14 +2251,38 @@ function getTxPrev(){
   return datos.transacciones.filter(t=>pf(t[0]).getFullYear()===yr);
 }
 
+function gastoNeto(t){return t[3]==='Gasto'?Number(t[4])||0:t[3]==='Reembolso'?-(Number(t[4])||0):0;}
+function efectoResultado(t){return t[3]==='Ingreso'?(Number(t[4])||0):-gastoNeto(t);}
+function reembolsado(id,excluir=null){return datos.transacciones.filter(t=>t[3]==='Reembolso'&&String(t[8])===String(id)&&String(t[6])!==String(excluir)).reduce((sum,t)=>sum+Math.round(Number(t[4])*100),0)/100;}
+function llenarGastosReembolso(selected=''){
+ const select=document.getElementById('iGastoOrigen');
+ select.innerHTML='<option value="">Selecciona el gasto original…</option>'+datos.transacciones.filter(t=>t[3]==='Gasto'&&String(t[6])!==String(editando)).map(t=>`<option value="${escAttr(t[6])}">${escHtml(fmtDateShort(pf(t[0]))+' · '+t[1]+' · '+fmt(t[4])+' · '+t[5])}</option>`).join('');
+ select.value=selected; select.disabled=!!selected&&!!editando&&datos.transacciones.some(t=>String(t[6])===String(editando)&&t[3]==='Reembolso');
+ seleccionarGastoReembolso();
+}
+function seleccionarGastoReembolso(){
+ const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
+ document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(Math.max(0,Number(original[4])-reembolsado(original[6],editando))):'Selecciona un gasto para vincular la devolución.';
+ if(original)document.getElementById('iCue').value=original[5];
+}
+function validarReembolso(id,monto,cuenta,fecha,excluir=null){
+ const original=datos.transacciones.find(t=>String(t[6])===String(id)&&t[3]==='Gasto');
+ if(!original)throw new Error('Selecciona un gasto original válido');
+ if(Math.round(monto*100)+Math.round(reembolsado(id,excluir)*100)>Math.round(Number(original[4])*100))throw new Error('La devolución supera el importe pendiente del gasto');
+ if(!cuenta.trim())throw new Error('Indica la cuenta que recibió la devolución');
+ if(pf(fecha)<new Date(pf(original[0]).getFullYear(),pf(original[0]).getMonth(),pf(original[0]).getDate()))throw new Error('La devolución no puede ser anterior al gasto');
+ const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,original[5])||sameAccount(c.cuenta,cuenta));
+ if(card&&!sameAccount(original[5],cuenta))throw new Error('Una devolución de tarjeta debe registrarse en la misma tarjeta');
+ return original;
+}
 function totales(tx){
-  let i=0,g=0;tx.forEach(t=>{const m=parseFloat(t[4])||0;if(t[3]==='Ingreso')i+=m;else g+=m;});
+  let i=0,g=0;tx.forEach(t=>{const m=parseFloat(t[4])||0;if(t[3]==='Ingreso')i+=m;g+=gastoNeto(t);});
   return{i,g,bal:i-g};
 }
 
 function gastosPorCat(tx){
   const c={};
-  tx.forEach(t=>{if(t[3]!=='Ingreso'){const k=cleanName(t[2]);c[k]=(c[k]||0)+(parseFloat(t[4])||0);}});
+  tx.forEach(t=>{if(gastoNeto(t)!==0){const k=cleanName(t[2]);c[k]=(c[k]||0)+gastoNeto(t);}});
   return c;
 }
 
@@ -2179,24 +2290,23 @@ function gastosPorCat(tx){
 // directo desde ahí, menos los pagos de tarjeta que salieron de esa cuenta
 // (los consumos EN la tarjeta no cuentan aquí, porque no salen de la cuenta
 // hasta que se paga la tarjeta — eso ya está cubierto por pagos_tarjetas).
+function movimientoCuenta(t,cuenta){
+  const m=Number(t[4])||0;
+  if(t[3]==='Transferencia')return (sameAccount(t[7]||'',cuenta)?m:0)-(sameAccount(t[5]||'',cuenta)?m:0);
+  return sameAccount(t[5]||'',cuenta)?efectoResultado(t):0;
+}
 function getCuentaBalance(cuenta){
-  let bal=0;
-  datos.transacciones.forEach(t=>{
-    if(!sameAccount((t[5]||'').toString().trim(),cuenta))return;
-    const m=parseFloat(t[4])||0;
-    bal+=t[3]==='Ingreso'?m:-m;
-  });
-  (datos.pagosTarjetas||[]).forEach(p=>{
-    if(sameAccount(String(p[6]||''),cuenta))bal-=(parseFloat(p[3])||0);
-  });
+  let bal=datos.transacciones.reduce((sum,t)=>sum+movimientoCuenta(t,cuenta),0);
+  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(String(p[6]||''),cuenta))bal-=(parseFloat(p[3])||0);});
   return bal;
 }
+
 function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
-  const cuentas=['Plin','Yape'];
+  const cuentas=cuentasDisponibles().filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
   cont.innerHTML=cuentas.map(c=>{
     const b=getCuentaBalance(c);
-    return `<div class="card-stat"><div class="card-stat-lbl">${c}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
+    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${sameAccount(c,'IBKR')?' · saldo de aportes':''}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
   }).join('');
 }
 
@@ -2586,7 +2696,7 @@ function renderAnalisis(){
     const start=new Date(yr,0,1);
     dias=Math.floor((ahora-start)/(1000*60*60*24))+1;
   }
-  const gSinEstudios=tx.filter(t=>t[3]!=='Ingreso'&&norm(t[2])!=='estudios').reduce((s,t)=>s+(parseFloat(t[4])||0),0);
+  const gSinEstudios=tx.filter(t=>norm(t[2])!=='estudios').reduce((s,t)=>s+gastoNeto(t),0);
   const prom=dias>0?gSinEstudios/dias:0;
   document.getElementById('mProm').textContent=fmt(prom);
   document.getElementById('mPromSub').textContent='gasto promedio en '+dias+' día'+(dias>1?'s':'')+' (sin Estudios)';
@@ -2600,7 +2710,7 @@ function renderAnalisis(){
     const yr=new Date().getFullYear();
     diasTotalesPeriodo=Math.round((new Date(yr,11,31)-new Date(yr,0,1))/(1000*60*60*24))+1;
   }
-  const proyeccion=prom*diasTotalesPeriodo;
+  const proyeccion=Math.max(0,prom)*diasTotalesPeriodo;
   document.getElementById('mProy').textContent=fmt(proyeccion);
   document.getElementById('mProySub').textContent=`a este ritmo, ~${fmt(proyeccion)} en gastos ${anPeriodo==='mes'?'este mes':'este año'} (sin Estudios)`;
 
@@ -2637,10 +2747,10 @@ function renderAnalisis(){
 function renderYearMini(){
   const yr=new Date().getFullYear();
   const arr=Array(12).fill(0);
-  datos.transacciones.forEach(t=>{const f=pf(t[0]);if(f.getFullYear()===yr&&t[3]!=='Ingreso'){arr[f.getMonth()]+=parseFloat(t[4])||0;}});
-  const max=Math.max(...arr,1);
+  datos.transacciones.forEach(t=>{const f=pf(t[0]);if(f.getFullYear()===yr){arr[f.getMonth()]+=gastoNeto(t);}});
+  const max=Math.max(...arr.map(Math.abs),1);
   document.getElementById('yearMini').innerHTML=arr.map((v,i)=>{
-    const h=Math.round(v/max*30)+4;
+    const h=Math.round(Math.abs(v)/max*30)+4;
     return `<div class="ym"><div class="ym-mes">${mesesC[i]}</div><div style="height:${h}px;background:var(--green);opacity:${v>0?0.7:0.15};border-radius:3px;margin:6px 0"></div><div class="ym-val">${v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)}</div></div>`;
   }).join('');
 }
@@ -2662,7 +2772,7 @@ function renderChart(){
 }
 
 function renderBarChart(arr,area,leg){
-  const max=Math.max(...arr.map(x=>x[1]));
+  const max=Math.max(...arr.map(x=>Math.abs(x[1])),1);
   const w=320,bh=26,gap=8,h=arr.length*(bh+gap);
   const lblW=80;
   const valW=70;
@@ -2670,7 +2780,7 @@ function renderBarChart(arr,area,leg){
   let svg=`<svg viewBox="0 0 ${w} ${h}" class="chart-svg" style="height:${h}px" preserveAspectRatio="xMidYMid meet">`;
   arr.forEach(([nm,v],i)=>{
     const em=getEmoji(nm);
-    const bw=Math.max((v/max)*barW,2);
+    const bw=Math.max((Math.abs(v)/max)*barW,2);
     const y=i*(bh+gap);
     svg+=`<text x="0" y="${y+bh/2+5}" fill="#a1a1aa" font-size="11" font-weight="600">${em.e} ${nm.length>10?nm.slice(0,9)+'…':nm}</text>`;
     svg+=`<rect x="${lblW}" y="${y}" width="${barW}" height="${bh}" rx="6" fill="#1f1f23"/>`;
@@ -2683,6 +2793,7 @@ function renderBarChart(arr,area,leg){
 }
 
 function renderDonut(arr,area,leg){
+  if(arr.some(x=>x[1]<=0)){renderBarChart(arr,area,leg);leg.textContent='Gasto neto: las devoluciones se descuentan. Se muestran barras cuando hay valores cero o negativos.';return;}
   const total=arr.reduce((s,[,v])=>s+v,0);
   const cx=110,cy=110,r=80,inner=50;
   let svg=`<svg viewBox="0 0 220 220" class="chart-svg" preserveAspectRatio="xMidYMid meet">`;
@@ -2717,21 +2828,21 @@ function renderTrend(area,leg){
   if(anPeriodo==='mes'){
     const ma=getMesActivo();const dias=new Date(ma.getFullYear(),ma.getMonth()+1,0).getDate();
     const arr=Array(dias).fill(0);
-    tx.forEach(t=>{if(t[3]!=='Ingreso'){const f=pf(t[0]);arr[f.getDate()-1]+=parseFloat(t[4])||0;}});
+    tx.forEach(t=>{if(gastoNeto(t)!==0){const f=pf(t[0]);arr[f.getDate()-1]+=gastoNeto(t);}});
     dataPoints=arr.map((v,i)=>({l:String(i+1),v}));
   }else{
     const arr=Array(12).fill(0);
-    tx.forEach(t=>{if(t[3]!=='Ingreso'){const f=pf(t[0]);arr[f.getMonth()]+=parseFloat(t[4])||0;}});
+    tx.forEach(t=>{if(gastoNeto(t)!==0){const f=pf(t[0]);arr[f.getMonth()]+=gastoNeto(t);}});
     dataPoints=arr.map((v,i)=>({l:mesesC[i],v}));
   }
   const w=320,h=180,padL=30,padR=10,padT=10,padB=24;
-  const max=Math.max(...dataPoints.map(p=>p.v),1);
+  const max=Math.max(...dataPoints.map(p=>p.v),1),min=Math.min(0,...dataPoints.map(p=>p.v));
   const innerW=w-padL-padR;const innerH=h-padT-padB;
   const step=dataPoints.length>1?innerW/(dataPoints.length-1):0;
   let path='';let area2='';
   dataPoints.forEach((p,i)=>{
     const x=padL+i*step;
-    const y=padT+innerH-(p.v/max)*innerH;
+    const y=padT+innerH-((p.v-min)/(max-min))*innerH;
     path+=(i===0?'M':'L')+x+' '+y+' ';
     if(i===0)area2+='M '+x+' '+(padT+innerH)+' L '+x+' '+y+' ';
     else area2+='L '+x+' '+y+' ';
@@ -2742,7 +2853,7 @@ function renderTrend(area,leg){
   for(let i=0;i<=3;i++){
     const yy=padT+innerH*(i/3);
     svg+=`<line x1="${padL}" y1="${yy}" x2="${w-padR}" y2="${yy}" stroke="#1f1f23" stroke-width="1"/>`;
-    svg+=`<text x="0" y="${yy+3}" fill="#52525b" font-size="9">${fmtC(max-(max*i/3))}</text>`;
+    svg+=`<text x="0" y="${yy+3}" fill="#52525b" font-size="9">${fmtC(max-((max-min)*i/3))}</text>`;
   }
   svg+=`<path d="${area2}" fill="rgba(0,214,143,0.18)"/>`;
   svg+=`<path d="${path}" fill="none" stroke="#00d68f" stroke-width="2" stroke-linejoin="round"/>`;
@@ -2757,7 +2868,7 @@ function renderTrend(area,leg){
   });
   svg+='</svg>';
   area.innerHTML=svg;
-  leg.innerHTML=`<span class="legend-item"><span class="legend-dot" style="background:#00d68f"></span>Gasto ${anPeriodo==='mes'?'diario':'mensual'}</span>`;
+  leg.innerHTML=`<span class="legend-item"><span class="legend-dot" style="background:#00d68f"></span>Gasto neto ${anPeriodo==='mes'?'diario':'mensual'}</span>`;
 }
 
 
@@ -2827,6 +2938,7 @@ const CREDIT_CARDS={
   map(fn){return getCreditCards().map(fn);},
   forEach(fn){return getCreditCards().forEach(fn);},
   find(fn){return getCreditCards().find(fn);},
+  some(fn){return getCreditCards().some(fn);},
   filter(fn){return getCreditCards().filter(fn);},
   reduce(fn,init){return getCreditCards().reduce(fn,init);},
   [Symbol.iterator](){return getCreditCards()[Symbol.iterator]();}
@@ -2992,7 +3104,7 @@ function renderLineasCreditoConfig(){
     <div class="line-config-item" data-card-idx="${i}" data-old-cuenta="${escAttr(card.cuenta)}">
       <div class="line-config-name" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
         <span>${escHtml(card.emoji)} ${escHtml(card.nombre)}</span>
-        <button class="line-edit-btn" style="background:#ff3b6b1a;border-color:#ff3b6b66;color:var(--red)" onclick="eliminarTarjeta('${escAttr(card.cuenta)}')">Eliminar</button>
+        <button class="line-edit-btn" style="background:#ff3b6b1a;border-color:#ff3b6b66;color:var(--red)" onclick="eliminarTarjeta(this.closest('.line-config-item').dataset.oldCuenta)">Eliminar</button>
       </div>
       <div class="line-config-row" style="grid-template-columns:80px 1fr;margin-top:8px">
         <div class="line-field"><label>Emoji</label><input class="cardEmojiInput" type="text" maxlength="4" value="${escAttr(card.emoji)}"></div>
@@ -3020,6 +3132,7 @@ function renderLineasCreditoConfig(){
       ${cardItems || '<div class="empty" style="padding:18px 8px">Aún no tienes tarjetas. Agrega la primera abajo.</div>'}
       <div class="line-config-item" style="border:1px dashed var(--border)">
         <div class="line-config-name">Nueva tarjeta</div>
+        ${cards.some(c=>norm(c.cuenta)===norm('Visa Clásica BCP Qore'))?'':'<button class="line-edit-btn" onclick="prepararVisaQore()">Completar Visa Clásica BCP Qore · S/ 3.700</button>'}
         <div class="line-config-row" style="grid-template-columns:80px 1fr;margin-top:8px">
           <div class="line-field"><label>Emoji</label><input id="newCardEmoji" type="text" maxlength="4" value="💳"></div>
           <div class="line-field"><label>Nombre</label><input id="newCardName" type="text" placeholder="Ej. Visa Gold"></div>
@@ -3051,10 +3164,11 @@ async function guardarTarjetaInline(i){
   const emoji=item.querySelector('.cardEmojiInput').value.trim()||'💳';
   const corteDia=parseInt(item.querySelector('.cardCorteInput').value,10);
   const pagoDia=parseInt(item.querySelector('.cardPagoInput').value,10);
-  const limite=parseFloat(item.querySelector('.cardLimitInput').value)||0;
+  const limite=Number(item.querySelector('.cardLimitInput').value);
   const metaRaw=item.querySelector('.cardMetaInput').value.trim();
   const metaPct=metaRaw===''?null:parseFloat(metaRaw);
   if(!nombre){toast('Nombre requerido','error');return;}
+  if(!Number.isFinite(limite)||limite<0){toast('La línea debe ser un importe positivo o cero','error');return;}
   if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
   if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
   if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
@@ -3064,15 +3178,25 @@ async function guardarTarjetaInline(i){
   }catch(e){toast(e.message||'Error al guardar','error');}
 }
 
+function prepararVisaQore(){
+ const master=getCreditCards().find(c=>norm(c.cuenta).includes('mastercard'));
+ if(!master){toast('Configura primero los días de la Mastercard','error');return;}
+ document.getElementById('newCardName').value='Visa Clásica BCP Qore';
+ document.getElementById('newCardCorte').value=master.finDia;
+ document.getElementById('newCardPago').value=master.pagoDia;
+ document.getElementById('newCardLimit').value=3700;
+ document.getElementById('newCardName').focus();
+}
 async function agregarTarjeta(){
   const nombre=document.getElementById('newCardName').value.trim();
   const emoji=document.getElementById('newCardEmoji').value.trim()||'💳';
   const corteDia=parseInt(document.getElementById('newCardCorte').value,10);
   const pagoDia=parseInt(document.getElementById('newCardPago').value,10);
-  const limite=parseFloat(document.getElementById('newCardLimit').value)||0;
+  const limite=Number(document.getElementById('newCardLimit').value);
   const metaRaw=document.getElementById('newCardMeta').value.trim();
   const metaPct=metaRaw===''?null:parseFloat(metaRaw);
   if(!nombre){toast('Nombre requerido','error');return;}
+  if(!Number.isFinite(limite)||limite<0){toast('La línea debe ser un importe positivo o cero','error');return;}
   if(!Number.isFinite(corteDia)||corteDia<1||corteDia>31){toast('Día de corte 1-31','error');return;}
   if(!Number.isFinite(pagoDia)||pagoDia<1||pagoDia>31){toast('Día de pago 1-31','error');return;}
   if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
@@ -3159,7 +3283,7 @@ function renderCreditLineSummary(){
   const nextItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset+1)}));
   const usedCurrent=currentItems.reduce((s,x)=>s+x.data.pendiente,0);
   const usedNext=nextItems.reduce((s,x)=>s+x.data.pendiente,0);
-  const used=usedCurrent+usedNext;
+  const used=CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
   const limit=CREDIT_CARDS.reduce((s,card)=>s+getCreditLimit(card),0);
   // Meta total = suma de (limite_i * meta_i / 100) por tarjeta (no aplicar % global al total)
   const goalAmount=CREDIT_CARDS.reduce((s,card)=>s+(getCreditLimit(card)*getCardGoalPct(card)/100),0);
@@ -3208,7 +3332,7 @@ function renderCardsPage(){
           <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
           <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
-        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
+        </div>${renderCardRefundSummary(data)}${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
     }).join('');
     return;
   }
@@ -3278,7 +3402,7 @@ function pulseCycleBar(){
   setTimeout(()=>bar.classList.remove('animating'),320);
 }
 function txDateParts(t){const d=pf(t[0]);return {day:d.getDate(),month:d.getMonth(),year:d.getFullYear()};}
-function isCardExpenseFor(card,t){return t && t[3]!=='Ingreso' && (parseFloat(t[4])||0)>0 && sameAccount((t[5]||'').toString().trim(),card.cuenta);}
+function isCardExpenseFor(card,t){return t && t[3]==='Gasto' && (parseFloat(t[4])||0)>0 && sameAccount((t[5]||'').toString().trim(),card.cuenta);}
 function getManualMovedTxs(card){return (datos.transacciones||[]).filter(t=>isCardExpenseFor(card,t)&&!!getTxCycleOverride(card,t)).sort((a,b)=>pf(b[0])-pf(a[0]));}
 function renderManualMovedSection(card,cycle){
   const moved=getManualMovedTxs(card).filter(t=>!txBelongsToCycle(card,t,cycle));
@@ -3352,25 +3476,40 @@ function getPaymentStatus(total,pagado,payDate){
 // Total adeudado real de la tarjeta ahora mismo: todo lo gastado hasta hoy
 // menos todo lo pagado, sin importar el ciclo (a diferencia de getCardData,
 // que es por-ciclo para la pestaña Tarjetas). Usado solo por el Acumulado.
-function getCardOutstandingTotal(card){
-  const consumo=datos.transacciones.filter(t=>{
-    const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
-    return tipo!=='Ingreso'&&monto>0&&sameAccount(cuenta,card.cuenta);
-  }).reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
-  const pagado=(datos.pagosTarjetas||[]).filter(p=>sameAccount(String(p[1]||''),card.cuenta)).reduce((sum,p)=>sum+(parseFloat(p[3])||0),0);
-  return Math.max(consumo-pagado,0);
+function cardTxCycleKey(card,t){
+  const override=getTxCycleOverride(card,t);if(override)return normCycleKey(override);
+  const date=pf(t[0]);
+  const offset=(date.getFullYear()-getCurrentCycleEndMonth().getFullYear())*12+date.getMonth()-getCurrentCycleEndMonth().getMonth()+(date.getDate()>card.finDia?1:0);
+  return getCycleKey(getCardCycle(card,offset));
 }
+function cardLedger(card){
+  const buckets=new Map();
+  const bucket=key=>{if(!buckets.has(key))buckets.set(key,{total:0,pagado:0,reembolsos:0,creditoAplicado:0});return buckets.get(key);};
+  const expenses=datos.transacciones.filter(t=>isCardExpenseFor(card,t));
+  expenses.forEach(t=>bucket(cardTxCycleKey(card,t)).total+=Number(t[4]));
+  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=Number(p[3])||0);
+  datos.transacciones.filter(t=>t[3]==='Reembolso'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=endOfDay(new Date())).forEach(t=>{
+    const original=expenses.find(g=>String(g[6])===String(t[8]));
+    if(original)bucket(cardTxCycleKey(card,original)).reembolsos+=Number(t[4]);
+  });
+  let favor=0;
+  for(const b of buckets.values()){const net=b.total-b.pagado-b.reembolsos;b.pendiente=Math.max(0,net);favor+=Math.max(0,-net);}
+  for(const key of [...buckets.keys()].sort()){const b=buckets.get(key);b.creditoAplicado=Math.min(favor,b.pendiente);b.pendiente-=b.creditoAplicado;favor-=b.creditoAplicado;}
+  return {buckets,saldoFavor:favor,pendiente:[...buckets.values()].reduce((sum,b)=>sum+b.pendiente,0)};
+}
+function getCardOutstandingTotal(card){return cardLedger(card).pendiente;}
 function getCardData(card,offset=cardCycleOffset){
-  const cycle=getCardCycle(card,offset);
-  const gastos=datos.transacciones.filter(t=>{
-    const tipo=t[3]; const monto=parseFloat(t[4])||0; const cuenta=(t[5]||'').toString().trim();
-    return tipo!=='Ingreso'&&monto>0&&sameAccount(cuenta,card.cuenta)&&txBelongsToCycle(card,t,cycle);
-  }).sort((a,b)=>pf(b[0])-pf(a[0]));
-  const total=gastos.reduce((sum,t)=>sum+(parseFloat(t[4])||0),0);
-  const pagado=Math.min(getCardPayment(card,cycle),total);
-  const pendiente=Math.max(total-pagado,0);
-  const status=getPaymentStatus(total,pagado,cycle.pay);
-  return{cycle,gastos,total,pagado,pendiente,status,pagos:getCardPaymentRecords(card,cycle)};
+  const cycle=getCardCycle(card,offset),key=getCycleKey(cycle);
+  const gastos=datos.transacciones.filter(t=>isCardExpenseFor(card,t)&&txBelongsToCycle(card,t,cycle)).sort((a,b)=>pf(b[0])-pf(a[0]));
+  const ledger=cardLedger(card),b=ledger.buckets.get(key)||{total:0,pagado:0,reembolsos:0,creditoAplicado:0,pendiente:0};
+  const {total,reembolsos,creditoAplicado,pendiente}=b,pagado=Math.min(b.pagado,total);
+  const status=getPaymentStatus(total,total-pendiente,cycle.pay);
+  if(total>0&&pendiente===0&&(reembolsos>0||creditoAplicado>0)){status.text='Cubierto';status.detail='Incluye devoluciones o saldo a favor';}
+  return{cycle,gastos,total,pagado,pendiente,status,reembolsos,creditoAplicado,saldoFavor:ledger.saldoFavor,pagos:getCardPaymentRecords(card,cycle)};
+}
+function renderCardRefundSummary(data){
+  if(!data.reembolsos&&!data.creditoAplicado&&!data.saldoFavor)return '';
+  return `<div class="hint" style="color:var(--dim);line-height:1.6;margin:12px 0">Devoluciones de este ciclo: ${fmt(data.reembolsos)} · Crédito aplicado: ${fmt(data.creditoAplicado)} · Saldo a favor disponible: ${fmt(data.saldoFavor)}<br>Saldos recalculados con las devoluciones registradas hasta hoy.</div>`;
 }
 function hoyISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function formatISODate(iso){
@@ -3490,6 +3629,7 @@ function renderCardDetail(){
   }
   cont.innerHTML=head+`
     <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
+    ${renderCardRefundSummary(data)}
     ${renderCreditLineBlock(card,pendiente)}
     <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
     ${renderPaymentForm(pendiente,card)}
@@ -3557,17 +3697,43 @@ async function bootAuth(){
 }
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 const previousRender=render;
-render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.filter(t=>t[3]!=='Ingreso').reduce((s,t)=>s+Number(t[4]),0);const title=income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=income>0?`Gastos equivalentes al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const title=income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+const APP_PREFS_KEY='finanzas.appearance.v1';
+function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
+let appPreferences=leerPreferencias();
+function aplicarPreferencias(){
+ const colors={green:'#00d68f',blue:'#7aa2ff',violet:'#c4a2ff'};
+ document.documentElement.style.setProperty('--accent',colors[appPreferences.accent]||colors.green);
+}
+function abrirConfiguracion(){
+ document.getElementById('appAccent').value=appPreferences.accent||'green';
+ document.getElementById('appChartScale').value=appPreferences.chartScale||'overview';
+ document.getElementById('settingsModal').classList.add('active');
+}
+function cerrarConfiguracion(){document.getElementById('settingsModal').classList.remove('active');}
+function guardarPreferencias(){
+ appPreferences={accent:document.getElementById('appAccent').value,chartScale:document.getElementById('appChartScale').value};
+ aplicarPreferencias();
+ try{localStorage.setItem(APP_PREFS_KEY,JSON.stringify(appPreferences));}catch(e){toast('Preferencia aplicada; este navegador no permite guardarla','error');}
+ if(pfHistoricoCache.length)renderPfChart();
+ if(document.getElementById('pfPosModal').classList.contains('active'))renderPfModalChart();
+}
+function pfChartDomain(values,scale='overview'){
+ const min=Math.min(...values),max=Math.max(...values);
+ const margin=Math.max((max-min)*.12,Math.max(Math.abs(min),Math.abs(max))*.02,1);
+ return scale==='detail'?[min-margin,max+margin]:[Math.min(0,min-margin),Math.max(0,max+margin)];
+}
+aplicarPreferencias();
 // Mejora el eje temporal y el rango de series constantes.
 construirLineChartSVG=function(puntos){
- const pts=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&parseDateOnly(p.fecha)).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+ const pts=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(+parseDateOnly(p.fecha))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
  if(pts.length<2)return '<div class="empty">'+(pts.length?'Histórico disponible desde '+esc(pts[0].fecha)+'. Se necesitan al menos dos fechas.':'No hay datos para este período.')+'</div>';
- const vals=pts.map(p=>Number(p.valor));let lo=Math.min(...vals),hi=Math.max(...vals);const margin=(hi-lo)*.12||Math.max(Math.abs(hi)*.02,1);lo-=margin;hi+=margin;
+ const vals=pts.map(p=>Number(p.valor));const [lo,hi]=pfChartDomain(vals,appPreferences.chartScale);
  const t0=+parseDateOnly(pts[0].fecha),tn=+parseDateOnly(pts.at(-1).fecha),x=p=>52+(+parseDateOnly(p.fecha)-t0)/(tn-t0||1)*488,y=p=>172-(Number(p.valor)-lo)/(hi-lo)*150;
  const path=pts.map((p,i)=>(i?'L':'M')+x(p).toFixed(2)+' '+y(p).toFixed(2)).join(' ');
  let svg='<svg viewBox="0 0 560 205" class="chart-svg" role="img" aria-label="Evolución del valor en el período"><title>Evolución del valor; incluye aportes y retiros</title>';
  for(let i=0;i<4;i++){const yy=22+i*50;svg+=`<line x1="52" y1="${yy}" x2="540" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
- svg+=`<path d="${path} L 540 172 L 52 172 Z" fill="var(--green)" opacity=".08"/><path d="${path}" fill="none" stroke="var(--green)" stroke-width="2.5"/>`;
+ svg+=`<path d="${path} L 540 172 L 52 172 Z" fill="var(--green)" opacity=".08"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
  [pts[0],pts.at(-1)].forEach((p,i)=>svg+=`<text x="${i?540:52}" y="198" text-anchor="${i?'end':'start'}" font-size="10">${esc(fmtDateShort(parseDateOnly(p.fecha)))}</text>`);
  return svg+'</svg>';
 };
