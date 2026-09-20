@@ -245,6 +245,8 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .cchip.selected{border-color:var(--green);color:var(--green);background:rgba(0,214,143,0.06);}
 .cchip-emoji{font-size:1rem;}
 .cuenta-row{display:flex;align-items:center;gap:8px;margin-bottom:18px;}
+.monto-row{display:flex;align-items:center;gap:10px;}
+.moneda-sel{flex:0 0 auto;width:auto;font-weight:800;}
 .cuenta-lbl{font-size:0.72rem;color:var(--muted);}
 .sel{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:var(--text);font-size:0.85rem;font-family:inherit;font-weight:500;outline:none;}
 .brow{display:flex;gap:8px;margin-top:10px;}
@@ -368,7 +370,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .pay-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;color:var(--text);font-size:1rem;font-family:inherit;font-weight:700;outline:none;min-width:0;}
 .pay-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
 .card-detail-head{margin-bottom:14px;}.card-detail-name{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;}.card-detail-sub{font-size:.76rem;color:var(--muted);margin-top:4px;}
-.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0;}.card-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;}.card-stat.full{grid-column:1/-1;}.card-stat-val{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0;}.card-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;}.card-stat.full{grid-column:1/-1;}.card-stat-val{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}.card-stat-sub{font-size:.66rem;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:3px;}
 .card-tx-list{margin-top:12px;}.card-tx-title{font-size:.82rem;font-weight:800;margin-bottom:8px;color:var(--text);}.card-tx-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}.card-tx-desc{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.card-tx-meta{font-size:.68rem;color:var(--muted);margin-top:2px;}.card-tx-amt{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums;}
 
 /* Balance number smoothing */
@@ -443,6 +445,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .cuenta-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
 .cuenta-item:last-child{border-bottom:0;}
 .cuenta-item.archivada{opacity:.55;}
+.cuenta-item-acciones{display:flex;gap:6px;flex-shrink:0;}
 .cuenta-item-nombre{font-size:.85rem;font-weight:700;}
 .cuenta-item-meta{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
 .line-field label{display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:6px;}
@@ -643,9 +646,6 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <button class="seg-btn" id="segAcumulado" role="tab" aria-selected="false" onclick="setModoBalance('acumulado')">Acumulado</button>
       <button class="seg-btn" id="segNeto" role="tab" aria-selected="false" onclick="setModoBalance('neto')">Neto</button>
       <button class="seg-btn" id="segPatrimonio" role="tab" aria-selected="false" onclick="setModoBalance('patrimonio')">Patrimonio</button>
-    </div>
-    <div class="filter-row">
-      <button class="chip" id="chipTransferencias" onclick="togglePillTipo('transferencias')" aria-pressed="false">↔ Transferencias</button>
     </div>
 
     <div class="search-wrap show" id="searchWrap">
@@ -880,7 +880,14 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     </div>
 
     <input type="text" class="big-input" id="iDes" placeholder="Descripción">
-    <input type="number" class="big-input muto" id="iMon" placeholder="Monto" step="0.01" inputmode="decimal">
+    <div class="monto-row">
+      <select class="sel moneda-sel" id="iMoneda" onchange="cambiarMonedaTx()" aria-label="Moneda del importe" hidden><option value="PEN">S/</option><option value="USD">US$</option></select>
+      <input type="number" class="big-input muto" id="iMon" placeholder="Monto" step="0.01" inputmode="decimal" oninput="actualizarEquivalente()">
+    </div>
+    <div id="divisaFields" hidden>
+      <div class="cuenta-row"><label class="cuenta-lbl" for="iTc">Tipo de cambio</label><input id="iTc" class="sel" type="number" step="0.000001" min="0" inputmode="decimal" placeholder="Ej. 3.766667" oninput="tcEditadoAMano()"></div>
+      <p class="transfer-note" id="divisaEquiv"></p>
+    </div>
 
     <div class="cat-chips" id="catChips"></div>
 
@@ -897,7 +904,9 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     </div>
     <div id="transferFields" hidden>
       <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><select class="sel" id="iDestino" onchange="cambiarCuentaSelect(this)"></select></div>
-      <p class="hint transfer-note">Importe en soles (S/). Mueve saldo entre tus cuentas sin contar como gasto o ingreso. Si la cuenta es de inversión, el monto se interpreta en soles aunque su moneda sea USD: todavía no hay conversión por movimiento. En IBKR representa tus aportes registrados, no el valor de mercado.</p>
+      <div class="cuenta-row" id="destinoMontoRow" hidden><label class="cuenta-lbl" id="destinoMontoLbl" for="iMonDestino">Entra</label><input id="iMonDestino" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" oninput="actualizarEquivalente()"></div>
+      <p class="transfer-note" id="transferTc" hidden></p>
+      <p class="hint transfer-note">Mueve saldo entre tus cuentas sin contar como gasto o ingreso. Si el destino tiene otra moneda, escribe también cuánto entra: el tipo de cambio sale de esos dos importes. En IBKR el monto representa tus aportes registrados, no el valor de mercado.</p>
     </div>
     <div class="brow" id="modalBtns">
       <button class="btn btn-s" onclick="cerrarM()">Cancelar</button>
@@ -974,7 +983,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
           <div class="line-field"><label for="newCuentaMoneda">Moneda</label><select class="sel" id="newCuentaMoneda"><option value="PEN">PEN · soles</option><option value="USD">USD · dólares</option></select></div>
           <button class="btn btn-p" style="align-self:end" onclick="agregarCuenta()">Agregar cuenta</button>
         </div>
-        <p class="hint">Las cuentas no se renombran ni se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p>
+        <p class="hint">Renombrar cambia también el nombre en todos los movimientos y pagos de esa cuenta, así que no se pierde ningún saldo. Las cuentas no se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p>
       </section>
       <section class="line-config-item" id="tipoCambioSection"><h3 class="line-config-name">Tipo de cambio</h3>
         <div class="line-config-row" style="grid-template-columns:1fr auto">
@@ -1291,6 +1300,21 @@ function dayLabel(d){
   return dd+'/'+mm+'/'+yy;
 }
 
+// Único sitio donde una fila de Supabase se convierte en el arreglo posicional
+// que usa toda la app. Los campos nuevos van al final: los índices 0-8 no se
+// mueven nunca, porque están escritos a mano en decenas de sitios.
+//   0 fecha · 1 descripción · 2 categoría · 3 tipo · 4 monto (SIEMPRE soles)
+//   5 cuenta · 6 id · 7 cuenta_destino · 8 transaccion_origen_id
+//   9 moneda_original (null = PEN) · 10 monto_original · 11 tc · 12 tc_fuente
+//  13 moneda_destino · 14 monto_destino
+function filaTx(t){
+  return [t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id,
+    t.cuenta_destino||null,t.transaccion_origen_id||null,
+    t.moneda_original||null,t.monto_original==null?null:Number(t.monto_original),
+    t.tc==null?null:Number(t.tc),t.tc_fuente||null,
+    t.moneda_destino||null,t.monto_destino==null?null:Number(t.monto_destino)];
+}
+
 async function cargar(){
   const b=document.getElementById('refreshBtn');b.classList.add('loading');
   // Aparte del Promise.all: si la migración de cuentas todavía no está
@@ -1308,7 +1332,7 @@ async function cargar(){
       sbSelect('presupuestos','?select=categoria,monto_limite,mes'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
-    datos.transacciones=tx.map(t=>[t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id,t.cuenta_destino||null,t.transaccion_origen_id||null]);
+    datos.transacciones=tx.map(filaTx);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
     datos.pagosTarjetas=pagos.map(p=>[p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota,p.cuenta_origen]);
     datos.ciclosOverride=ciclos.map(c=>[c.id,c.tarjeta,c.tx_id,c.ciclo_key]);
@@ -1393,8 +1417,6 @@ function actualizarChips(){
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out.classList.toggle('active-pill',filtroTipo==='gastos');
   inn.classList.toggle('active-pill',filtroTipo==='ingresos');
-  document.getElementById('chipTransferencias').classList.toggle('active-cat',filtroTipo==='transferencias');
-  document.getElementById('chipTransferencias').setAttribute('aria-pressed',String(filtroTipo==='transferencias'));
 }
 
 // === MES PICKER ===
@@ -1483,6 +1505,15 @@ function smoothSetText(el,newText,newValue=null){
   },90);
 }
 
+// Una selección hecha solo de transferencias (p. ej. al tocar la categoría
+// "Inversión IBKR") no es ingreso ni gasto: el balance daría 0. En ese caso se
+// muestra cuánto dinero se movió, sin sumarlo a nada.
+function seleccionSoloTransferencias(){
+  if(modoBalance!=='periodo')return false;
+  const rows=filtrar();
+  return rows.length>0&&rows.every(t=>t[3]==='Transferencia');
+}
+
 function renderBal(){
   const hoy = new Date(); hoy.setHours(23,59,59,999);
   let txBalance;
@@ -1543,13 +1574,19 @@ function renderBal(){
     }else{nota.hidden=true;nota.textContent='';}
   }
 
+  const soloTransf=seleccionSoloTransferencias();
+  if(soloTransf)balance=txPeriodo.reduce((s,t)=>s+(parseFloat(t[4])||0),0);
+  const kpiRow=document.getElementById('kpiRow');
+  if(kpiRow)kpiRow.style.display=soloTransf?'none':'';
+
   smoothSetText(document.getElementById('balAmt'), textoAlterno||fmtN(Math.abs(balance)), textoAlterno?null:Math.abs(balance));
   const dot=document.getElementById('balDot');
-  dot.textContent = textoAlterno ? '+' : (balance >= 0 ? '+' : '−');
-  dot.classList.toggle('neg', !textoAlterno && balance < 0);
+  dot.textContent = textoAlterno ? '+' : soloTransf ? '↔' : (balance >= 0 ? '+' : '−');
+  dot.classList.toggle('neg', !textoAlterno && !soloTransf && balance < 0);
   if(dot.style)dot.style.visibility = textoAlterno ? 'hidden' : '';
 
-  document.getElementById('balLbl').textContent = modoBalance==='patrimonio'
+  document.getElementById('balLbl').textContent = soloTransf ? 'Transferido'
+    : modoBalance==='patrimonio'
     ? 'Patrimonio'
     : netaMode ? 'Total neto'
     : acumuladoMode ? 'Saldo + tarjetas' : 'Total';
@@ -1606,10 +1643,18 @@ function renderTx(){
       const c=cleanName(t[2]);
       const em=getEmoji(c);
       const i=t[3]==='Ingreso'||t[3]==='Reembolso',transfer=t[3]==='Transferencia';
-      const d=transfer?`${t[5]} → ${t[7]||'Sin destino'} · ${t[1]||''}`:t[1]||'?';
       const m=parseFloat(t[4])||0;
+      // En divisa el importe que se ve primero es el que pagaste; el
+      // equivalente en soles y el tipo de cambio van en la segunda línea.
+      const enDivisa=t[9]==='USD'&&Number(t[10])>0;
+      const cambio=transfer&&Number(t[14])>0
+        ? `${fmt(m)} → ${fmtMoneda(Number(t[14]),t[13]||'USD')}`
+        : enDivisa?`${fmt(m)} · TC ${Number(t[11]).toFixed(6)}`:'';
+      const base=transfer?`${t[5]} → ${t[7]||'Sin destino'}${t[1]?' · '+t[1]:''}`:t[1]||'?';
+      const d=cambio?`${base} · ${cambio}`:base;
+      const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m);
       const row=getTxRow(t);
-      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(t[3]==='Reembolso'?'Reembolso · '+c:c||'—')}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${fmt(m).replace('S/ ','S/ ')}</div></div>`;
+      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(t[3]==='Reembolso'?'Reembolso · '+c:c||'—')}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div></div>`;
     }).join('');
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
   }).join('');
@@ -1813,6 +1858,8 @@ function cambiarCuentaSelect(sel){
   if(sel&&sel.value==='__admin__'){sel.value=sel.dataset.prev||'';abrirConfiguracion('cuentas');return;}
   if(sel)sel.dataset.prev=sel.value;
   if(tipoA==='Transferencia')llenarCuentas();
+  // La moneda de la cuenta decide si hay campos de divisa y qué TC se propone.
+  sincronizarCamposMoneda();
 }
 function validarTransferencia({origen,destino,monto},cards=CREDIT_CARDS){
   if(!Number.isFinite(monto)||monto<=0)throw new Error('Ingresa un importe mayor que cero');
@@ -2170,8 +2217,13 @@ function abrirM(){
   document.getElementById('iMon').value='';
   document.getElementById('iDes').value='';
   document.getElementById('iGastoOrigen').value='';
+  const mon=document.getElementById('iMoneda');if(mon)mon.value='PEN';
+  const tc=document.getElementById('iTc');if(tc)tc.value='';
+  const mdest=document.getElementById('iMonDestino');if(mdest)mdest.value='';
+  tcFuenteActual='manual';
   setTipo('Gasto');
   llenarCuentas('','');
+  sincronizarCamposMoneda();
   document.getElementById('modal').classList.add('active');
   setTimeout(()=>document.getElementById('iDes').focus(),100);
 }
@@ -2186,12 +2238,21 @@ function editarTx(row){
   const f=pf(t[0]);
   const yyyy=f.getFullYear();const mm=String(f.getMonth()+1).padStart(2,'0');const dd=String(f.getDate()).padStart(2,'0');
   document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
-  document.getElementById('iMon').value=t[4];
+  // En divisa se edita el importe original, no el equivalente en soles: ese lo
+  // vuelve a derivar el servidor. El tipo de cambio es el que se guardó, nunca
+  // el promedio de hoy (decisión: no recalcular movimientos históricos).
+  const enDivisa=t[9]==='USD'&&Number(t[10])>0;
+  document.getElementById('iMon').value=enDivisa?t[10]:t[4];
   document.getElementById('iDes').value=t[1];
+  const mon=document.getElementById('iMoneda');if(mon)mon.value=enDivisa?'USD':'PEN';
+  const campoTc=document.getElementById('iTc');if(campoTc)campoTc.value=enDivisa&&t[11]?t[11]:'';
+  const mdest=document.getElementById('iMonDestino');if(mdest)mdest.value=Number(t[14])>0?t[14]:'';
+  tcFuenteActual=t[12]||'manual';
   setTipo(t[3]||'Gasto');
   if(t[3]==='Reembolso')llenarGastosReembolso(t[8]||'');
   const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
   llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''),t[7]||'');
+  sincronizarCamposMoneda();
   // Pre-seleccionar categoría
   const cn=cleanName(t[2]);
   setTimeout(()=>{
@@ -2217,6 +2278,7 @@ function setTipo(t){
   document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':'Cuenta';
   llenarCuentas();
   llenarSel();
+  sincronizarCamposMoneda();
 }
 
 async function eliminar(){
@@ -2290,7 +2352,34 @@ async function guardar(){
   }
   let fechaISO=buildFechaISO(yy,mm,dd,timePart);
   if(editando&&editandoFecha&&toDateInput(editandoFecha)===fec)fechaISO=editandoFecha;
-  const body={fecha:fechaISO,descripcion:d,categoria:c,tipo:tipoA,monto:m,cuenta:cu};
+  // Multimoneda. Los seis campos se mandan siempre, también en null, para que
+  // pasar un movimiento de US$ a S/ los limpie en lugar de dejar restos.
+  // El equivalente en soles que se manda es solo un punto de partida: lo
+  // recalcula el trigger derivar_importes_moneda y se relee de la respuesta.
+  const enDivisa=tipoA!=='Transferencia'&&monedaTx()==='USD';
+  const distintaMoneda=tipoA==='Transferencia'&&!!destino&&monedaCuenta(destino)!==monedaCuenta(cu);
+  let equivalente=m,tcUsado=null,montoDestino=null;
+  if(enDivisa){
+    tcUsado=Number(elv('iTc'));
+    if(!Number.isFinite(tcUsado)||tcUsado<=0){toast('Escribe el tipo de cambio','error');return;}
+    equivalente=equivalenteSoles(elv('iMon'),elv('iTc'));
+    if(!(equivalente>0)){toast('El equivalente en soles queda en cero: revisa el importe o el tipo de cambio','error');return;}
+  }
+  // El importe que entra es opcional a propósito. En una compra de dólares lo
+  // sabes al momento, pero un aporte a IBKR no: los dólares que acreditó el
+  // bróker llegan después. Dejarlo vacío deja el movimiento pendiente de
+  // conciliar (monto_destino null) en vez de obligar a inventar una cifra.
+  if(distintaMoneda&&elv('iMonDestino')){
+    montoDestino=Number(elv('iMonDestino'));
+    if(!Number.isFinite(montoDestino)||montoDestino<=0){toast('El importe que entra debe ser mayor que cero','error');return;}
+  }
+  const body={fecha:fechaISO,descripcion:d,categoria:c,tipo:tipoA,monto:equivalente,cuenta:cu,
+    moneda_original:enDivisa?'USD':null,
+    monto_original:enDivisa?m:null,
+    tc:enDivisa?tcUsado:null,
+    tc_fuente:enDivisa?tcFuenteActual:(montoDestino?'transferencia':null),
+    moneda_destino:montoDestino?monedaCuenta(destino):null,
+    monto_destino:montoDestino||null};
   const anterior=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
   if(tipoA==='Transferencia'||anterior?.[3]==='Transferencia')body.cuenta_destino=tipoA==='Transferencia'?destino:null;
   const idGuardado=editando;
@@ -2298,13 +2387,17 @@ async function guardar(){
   guardandoTx=true;
   try{
     if(idGuardado){
-      await sbUpdate('transacciones',idGuardado,body);
+      // Se relee la fila que devuelve el servidor: el equivalente en soles y el
+      // tipo de cambio de una compra los calcula él, no el navegador. Se muta
+      // en sitio en lugar de reemplazar el arreglo, porque hay código que
+      // conserva la referencia a la fila.
+      const row=await sbUpdate('transacciones',idGuardado,body);
       const t=datos.transacciones.find(x=>String(getTxRow(x))===String(idGuardado));
-      if(t){t[0]=fechaISO;t[1]=d;t[2]=c;t[3]=body.tipo;t[4]=m;t[5]=cu;t[7]=body.cuenta_destino||null;t[8]=body.transaccion_origen_id||null;}
+      if(t){const n=filaTx(row&&row.id?row:Object.assign({},body,{id:idGuardado}));for(let i=0;i<n.length;i++)t[i]=n[i];}
       toast('Actualizada','success');
     } else {
       const row=await sbInsert('transacciones',body);
-      datos.transacciones.push([row.fecha,row.descripcion,row.categoria,row.tipo,row.monto,row.cuenta,row.id,row.cuenta_destino||null,row.transaccion_origen_id||null]);
+      datos.transacciones.push(filaTx(row));
       toast('Guardada','success');
     }
     cerrarM();render();
@@ -2453,12 +2546,175 @@ function renderSaldoCuentas(){
   // Las cuentas viejas se siguen mostrando mientras tengan movimientos.
   const cuentas=[...cuentasDisponibles(),...cuentasLegacy()].filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
   cont.innerHTML=cuentas.map(c=>{
-    const b=getCuentaBalance(c);
-    // En una cuenta de inversión esto son aportes netos registrados en soles,
-    // no el valor de mercado (ese está en Mi Portafolio).
+    // Cada cuenta se muestra en su propia moneda: una cuenta en dólares debe
+    // decir cuántos dólares tienes, no los soles con que se compraron. El
+    // perímetro líquido sigue midiéndose en soles con getCuentaBalance().
+    const {moneda,saldo}=getCuentaBalanceMoneda(c);
+    // En una cuenta de inversión esto son aportes netos registrados, no el
+    // valor de mercado (ese está en Mi Portafolio).
     const nota=esCuentaInversion(c)?' · aportes netos':'';
-    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${nota}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
+    const costo=moneda==='USD'&&!esCuentaInversion(c)?`<div class="card-stat-sub">costo ${fmt(getCuentaBalance(c))}</div>`:'';
+    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${nota}</div><div class="card-stat-val ${saldo>=0?'stat-delta-pos':'stat-delta-neg'}">${fmtCuenta(saldo,moneda)}</div>${costo}</div>`;
   }).join('');
+}
+
+// ============ MULTIMONEDA ============
+// t[4] (monto) es siempre el equivalente en soles y es lo único que suman
+// balances, categorías y presupuestos. Lo de aquí solo sirve para registrar y
+// mostrar el importe tal como se pagó. moneda_original null significa PEN.
+
+// Redondeo a céntimos igual que Postgres: half away from zero.
+// No se usa Math.round porque 1.005*100 en binario es 100.49999999999999, y
+// daría 1.00 donde el servidor da 1.01. Trabajando con enteros grandes el
+// resultado es exacto, así que lo que se previsualiza coincide siempre con lo
+// que el servidor termina guardando. Se lee el texto, no el float.
+function aEntero(valor,decimales){
+  const m=/^(-?)(\d*)(?:[.,](\d*))?$/.exec(String(valor==null?'':valor).trim());
+  if(!m||(!m[2]&&!m[3]))return null;
+  let n=BigInt((m[2]||'0')+(m[3]||'').slice(0,decimales).padEnd(decimales,'0'));
+  const sobrante=(m[3]||'').slice(decimales);
+  if(sobrante&&sobrante[0]>='5')n+=1n;
+  return (m[1]==='-'?-1n:1n)*n;
+}
+function equivalenteSoles(montoOriginal,tc){
+  const mo=aEntero(montoOriginal,2),t=aEntero(tc,8);
+  if(mo===null||t===null)return null;
+  const p=mo*t,neg=p<0n,abs=neg?-p:p;
+  const centimos=(abs+50000000n)/100000000n;
+  return Number(neg?-centimos:centimos)/100;
+}
+
+function monedaCuenta(nombre){const c=cuentaPorNombre(nombre);return (c&&c[2])||'PEN';}
+// Los dólares de IBKR no se gastan: incluirlos falsearía el promedio del
+// dinero disponible. Sus aportes son consumo del pozo solo el día que salgan
+// de una cuenta en dólares, no cuando salen de Plin o Yape en soles.
+function cuentasUSDGastables(){
+  return cuentasApp().filter(c=>c[2]==='USD'&&c[1]!=='inversion'&&!c[3]).map(c=>c[0]);
+}
+
+// Costo promedio ponderado de los dólares que tienes disponibles, recorriendo
+// los movimientos en orden. Promedio móvil: comprar mueve el promedio, gastar
+// no (retira coste en la misma proporción, así que el ratio no cambia). Si el
+// saldo se agota el pozo se reinicia solo, que es lo correcto: los dólares que
+// compres luego no deben arrastrar el costo de los que ya gastaste.
+// Devuelve null cuando no hay con qué calcularlo; nunca un número inventado.
+function costoPromedioUSD(){
+  const cuentas=cuentasUSDGastables();
+  if(!cuentas.length)return null;
+  const esUSD=n=>cuentas.some(c=>sameAccount(c,n||''));
+  let usd=0,pen=0,descuadre=false;
+  const entra=(d,soles)=>{if(d>0){usd+=d;pen+=soles;}};
+  const sale=d=>{
+    if(!(d>0))return;
+    if(usd<=0){descuadre=true;return;}
+    pen-=d*(pen/usd);usd-=d;
+    if(usd<0.005){usd=0;pen=0;}          // agotado: el pozo vuelve a empezar
+    else if(usd<0){descuadre=true;}
+  };
+  [...(datos.transacciones||[])].sort((a,b)=>pf(a[0])-pf(b[0])).forEach(t=>{
+    const soles=Number(t[4])||0,orig=Number(t[10])||0;
+    if(t[3]==='Transferencia'){
+      if(esUSD(t[7])&&Number(t[14])>0)entra(Number(t[14]),soles);
+      else if(esUSD(t[5]))sale(orig);
+    }else if(esUSD(t[5])&&t[9]==='USD'&&orig>0){
+      if(t[3]==='Gasto')sale(orig);else entra(orig,soles);
+    }
+  });
+  if(descuadre||usd<0.005||pen<=0)return null;
+  return Math.round(pen/usd*1e6)/1e6;
+}
+
+// Igual que movimientoCuenta pero en la moneda propia de la cuenta: una cuenta
+// en dólares debe enseñar dólares, no los soles con que se compraron.
+// movimientoCuenta() se deja intacta: es la que alimenta el perímetro líquido,
+// que sigue midiéndose en soles al costo histórico.
+function movimientoCuentaMoneda(t,cuenta){
+  const usd=monedaCuenta(cuenta)==='USD';
+  if(t[3]==='Transferencia'){
+    if(sameAccount(t[7]||'',cuenta))return usd&&Number(t[14])>0?Number(t[14]):(Number(t[4])||0);
+    if(sameAccount(t[5]||'',cuenta))return -(usd&&Number(t[10])>0?Number(t[10]):(Number(t[4])||0));
+    return 0;
+  }
+  if(!sameAccount(t[5]||'',cuenta))return 0;
+  if(usd&&t[9]==='USD'&&Number(t[10])>0)return (t[3]==='Gasto'?-1:1)*Number(t[10]);
+  return efectoResultado(t);
+}
+function getCuentaBalanceMoneda(cuenta){
+  const moneda=monedaCuenta(cuenta);
+  let saldo=(datos.transacciones||[]).reduce((s,t)=>s+movimientoCuentaMoneda(t,cuenta),0);
+  // pagos_tarjetas no guarda moneda y las tarjetas se pagan en soles, así que
+  // solo descuenta de cuentas en soles.
+  if(moneda==='PEN')(datos.pagosTarjetas||[]).forEach(p=>{
+    if(sameAccount(String(p[6]||''),cuenta))saldo-=(parseFloat(p[3])||0);
+  });
+  return {moneda,saldo};
+}
+function fmtCuenta(n,moneda){return moneda==='USD'?fmtMoneda(n,'USD'):fmt(n);}
+
+// El tipo de cambio que se propone depende de quién hace la conversión. Si
+// pagas con dólares tuyos, lo que importa es a cuánto los compraste. Si paga
+// una cuenta en soles o una tarjeta, convierte el banco y tu costo promedio no
+// tiene nada que ver: ahí la tasa sale del estado de cuenta.
+function tcPropuesto(cuenta){
+  if(monedaCuenta(cuenta)==='USD'){
+    const p=costoPromedioUSD();
+    return p?{tc:p,fuente:'costo_promedio',nota:'Costo promedio de tus dólares.'}
+            :{tc:null,fuente:'manual',nota:'Aún no hay compras de dólares registradas: escribe el tipo de cambio.'};
+  }
+  return {tc:tcUsdPen||null,fuente:'manual',nota:'La conversión la hace el banco: usa la tasa de tu estado de cuenta.'};
+}
+
+// ── Campos de moneda del formulario ────────────────────────────────────────
+let tcFuenteActual='manual';
+function elv(id){const e=document.getElementById(id);return e?String(e.value==null?'':e.value).trim():'';}
+function monedaTx(){return elv('iMoneda')==='USD'?'USD':'PEN';}
+
+// Muestra u oculta los campos de divisa según el tipo y las cuentas elegidas, y
+// propone un tipo de cambio si el campo está vacío. Nunca pisa lo ya escrito:
+// al editar un movimiento antiguo se conserva el tipo de cambio con el que se
+// guardó, no el promedio de hoy.
+function sincronizarCamposMoneda(){
+  const selMon=document.getElementById('iMoneda'),div=document.getElementById('divisaFields');
+  if(!selMon||!div)return;
+  const transferencia=tipoA==='Transferencia';
+  selMon.hidden=transferencia||cuentasUSDGastables().length===0;
+  if(selMon.hidden)selMon.value='PEN';
+  const enDivisa=!transferencia&&monedaTx()==='USD';
+  div.hidden=!enDivisa;
+  const campo=document.getElementById('iTc'),nota=document.getElementById('divisaEquiv');
+  if(enDivisa){
+    const p=tcPropuesto(elv('iCue'));
+    if(campo&&!campo.value){if(p.tc)campo.value=p.tc;tcFuenteActual=p.tc?p.fuente:'manual';}
+    if(nota)nota.dataset.nota=p.nota;
+  }else if(campo)campo.value='';
+
+  const fila=document.getElementById('destinoMontoRow'),notaTr=document.getElementById('transferTc');
+  const distinta=transferencia&&!!elv('iDestino')&&monedaCuenta(elv('iDestino'))!==monedaCuenta(elv('iCue'));
+  if(fila){
+    fila.hidden=!distinta;
+    const lbl=document.getElementById('destinoMontoLbl');
+    if(lbl&&distinta)lbl.textContent='Entra en '+monedaCuenta(elv('iDestino'));
+    const campoD=document.getElementById('iMonDestino');
+    if(campoD&&!distinta)campoD.value='';
+  }
+  if(notaTr)notaTr.hidden=!distinta;
+  actualizarEquivalente();
+}
+function cambiarMonedaTx(){const c=document.getElementById('iTc');if(c)c.value='';sincronizarCamposMoneda();}
+function tcEditadoAMano(){tcFuenteActual='manual';actualizarEquivalente();}
+function actualizarEquivalente(){
+  const div=document.getElementById('divisaFields'),nota=document.getElementById('divisaEquiv');
+  if(nota&&div&&!div.hidden){
+    const eq=equivalenteSoles(elv('iMon'),elv('iTc'));
+    nota.textContent=(eq===null||!(eq>0)?'Escribe el importe y el tipo de cambio.':'= '+fmt(eq)+'.')+' '+(nota.dataset.nota||'');
+  }
+  const tr=document.getElementById('transferTc');
+  if(tr&&!tr.hidden){
+    const sale=Number(elv('iMon')),entra=Number(elv('iMonDestino'));
+    tr.textContent=sale>0&&entra>0
+      ? 'Tipo de cambio de esta operación: '+(sale/entra).toFixed(6)
+      : 'Si aún no sabes cuánto llegó, déjalo vacío: queda pendiente de conciliar.';
+  }
 }
 
 // ============ MI PORTAFOLIO (IBKR) ============
@@ -3855,7 +4111,7 @@ async function bootAuth(){
 }
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 const previousRender=render;
-render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const title=income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
 const APP_PREFS_KEY='finanzas.appearance.v1';
 function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
 let appPreferences=leerPreferencias();
@@ -3913,6 +4169,7 @@ async function cargarPatrimonio(forzar){
 const TIPOS_CUENTA={banco:'Banco',billetera:'Billetera',inversion:'Inversión'};
 function errorCuentas(e){
  const msg=(e&&e.message)||'';
+ if(/renombrar_cuenta/i.test(msg))return 'Falta aplicar el SQL de renombrado de cuentas en Supabase.';
  if(/schema cache|does not exist|relation .*cuentas/i.test(msg))return 'Falta aplicar el SQL de cuentas en Supabase.';
  if(/duplicate key|unique/i.test(msg))return 'Ya tienes una cuenta con ese nombre';
  if(/cuentas_(tipo|moneda|nombre)_check/i.test(msg))return 'Nombre, tipo o moneda no válidos';
@@ -3930,7 +4187,10 @@ function renderCuentasConfig(){
   const archivada=!!c[3];
   return `<div class="cuenta-item ${archivada?'archivada':''}">
    <div><div class="cuenta-item-nombre">${escHtml(c[0])}</div><div class="cuenta-item-meta">${escHtml(TIPOS_CUENTA[c[1]]||c[1])} · ${escHtml(c[2])}${archivada?' · archivada':''}</div></div>
-   <button class="line-edit-btn" data-cuenta-id="${escAttr(c[4])}" onclick="archivarCuenta(this.dataset.cuentaId,${archivada?'false':'true'})">${archivada?'Desarchivar':'Archivar'}</button>
+   <div class="cuenta-item-acciones">
+    <button class="line-edit-btn" data-cuenta-id="${escAttr(c[4])}" onclick="renombrarCuenta(this.dataset.cuentaId)">Renombrar</button>
+    <button class="line-edit-btn" data-cuenta-id="${escAttr(c[4])}" onclick="archivarCuenta(this.dataset.cuentaId,${archivada?'false':'true'})">${archivada?'Desarchivar':'Archivar'}</button>
+   </div>
   </div>`;
  }).join('');
 }
@@ -3952,7 +4212,31 @@ async function agregarCuenta(){
   toast('Cuenta agregada','success');
  }catch(e){toast(errorCuentas(e),'error');}
 }
-// No se renombra ni se borra: archivar solo la saca de las listas nuevas.
+// transacciones.cuenta guarda el nombre como texto, sin clave foránea, así que
+// el nombre está copiado en cuatro columnas (cuentas.nombre, transacciones.cuenta,
+// transacciones.cuenta_destino y pagos_tarjetas.cuenta_origen). Renombrar va por
+// RPC para que las cuatro cambien en una sola transacción: con cuatro PATCH
+// sueltos, un fallo a medias partiría el historial de la cuenta en dos.
+async function renombrarCuenta(id){
+ const cuenta=(datos.cuentas||[]).find(c=>String(c[4])===String(id));
+ if(!cuenta)return;
+ const nombre=(prompt('Nuevo nombre para "'+cuenta[0]+'"',cuenta[0])||'').trim();
+ if(!nombre||nombre===cuenta[0])return;
+ // Mismas reglas que el servidor, para avisar antes de la ida y vuelta.
+ if(norm(nombre)==='__global__'){toast('Ese nombre está reservado','error');return;}
+ if(CREDIT_CARDS.some(c=>sameAccount(c.cuenta,nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
+ if((datos.cuentas||[]).some(c=>String(c[4])!==String(id)&&sameAccount(c[0],nombre))){toast('Ya tienes una cuenta con ese nombre','error');return;}
+ try{
+  const filas=await sbFetch('rpc/renombrar_cuenta',{method:'POST',body:JSON.stringify({p_id:id,p_nombre:nombre})});
+  const movidos=Number((Array.isArray(filas)?filas[0]:filas||{}).movimientos)||0;
+  // Se recarga en vez de parchear en memoria: el nombre vive en transacciones
+  // y en pagos de tarjeta, y así los saldos no dependen de replicar la lógica.
+  await cargar();
+  renderCuentasConfig();
+  toast(movidos?`Renombrada · ${movidos} movimiento${movidos===1?'':'s'} actualizado${movidos===1?'':'s'}`:'Cuenta renombrada','success');
+ }catch(e){toast(errorCuentas(e),'error');}
+}
+// Archivar solo la saca de las listas nuevas; los movimientos se conservan.
 async function archivarCuenta(id,archivar){
  const cuenta=(datos.cuentas||[]).find(c=>String(c[4])===String(id));
  if(!cuenta)return;
