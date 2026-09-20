@@ -75,8 +75,11 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .kpi.pos.active-pill{background:rgba(0,214,143,0.16);border-color:rgba(0,214,143,0.45);}
 
 /* Acumulado / Neto mode */
-.chip.acumulado-active{border-color:var(--green);color:var(--green);background:rgba(0,214,143,0.06);}
-.chip.neta-active{border-color:var(--yellow);color:var(--yellow);background:rgba(255,184,77,0.06);}
+.mode-seg{display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:4px;margin:6px 0 12px;}
+.seg-btn{flex:1;min-width:0;white-space:nowrap;background:transparent;border:none;border-radius:11px;color:var(--dim);font-family:inherit;font-size:0.76rem;font-weight:700;padding:9px 6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+.seg-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.5;fill:none;}
+.seg-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.3);}
+.bal-nota{font-size:0.72rem;color:var(--dim);line-height:1.55;margin-top:10px;}
 
 /* Filter chips */
 .filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 18px;font-size:0.85rem;color:var(--dim);}
@@ -124,7 +127,7 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .cinfo{min-width:0;flex:1;}
 .cname{font-size:0.72rem;color:var(--dim);margin-bottom:1px;}
 .camt{font-size:0.92rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;}
-.camt.in{color:var(--green);}.camt.out{color:var(--red);}
+.camt.in{color:var(--green);}.camt.out{color:var(--red);}.camt.neutral{color:var(--dim);}
 .ccnt{font-size:0.6rem;color:var(--muted);margin-top:1px;}
 
 /* Search bar */
@@ -437,6 +440,11 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .line-config-item{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;}
 .line-config-name{font-size:.9rem;font-weight:900;margin-bottom:10px;}
 .line-config-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;}
+.cuenta-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.cuenta-item:last-child{border-bottom:0;}
+.cuenta-item.archivada{opacity:.55;}
+.cuenta-item-nombre{font-size:.85rem;font-weight:700;}
+.cuenta-item-meta{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
 .line-field label{display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:6px;}
 .line-field input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:.95rem;font-weight:800;padding:11px 12px;outline:none;}
 .line-field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
@@ -534,7 +542,7 @@ body{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI'
 .nav{background:rgba(10,10,10,0.92);border-color:var(--border)}.fab{background:var(--green);color:var(--bg);box-shadow:0 8px 30px #0007}.modal{backdrop-filter:blur(7px)}.modal .mc{border:1px solid var(--border)}
 button,input,select,textarea{font-family:inherit}button{touch-action:manipulation}button:disabled{opacity:.5;cursor:wait}:focus-visible{outline:3px solid var(--green);outline-offset:4px}input,select,textarea{font-size:16px!important}.mh-x{min-width:44px;min-height:44px}.empty{color:var(--dim);line-height:1.7;border:1px dashed var(--border);border-radius:16px}.hint{line-height:1.6;color:var(--muted)}
 .quick-insight{padding:18px 20px;margin:0 0 22px;border:1px solid var(--border);border-radius:16px;display:flex;align-items:center;gap:14px;background:var(--card)}.quick-insight .symbol{font-size:22px;color:var(--green)}.quick-insight strong{display:block;font-size:13px;margin-bottom:5px}.quick-insight p{font-size:12px;color:var(--dim);line-height:1.6}.private .big-num,.private .kpi,.private .camt,.private .tamt-pill,.private .m-val,.private .credit-amount,.private .dcard-amt,.private .card-stat-val{filter:blur(8px)}
-@media(min-width:1050px){body{padding-left:200px;padding-bottom:40px}.nav{width:200px;right:auto;top:0;bottom:0;flex-direction:column;justify-content:center;gap:12px;padding:24px 16px;border-right:1px solid var(--border);border-top:0}.nav button{width:100%;min-height:64px;flex:none!important;border-radius:12px}.nav button.active{background:var(--card2)}.fab{right:40px;bottom:32px}.container{max-width:1000px}.cgrid{grid-template-columns:repeat(4,1fr)}#p-dash .container{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}#p-dash .header,#p-dash #expenseBreakdown,#p-dash .hero2,#p-dash .quick-insight,#p-dash .filter-row,#p-dash .search-wrap,#filterPill{grid-column:1/-1}#p-dash .section{min-width:0}.cgrid{grid-template-columns:repeat(2,1fr)}#anPanelPortafolio{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}#pfEstado,#pfResumenCard,#pfPosicionesCard{grid-column:1/-1}.chart-card{margin-bottom:0}}
+@media(min-width:1050px){body{padding-left:200px;padding-bottom:40px}.nav{width:200px;right:auto;top:0;bottom:0;flex-direction:column;justify-content:center;gap:12px;padding:24px 16px;border-right:1px solid var(--border);border-top:0}.nav button{width:100%;min-height:64px;flex:none!important;border-radius:12px}.nav button.active{background:var(--card2)}.fab{right:40px;bottom:32px}.container{max-width:1000px}.cgrid{grid-template-columns:repeat(4,1fr)}#p-dash .container{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}#p-dash .header,#p-dash .mode-seg,#p-dash .hero2,#p-dash .quick-insight,#p-dash .filter-row,#p-dash .search-wrap,#filterPill{grid-column:1/-1}#p-dash .section{min-width:0}.cgrid{grid-template-columns:repeat(2,1fr)}#anPanelPortafolio{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}#pfEstado,#pfResumenCard,#pfPosicionesCard{grid-column:1/-1}.chart-card{margin-bottom:0}}
 @media(max-width:480px){.container{padding:0 16px}.hero2{padding:23px 20px}.ccard{padding:12px;gap:8px}.camt{font-size:14px}.tamt-pill{font-size:12px}.tdesc{font-size:13px}.kpi{padding:10px 12px}.metric-grid{gap:8px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
@@ -597,7 +605,9 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
     <header class="header">
       <div class="logo">Mis <span>Finanzas</span></div>
       <div class="actions-row">
-        <button class="line-edit-btn" onclick="abrirConfiguracion()" aria-label="Abrir configuración">⚙ Configuración</button>
+        <button class="icon-btn" onclick="abrirConfiguracion()" aria-label="Abrir configuración" title="Configuración">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
         <button class="icon-btn" onclick="toggleSearch()" aria-label="Buscar">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
@@ -621,22 +631,21 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div class="kpi neg" id="kpiOut" onclick="togglePillTipo('gastos')">- S/ 0</div>
         <div class="kpi pos" id="kpiIn" onclick="togglePillTipo('ingresos')">+ S/ 0</div>
       </div>
+      <div class="bal-nota" id="balNota" hidden></div>
     </div>
 
-    <p id="expenseBreakdown" class="s-sub" style="margin:0 0 16px;line-height:1.6"></p>
     <div class="quick-insight" id="quickInsight" aria-live="polite"></div>
-    <div class="filter-row">
-      <div class="chip" id="chipPeriodo" onclick="abrirMesPicker()">
+    <div class="mode-seg" id="modeSeg" role="tablist" aria-label="Modo del saldo">
+      <button class="seg-btn active" id="segPeriodo" role="tab" aria-selected="true" onclick="setModoBalance('periodo')">
         <span id="chipPeriodoLbl">Este mes</span>
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div class="chip" id="chipAcumulado" onclick="toggleAcumulado()">
-        <span>Acumulado</span>
-      </div>
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button class="seg-btn" id="segAcumulado" role="tab" aria-selected="false" onclick="setModoBalance('acumulado')">Acumulado</button>
+      <button class="seg-btn" id="segNeto" role="tab" aria-selected="false" onclick="setModoBalance('neto')">Neto</button>
+      <button class="seg-btn" id="segPatrimonio" role="tab" aria-selected="false" onclick="setModoBalance('patrimonio')">Patrimonio</button>
+    </div>
+    <div class="filter-row">
       <button class="chip" id="chipTransferencias" onclick="togglePillTipo('transferencias')" aria-pressed="false">↔ Transferencias</button>
-      <div class="chip" id="chipNeta" onclick="toggleNeta()">
-        <span>Neto</span>
-      </div>
     </div>
 
     <div class="search-wrap show" id="searchWrap">
@@ -733,6 +742,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <div class="metric-grid">
         <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
         <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
+        <div class="metric full"><div class="m-lbl">Gasto del período</div><div class="m-val" id="mGastoNeto">S/ 0</div><div class="m-sub" id="mGastoSub">—</div></div>
         <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
         <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
         <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
@@ -876,7 +886,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 
     <div class="cuenta-row">
       <label class="cuenta-lbl" for="iCue" id="accountLabel">Cuenta</label>
-      <input class="sel" id="iCue" list="accountOptions" placeholder="Ej. BCP, Yape" autocomplete="off"><datalist id="accountOptions"></datalist>
+      <select class="sel" id="iCue" onchange="cambiarCuentaSelect(this)"></select>
     </div>
 
     <div id="refundFields" hidden>
@@ -886,8 +896,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <p class="transfer-note">La devolución reduce el gasto de su categoría en la fecha en que la recibes. No cuenta como ingreso. Si vuelve a una tarjeta, reduce su deuda.</p>
     </div>
     <div id="transferFields" hidden>
-      <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><input class="sel" id="iDestino" list="accountOptions" placeholder="Ej. IBKR" autocomplete="off"></div>
-      <p class="hint transfer-note">Importe en soles (S/). Mueve saldo entre tus cuentas sin contar como gasto o ingreso. En IBKR representa tus aportes registrados en soles, no el valor de mercado en dólares.</p>
+      <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><select class="sel" id="iDestino" onchange="cambiarCuentaSelect(this)"></select></div>
+      <p class="hint transfer-note">Importe en soles (S/). Mueve saldo entre tus cuentas sin contar como gasto o ingreso. Si la cuenta es de inversión, el monto se interpreta en soles aunque su moneda sea USD: todavía no hay conversión por movimiento. En IBKR representa tus aportes registrados, no el valor de mercado.</p>
     </div>
     <div class="brow" id="modalBtns">
       <button class="btn btn-s" onclick="cerrarM()">Cancelar</button>
@@ -954,6 +964,25 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   <div class="mc compact-mc">
     <div class="mc-top"><div class="mc-title-big" id="settingsTitle">Configuración</div><button class="mh-x" onclick="cerrarConfiguracion()">✕</button></div>
     <div class="line-config-grid">
+      <section class="line-config-item" id="cuentasConfigSection"><h3 class="line-config-name">Cuentas</h3>
+        <div id="cuentasLista"></div>
+        <div class="line-config-row" style="margin-top:10px">
+          <div class="line-field"><label for="newCuentaNombre">Nombre</label><input id="newCuentaNombre" type="text" placeholder="Ej. BCP" autocomplete="off"></div>
+          <div class="line-field"><label for="newCuentaTipo">Tipo</label><select class="sel" id="newCuentaTipo"><option value="banco">Banco</option><option value="billetera">Billetera</option><option value="inversion">Inversión</option></select></div>
+        </div>
+        <div class="line-config-row" style="grid-template-columns:1fr auto;margin-top:8px">
+          <div class="line-field"><label for="newCuentaMoneda">Moneda</label><select class="sel" id="newCuentaMoneda"><option value="PEN">PEN · soles</option><option value="USD">USD · dólares</option></select></div>
+          <button class="btn btn-p" style="align-self:end" onclick="agregarCuenta()">Agregar cuenta</button>
+        </div>
+        <p class="hint">Las cuentas no se renombran ni se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p>
+      </section>
+      <section class="line-config-item" id="tipoCambioSection"><h3 class="line-config-name">Tipo de cambio</h3>
+        <div class="line-config-row" style="grid-template-columns:1fr auto">
+          <div class="line-field"><label for="tcUsdPen">USD → PEN</label><input id="tcUsdPen" type="number" inputmode="decimal" step="0.001" min="0" placeholder="Ej. 3.750"></div>
+          <button class="btn btn-p" style="align-self:end" onclick="guardarTipoCambio()">Guardar</button>
+        </div>
+        <p class="hint">Convierte el valor de IBKR en el modo Patrimonio. Es un único tipo de cambio, el de hoy: todavía no hay serie histórica del patrimonio.</p>
+      </section>
       <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
       <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala vertical</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="overview">Vista general (desde cero)</option><option value="detail">Detalle de variaciones</option></select><p class="hint">La vista general evita exagerar variaciones pequeñas. El valor del portafolio incluye aportes y retiros.</p></section>
@@ -1162,7 +1191,10 @@ const sbInsert=(table,body)=>sbFetch(table,{method:'POST',headers:{Prefer:'retur
 const sbUpdate=(table,id,patch,idCol='id')=>sbFetch(`${table}?${idCol}=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{Prefer:'return=representation'},body:JSON.stringify(patch)}).then(rows=>rows[0]);
 const sbDelete=(table,id,idCol='id')=>sbFetch(`${table}?${idCol}=eq.${encodeURIComponent(id)}`,{method:'DELETE'});
 
-let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[],pagosTarjetas:[],ciclosOverride:[],configTarjetas:[],deudasArchivadas:[],deudasAbonos:[]};
+let datos={transacciones:[],categorias:[],presupuestos:[],recurrentes:[],deudas:[],pagosTarjetas:[],ciclosOverride:[],configTarjetas:[],deudasArchivadas:[],deudasAbonos:[],cuentas:[]};
+// true cuando la tabla cuentas ya existe en Supabase; si no, la app sigue
+// funcionando con las cuentas base de abajo.
+let cuentasMigradas=false;
 let vista='mes',tipoA='Gasto',dT='me-deben';
 let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='me-deben';
 let mesOffset=0;
@@ -1182,6 +1214,13 @@ let cardDetailTab='resumen';
 let cardPageTab='resumen';
 let cardPickerYear=new Date().getFullYear();
 let cardPickerMonth=new Date().getMonth();
+// 'periodo' | 'acumulado' | 'neto' | 'patrimonio'. acumuladoMode y netaMode
+// se derivan de aquí para no cambiar renderBal ni el resto de consumidores.
+let modoBalance='periodo';
+// Patrimonio: se carga solo al elegir el modo, sin depender de Análisis.
+// estado: idle | loading | ok | sin_datos | sin_tc | error
+let patrimonio={estado:'idle',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:''};
+let tcUsdPen=null;
 let acumuladoMode=false;
 let netaMode=false;
 let editandoAbonoId=null,historialDeudaId=null;
@@ -1204,7 +1243,8 @@ const EMOJIS={
   'Ocio':{e:'🎮',c:'rgba(255,106,212,0.18)',h:'#ff6ad4'},
   'Salario':{e:'💵',c:'rgba(0,214,143,0.18)',h:'#00d68f'},
   'Beca':{e:'🎓',c:'rgba(106,255,212,0.18)',h:'#6affd4'},
-  'Otros ingresos':{e:'💰',c:'rgba(255,217,61,0.18)',h:'#ffd93d'}
+  'Otros ingresos':{e:'💰',c:'rgba(255,217,61,0.18)',h:'#ffd93d'},
+  'Transferencias':{e:'↔',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'}
 };
 
 // Quita acentos, lowercase, trim — para que "Comer afuéra" matchee con "Comer afuera"
@@ -1217,7 +1257,12 @@ const getEmoji=cat=>{
   if(!cat)return{e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
   if(EMOJIS[cat])return EMOJIS[cat];
   const f=EMOJI_NORM[norm(cat)];
-  return f?EMOJIS[f]:{e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
+  if(f)return EMOJIS[f];
+  // Misma familia 📈 para 'Inversión <cuenta>' y 'Retiro <cuenta>', sin tocar
+  // la categoría histórica 'Inversiones' ni el resto de nombres.
+  const n=norm(cat);
+  if(n.startsWith('inversion ')||n.startsWith('retiro '))return EMOJIS['Inversiones'];
+  return {e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
 };
 
 // Devuelve el nombre limpio (sin tildes raras), p.ej. "Comer afuéra" -> "Comer afuera"
@@ -1248,6 +1293,9 @@ function dayLabel(d){
 
 async function cargar(){
   const b=document.getElementById('refreshBtn');b.classList.add('loading');
+  // Aparte del Promise.all: si la migración de cuentas todavía no está
+  // aplicada, cargar() no debe fallar.
+  const cuentasReq=sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc').catch(()=>null);
   try{
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelect('transacciones','?select=*&order=fecha.asc'),
@@ -1270,6 +1318,9 @@ async function cargar(){
     datos.deudasAbonos=abonos.map(a=>[a.id,a.deuda_id,a.monto,a.fecha,a.nota,a.tx_id]);
     datos.presupuestos=pres.map(p=>[p.categoria,p.monto_limite,p.mes]);
     datos.recurrentes=rec.map(r=>[r.descripcion,r.categoria,r.tipo,r.monto,r.dia_mes,r.activo]);
+    const cuentasRows=await cuentasReq;
+    cuentasMigradas=Array.isArray(cuentasRows);
+    datos.cuentas=(cuentasRows||[]).map(c=>[c.nombre,c.tipo,c.moneda,!!c.archivada,c.id]);
     render();
     if(!primeraCarga)toast('Actualizado','success');
     primeraCarga=false;
@@ -1332,9 +1383,12 @@ function actualizarChips(){
   }else{
     document.getElementById('chipPeriodoLbl').textContent='Todo el tiempo';
   }
-  // Acumulado chip activo cuando el modo está prendido
-  document.getElementById('chipAcumulado').classList.toggle('acumulado-active',acumuladoMode);
-  document.getElementById('chipNeta').classList.toggle('neta-active',netaMode);
+  // Selector segmentado: un solo modo activo a la vez
+  [['periodo','segPeriodo'],['acumulado','segAcumulado'],['neto','segNeto'],['patrimonio','segPatrimonio']].forEach(([modo,id])=>{
+    const b=document.getElementById(id); if(!b)return;
+    b.classList.toggle('active',modoBalance===modo);
+    b.setAttribute('aria-selected',String(modoBalance===modo));
+  });
   // KPI pills active state
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out.classList.toggle('active-pill',filtroTipo==='gastos');
@@ -1403,17 +1457,18 @@ function togglePillTipo(t){
   render();
 }
 
-// === ACUMULADO / NETO MODE ===
-function toggleAcumulado(){
-  acumuladoMode = !acumuladoMode;
-  if(acumuladoMode) netaMode=false;
+// === MODO DEL SALDO: período / acumulado / neto / patrimonio ===
+function setModoBalance(modo){
+  // Tocar "Este mes" estando ya en ese modo abre el selector de período.
+  if(modo==='periodo'&&modoBalance==='periodo'){abrirMesPicker();return;}
+  modoBalance=modo;
+  acumuladoMode=modo==='acumulado';
+  netaMode=modo==='neto'||modo==='patrimonio';
+  if(modo==='patrimonio')cargarPatrimonio();
   render();
 }
-function toggleNeta(){
-  netaMode = !netaMode;
-  if(netaMode) acumuladoMode=false;
-  render();
-}
+function toggleAcumulado(){setModoBalance(modoBalance==='acumulado'?'periodo':'acumulado');}
+function toggleNeta(){setModoBalance(modoBalance==='neto'?'periodo':'neto');}
 
 function smoothSetText(el,newText,newValue=null){
   if(!el)return;
@@ -1454,8 +1509,12 @@ function renderBal(){
     gPeriodo += gastoNeto(t);
   });
 
-  document.getElementById('expenseBreakdown').textContent='Gasto bruto: '+fmt(txPeriodo.filter(t=>t[3]==='Gasto').reduce((sum,t)=>sum+Number(t[4]),0))+' · Reembolsos: '+fmt(txPeriodo.filter(t=>t[3]==='Reembolso').reduce((sum,t)=>sum+Number(t[4]),0))+' · Gasto neto: '+fmt(gPeriodo);
   let balance = iBal - gBal;
+
+  // Aportes netos a cuentas de inversión: el dinero sigue siendo tuyo, pero
+  // ya no es saldo disponible. En la vista de período no se tocan (una
+  // transferencia nunca fue ingreso ni gasto del mes).
+  if(acumuladoMode||netaMode)balance-=aportesNetosInversion(txBalance);
 
   // En modo Acumulado: sumar TODO lo consumido en tarjeta que aún no ha
   // salido de la cuenta (gasto devengado sin pagar), incluyendo el ciclo que
@@ -1466,13 +1525,33 @@ function renderBal(){
     balance += totalPendienteTarjetas;
   }
 
-  smoothSetText(document.getElementById('balAmt'), fmtN(Math.abs(balance)), Math.abs(balance));
-  const dot=document.getElementById('balDot');
-  dot.textContent = balance >= 0 ? '+' : '−';
-  dot.classList.toggle('neg', balance < 0);
+  // Patrimonio = Neto + valor del portafolio en soles. El valor_total de
+  // IBKR ya incluye su efectivo, así que no se suma nada aparte.
+  const neto=balance;
+  let textoAlterno=null;
+  const nota=document.getElementById('balNota');
+  if(nota){
+    if(modoBalance==='patrimonio'){
+      if(patrimonio.estado==='ok'){
+        balance+=patrimonio.soles;
+        nota.textContent='Neto '+fmt(neto)+' + IBKR al '+patrimonio.fechaCorta+' '+fmt(patrimonio.soles)+(patrimonio.detalle?' ('+patrimonio.detalle+')':'');
+      }else{
+        textoAlterno='—';
+        nota.textContent=patrimonio.mensaje||'Cargando el valor de IBKR…';
+      }
+      nota.hidden=false;
+    }else{nota.hidden=true;nota.textContent='';}
+  }
 
-  document.getElementById('balLbl').textContent = netaMode
-    ? 'Total neto'
+  smoothSetText(document.getElementById('balAmt'), textoAlterno||fmtN(Math.abs(balance)), textoAlterno?null:Math.abs(balance));
+  const dot=document.getElementById('balDot');
+  dot.textContent = textoAlterno ? '+' : (balance >= 0 ? '+' : '−');
+  dot.classList.toggle('neg', !textoAlterno && balance < 0);
+  if(dot.style)dot.style.visibility = textoAlterno ? 'hidden' : '';
+
+  document.getElementById('balLbl').textContent = modoBalance==='patrimonio'
+    ? 'Patrimonio'
+    : netaMode ? 'Total neto'
     : acumuladoMode ? 'Saldo + tarjetas' : 'Total';
 
   smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
@@ -1484,13 +1563,21 @@ function renderCat(){
   const g=document.getElementById('cats');
   const t={},c={};
   tx.filter(x=>x[3]!=='Transferencia').forEach(x=>{const k=cleanName(x[2]);const m=parseFloat(x[4])||0;const s=x[3]==='Ingreso'||x[3]==='Reembolso'?1:-1;t[k]=(t[k]||0)+(m*s);c[k]=(c[k]||0)+1;});
+  // Transferencias aparte: se muestran para poder filtrarlas, pero no entran
+  // en ningún total ni llevan signo o color de ingreso o gasto.
+  const tr={},trc={};
+  tx.filter(x=>x[3]==='Transferencia').forEach(x=>{const k=cleanName(x[2]);trc[k]=(trc[k]||0)+1;tr[k]=(tr[k]||0)+(parseFloat(x[4])||0);});
   const cs=Object.entries(t).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-  if(cs.length===0){g.innerHTML='<div class="empty" style="grid-column:1/-1">Sin movimientos este período</div>';return;}
-  g.innerHTML=cs.slice(0,8).map(([k,m])=>{
+  const trs=Object.entries(tr).sort((a,b)=>b[1]-a[1]);
+  if(cs.length===0&&trs.length===0){g.innerHTML='<div class="empty" style="grid-column:1/-1">Sin movimientos este período</div>';return;}
+  const tarjeta=(k,contenido)=>{
     const em=getEmoji(k);
     const sel=norm(filtroCategoria)===norm(k)?'selected':'';
-    return `<div class="ccard ${sel}" data-category="${esc(k)}" onclick="filtrarPorCat(this.dataset.category)" style="--cc-bg:${em.c}"><div class="cemoji" style="background:${em.c}">${em.e}</div><div class="cinfo"><div class="cname">${esc(k)}</div><div class="camt ${m>=0?'in':'out'}">${m>=0?'+':'-'}${fmtC(Math.abs(m))}</div><div class="ccnt">${c[k]} mov${c[k]>1?'s':''}</div></div></div>`;
-  }).join('');
+    return `<div class="ccard ${sel}" data-category="${esc(k)}" onclick="filtrarPorCat(this.dataset.category)" style="--cc-bg:${em.c}"><div class="cemoji" style="background:${em.c}">${em.e}</div><div class="cinfo"><div class="cname">${esc(k)}</div>${contenido}</div></div>`;
+  };
+  g.innerHTML=cs.slice(0,8).map(([k,m])=>tarjeta(k,`<div class="camt ${m>=0?'in':'out'}">${m>=0?'+':'-'}${fmtC(Math.abs(m))}</div><div class="ccnt">${c[k]} mov${c[k]>1?'s':''}</div>`))
+    .concat(trs.map(([k,m])=>tarjeta(k,`<div class="camt neutral">${fmtC(m)}</div><div class="ccnt">${trc[k]} mov${trc[k]>1?'s':''} · no suma</div>`)))
+    .join('');
 }
 
 function filtrarPorCat(k){filtroCategoria=norm(filtroCategoria)===norm(k)?null:k;render();}
@@ -1666,14 +1753,66 @@ function renderDebArchivadas(l){
   }).join('');
 }
 
+// Cuentas usadas mientras la tabla cuentas no esté cargada (migración sin
+// aplicar o primera carga). Mismo contenido que la semilla del SQL.
+const CUENTAS_BASE=[['Plin','billetera','PEN',false,null],['Yape','billetera','PEN',false,null],['IBKR','inversion','USD',false,null]];
+function cuentasApp(){return (datos.cuentas&&datos.cuentas.length)?datos.cuentas:CUENTAS_BASE;}
+function cuentaPorNombre(nombre){return cuentasApp().find(c=>sameAccount(c[0],nombre))||null;}
+function esCuentaInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[1]==='inversion';}
 function cuentasDisponibles(){
-  const cuentas=['Plin','Yape','IBKR',...CREDIT_CARDS.map(c=>c.cuenta)];
-  datos.transacciones.forEach(t=>{if(t[5])cuentas.push(t[5]);if(t[7])cuentas.push(t[7]);});
+  const cuentas=[...cuentasApp().filter(c=>!c[3]).map(c=>c[0]),...CREDIT_CARDS.map(c=>c.cuenta)];
   return cuentas.map(c=>String(c).trim()).filter((c,i,a)=>c&&a.findIndex(v=>sameAccount(v,c))===i);
 }
-function llenarCuentas(seleccionada){
-  document.getElementById('accountOptions').innerHTML=cuentasDisponibles().map(c=>`<option value="${escAttr(c)}"></option>`).join('');
-  if(seleccionada!==undefined)document.getElementById('iCue').value=seleccionada;
+// Cuentas que ya no están disponibles (archivadas, borradas de la lista o
+// escritas a mano antes) pero que sí aparecen en movimientos guardados. Solo
+// se usan al editar y al mostrar saldos, para no perder el dato.
+function cuentasLegacy(){
+  const disponibles=cuentasDisponibles(),legacy=[];
+  (datos.transacciones||[]).forEach(t=>[t[5],t[7]].forEach(v=>{
+    const n=String(v||'').trim();
+    if(n&&!disponibles.some(d=>sameAccount(d,n))&&!legacy.some(d=>sameAccount(d,n)))legacy.push(n);
+  }));
+  return legacy;
+}
+// Aporte neto a inversión: lo que entra a una cuenta de tipo inversión menos
+// lo que sale de ella. Sale del perímetro líquido sin ser gasto.
+function aportesNetosInversion(txs){
+  return (txs||[]).reduce((sum,t)=>{
+    if(t[3]!=='Transferencia')return sum;
+    const m=Number(t[4])||0;
+    return sum+(esCuentaInversion(t[7]||'')?m:0)-(esCuentaInversion(t[5]||'')?m:0);
+  },0);
+}
+// Las cuentas del formulario son una lista cerrada. En Transferencia se
+// excluyen las tarjetas (tienen su propio flujo de pagos) y el destino no
+// puede repetir el origen. Al editar, una cuenta que ya no está disponible
+// (vacía o de una cuenta vieja) se agrega como opción para no perder el dato.
+function opcionesCuenta(valorActual){
+  let lista=cuentasDisponibles();
+  if(tipoA==='Transferencia')lista=lista.filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
+  if(valorActual&&!lista.some(c=>sameAccount(c,valorActual)))lista=[valorActual,...lista];
+  return lista;
+}
+function pintarCuentas(sel,lista,valor,excluir){
+  if(!sel)return;
+  const opciones=lista.filter(c=>!excluir||!sameAccount(c,excluir));
+  sel.innerHTML='<option value="">Sin cuenta</option>'+opciones.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('')+'<option value="__admin__">Administrar cuentas…</option>';
+  sel.value=opciones.find(c=>sameAccount(c,valor))||'';
+  sel.dataset.prev=sel.value;
+}
+// Sin argumentos conserva lo elegido; con '' lo limpia.
+function llenarCuentas(seleccionada,destinoSeleccionado){
+  const cue=document.getElementById('iCue'),dst=document.getElementById('iDestino');
+  if(!cue||!dst)return;
+  const valCue=seleccionada===undefined?cue.value:(seleccionada||'');
+  const valDst=destinoSeleccionado===undefined?dst.value:(destinoSeleccionado||'');
+  pintarCuentas(cue,opcionesCuenta(valCue),valCue);
+  pintarCuentas(dst,opcionesCuenta(valDst),valDst,tipoA==='Transferencia'?cue.value:'');
+}
+function cambiarCuentaSelect(sel){
+  if(sel&&sel.value==='__admin__'){sel.value=sel.dataset.prev||'';abrirConfiguracion('cuentas');return;}
+  if(sel)sel.dataset.prev=sel.value;
+  if(tipoA==='Transferencia')llenarCuentas();
 }
 function validarTransferencia({origen,destino,monto},cards=CREDIT_CARDS){
   if(!Number.isFinite(monto)||monto<=0)throw new Error('Ingresa un importe mayor que cero');
@@ -2030,11 +2169,9 @@ function abrirM(){
   document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
   document.getElementById('iMon').value='';
   document.getElementById('iDes').value='';
-  document.getElementById('iCue').value='';
-  document.getElementById('iDestino').value='';
   document.getElementById('iGastoOrigen').value='';
   setTipo('Gasto');
-  llenarCuentas();
+  llenarCuentas('','');
   document.getElementById('modal').classList.add('active');
   setTimeout(()=>document.getElementById('iDes').focus(),100);
 }
@@ -2051,11 +2188,10 @@ function editarTx(row){
   document.getElementById('iFec').value=yyyy+'-'+mm+'-'+dd;
   document.getElementById('iMon').value=t[4];
   document.getElementById('iDes').value=t[1];
-  document.getElementById('iDestino').value=t[7]||'';
   setTipo(t[3]||'Gasto');
   if(t[3]==='Reembolso')llenarGastosReembolso(t[8]||'');
   const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
-  llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''));
+  llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''),t[7]||'');
   // Pre-seleccionar categoría
   const cn=cleanName(t[2]);
   setTimeout(()=>{
@@ -2079,6 +2215,7 @@ function setTipo(t){
   document.getElementById('transferFields').hidden=t!=='Transferencia';
   document.getElementById('catChips').hidden=t==='Transferencia'||t==='Reembolso';
   document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':'Cuenta';
+  llenarCuentas();
   llenarSel();
 }
 
@@ -2105,15 +2242,25 @@ function buildFechaISO(yy,mm,dd,timePart){
   return new Date(Date.UTC(+yy,+mm-1,+dd,hh+5,min)).toISOString();
 }
 
+// Categoría de una transferencia: la deciden las cuentas, no los chips.
+// La categoría histórica 'Inversiones' (ingresos) no se toca.
+function categoriaTransferencia(origen,destino){
+  const dst=cuentaPorNombre(destino),org=cuentaPorNombre(origen);
+  if(dst&&dst[1]==='inversion')return 'Inversión '+dst[0];
+  if(org&&org[1]==='inversion')return 'Retiro '+org[0];
+  return 'Transferencias';
+}
+
 let guardandoTx=false;
 async function guardar(){
   if(guardandoTx)return;
   const m=Number(document.getElementById('iMon').value);
   const d=document.getElementById('iDes').value;
-  let c=tipoA==='Transferencia'?'Transferencias':getCatSeleccionada();
+  let c=getCatSeleccionada();
   const origenReembolso=document.getElementById('iGastoOrigen').value;
   const cu=document.getElementById('iCue').value.trim();
   const destino=document.getElementById('iDestino').value.trim();
+  if(tipoA==='Transferencia')c=categoriaTransferencia(cu,destino);
   const fec=document.getElementById('iFec').value;
   if(!Number.isFinite(m)||m<=0||!d.trim()||!fec){toast('Completa fecha, monto positivo y descripción','error');return;}
   if(tipoA==='Transferencia'){
@@ -2263,7 +2410,7 @@ function llenarGastosReembolso(selected=''){
 function seleccionarGastoReembolso(){
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
  document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(Math.max(0,Number(original[4])-reembolsado(original[6],editando))):'Selecciona un gasto para vincular la devolución.';
- if(original)document.getElementById('iCue').value=original[5];
+ if(original)llenarCuentas(original[5]||'');
 }
 function validarReembolso(id,monto,cuenta,fecha,excluir=null){
  const original=datos.transacciones.find(t=>String(t[6])===String(id)&&t[3]==='Gasto');
@@ -2303,10 +2450,14 @@ function getCuentaBalance(cuenta){
 
 function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
-  const cuentas=cuentasDisponibles().filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
+  // Las cuentas viejas se siguen mostrando mientras tengan movimientos.
+  const cuentas=[...cuentasDisponibles(),...cuentasLegacy()].filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
   cont.innerHTML=cuentas.map(c=>{
     const b=getCuentaBalance(c);
-    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${sameAccount(c,'IBKR')?' · saldo de aportes':''}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
+    // En una cuenta de inversión esto son aportes netos registrados en soles,
+    // no el valor de mercado (ese está en Mi Portafolio).
+    const nota=esCuentaInversion(c)?' · aportes netos':'';
+    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${nota}</div><div class="card-stat-val ${b>=0?'stat-delta-pos':'stat-delta-neg'}">${fmt(b)}</div></div>`;
   }).join('');
 }
 
@@ -2682,6 +2833,13 @@ function renderAnalisis(){
   eA.textContent=ahorro.toFixed(0)+'%';
   eA.className='m-val '+(ahorro>=0?'pos':'neg');
   document.getElementById('mAhorroSub').textContent=tot.i>0?fmt(tot.bal)+' de '+fmt(tot.i):'sin ingresos';
+
+  // Desglose del gasto del período (antes estaba en el inicio). gastoNeto()
+  // sigue siendo la única fuente del neto; aquí solo se separan sus partes.
+  const gBruto=tx.filter(t=>t[3]==='Gasto').reduce((s,t)=>s+(Number(t[4])||0),0);
+  const gReembolsos=tx.filter(t=>t[3]==='Reembolso').reduce((s,t)=>s+(Number(t[4])||0),0);
+  document.getElementById('mGastoNeto').textContent=fmt(tot.g);
+  document.getElementById('mGastoSub').textContent='bruto '+fmt(gBruto)+' · reembolsos '+fmt(gReembolsos)+' · neto';
 
   // Promedio diario gastos — excluye 'Estudios' (cuotas de universidad): son
   // montos grandes y puntuales que no representan el gasto diario real, y
@@ -3697,7 +3855,7 @@ async function bootAuth(){
 }
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 const previousRender=render;
-render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const title=income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const title=income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
 const APP_PREFS_KEY='finanzas.appearance.v1';
 function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
 let appPreferences=leerPreferencias();
@@ -3705,10 +3863,121 @@ function aplicarPreferencias(){
  const colors={green:'#00d68f',blue:'#7aa2ff',violet:'#c4a2ff'};
  document.documentElement.style.setProperty('--accent',colors[appPreferences.accent]||colors.green);
 }
-function abrirConfiguracion(){
+// ── Patrimonio y tipo de cambio ──────────────────────────────────────────
+async function leerTipoCambio(){
+ try{
+  const rows=await sbSelect('ajustes_app','?select=clave,valor&clave=eq.tc_usd_pen');
+  tcUsdPen=rows&&rows[0]&&Number(rows[0].valor)>0?Number(rows[0].valor):null;
+  return {ok:true,valor:tcUsdPen};
+ }catch(e){tcUsdPen=null;return {ok:false,valor:null};}
+}
+async function guardarTipoCambio(){
+ const v=Number(document.getElementById('tcUsdPen').value);
+ if(!Number.isFinite(v)||v<=0){toast('Escribe un tipo de cambio mayor que cero','error');return;}
+ try{
+  await sbFetch('ajustes_app',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify({clave:'tc_usd_pen',valor:v,actualizado_en:new Date().toISOString()})});
+  tcUsdPen=v;
+  toast('Tipo de cambio guardado','success');
+  if(patrimonio.estado!=='idle')await cargarPatrimonio(true);
+ }catch(e){toast(/schema cache|does not exist|relation/i.test(e.message||'')?'Falta aplicar el SQL de ajustes en Supabase.':(e.message||'Error al guardar el tipo de cambio'),'error');}
+}
+// Lee la última fila de portafolio_historial. Si algo falla, el modo
+// Patrimonio muestra '—' con el motivo, sin romper la pantalla.
+async function cargarPatrimonio(forzar){
+ if(patrimonio.estado==='loading')return;
+ if(patrimonio.estado==='ok'&&!forzar)return;
+ patrimonio={...patrimonio,estado:'loading',mensaje:'Cargando el valor de IBKR…'};
+ try{
+  const hist=await sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
+  await leerTipoCambio();
+  const row=(hist||[])[0];
+  const valor=row?Number(row.valor_total):NaN;
+  const f=row?parseDateOnly(row.fecha_valoracion):null;
+  const fechaCorta=f?String(f.getDate()).padStart(2,'0')+'/'+String(f.getMonth()+1).padStart(2,'0'):'';
+  if(!row||!Number.isFinite(valor)){
+   patrimonio={estado:'sin_datos',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'Todavía no hay un cierre de IBKR que sumar.'};
+  }else if((row.moneda_base||'')==='PEN'){
+   // Ya está en soles: no se convierte.
+   patrimonio={estado:'ok',soles:valor,valorBase:valor,moneda:'PEN',fechaCorta,detalle:'',mensaje:''};
+  }else if(!(tcUsdPen>0)){
+   patrimonio={estado:'sin_tc',soles:null,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'Configura el tipo de cambio USD → PEN en Configuración para ver tu patrimonio.'};
+  }else{
+   patrimonio={estado:'ok',soles:valor*tcUsdPen,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valor,row.moneda_base||'USD')+' × '+tcUsdPen,mensaje:''};
+  }
+ }catch(e){
+  patrimonio={estado:'error',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'No se pudo cargar el valor de IBKR. Vuelve a intentarlo.'};
+ }
+ if(modoBalance==='patrimonio')renderBal();
+}
+
+const TIPOS_CUENTA={banco:'Banco',billetera:'Billetera',inversion:'Inversión'};
+function errorCuentas(e){
+ const msg=(e&&e.message)||'';
+ if(/schema cache|does not exist|relation .*cuentas/i.test(msg))return 'Falta aplicar el SQL de cuentas en Supabase.';
+ if(/duplicate key|unique/i.test(msg))return 'Ya tienes una cuenta con ese nombre';
+ if(/cuentas_(tipo|moneda|nombre)_check/i.test(msg))return 'Nombre, tipo o moneda no válidos';
+ return msg||'Error al guardar la cuenta';
+}
+function renderCuentasConfig(){
+ const cont=document.getElementById('cuentasLista'); if(!cont)return;
+ if(!cuentasMigradas){
+  cont.innerHTML='<p class="hint">Todavía no está aplicado el SQL de cuentas en Supabase. Mientras tanto la app usa Plin, Yape e IBKR.</p>';
+  return;
+ }
+ const cuentas=datos.cuentas||[];
+ if(!cuentas.length){cont.innerHTML='<p class="hint">Aún no hay cuentas. Agrega la primera abajo.</p>';return;}
+ cont.innerHTML=cuentas.map(c=>{
+  const archivada=!!c[3];
+  return `<div class="cuenta-item ${archivada?'archivada':''}">
+   <div><div class="cuenta-item-nombre">${escHtml(c[0])}</div><div class="cuenta-item-meta">${escHtml(TIPOS_CUENTA[c[1]]||c[1])} · ${escHtml(c[2])}${archivada?' · archivada':''}</div></div>
+   <button class="line-edit-btn" data-cuenta-id="${escAttr(c[4])}" onclick="archivarCuenta(this.dataset.cuentaId,${archivada?'false':'true'})">${archivada?'Desarchivar':'Archivar'}</button>
+  </div>`;
+ }).join('');
+}
+async function agregarCuenta(){
+ const nombre=document.getElementById('newCuentaNombre').value.trim();
+ const tipo=document.getElementById('newCuentaTipo').value;
+ const moneda=document.getElementById('newCuentaMoneda').value;
+ if(!nombre){toast('Escribe el nombre de la cuenta','error');return;}
+ if(norm(nombre)==='__global__'){toast('Ese nombre está reservado','error');return;}
+ if(CREDIT_CARDS.some(c=>sameAccount(c.cuenta,nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
+ if((datos.cuentas||[]).some(c=>sameAccount(c[0],nombre))){toast('Ya tienes una cuenta con ese nombre','error');return;}
+ if(!TIPOS_CUENTA[tipo]||!['PEN','USD'].includes(moneda)){toast('Tipo o moneda no válidos','error');return;}
+ try{
+  const row=await sbInsert('cuentas',{nombre,tipo,moneda});
+  datos.cuentas.push([row.nombre,row.tipo,row.moneda,!!row.archivada,row.id]);
+  cuentasMigradas=true;
+  document.getElementById('newCuentaNombre').value='';
+  renderCuentasConfig();render();
+  toast('Cuenta agregada','success');
+ }catch(e){toast(errorCuentas(e),'error');}
+}
+// No se renombra ni se borra: archivar solo la saca de las listas nuevas.
+async function archivarCuenta(id,archivar){
+ const cuenta=(datos.cuentas||[]).find(c=>String(c[4])===String(id));
+ if(!cuenta)return;
+ try{
+  await sbUpdate('cuentas',id,{archivada:!!archivar});
+  cuenta[3]=!!archivar;
+  renderCuentasConfig();render();
+  toast(archivar?'Cuenta archivada':'Cuenta reactivada','success');
+ }catch(e){toast(errorCuentas(e),'error');}
+}
+function abrirConfiguracion(seccion){
  document.getElementById('appAccent').value=appPreferences.accent||'green';
  document.getElementById('appChartScale').value=appPreferences.chartScale||'overview';
+ const tcEl=document.getElementById('tcUsdPen');
+ if(tcEl){
+  if(tcUsdPen>0)tcEl.value=tcUsdPen;
+  // Si aún no se leyó de la base, completarlo sin pisar lo que se esté escribiendo.
+  leerTipoCambio().then(()=>{if(tcUsdPen>0&&document.activeElement!==tcEl&&!tcEl.value)tcEl.value=tcUsdPen;});
+ }
+ renderCuentasConfig();
  document.getElementById('settingsModal').classList.add('active');
+ if(seccion==='cuentas'){
+  const s=document.getElementById('cuentasConfigSection');
+  if(s)setTimeout(()=>s.scrollIntoView({block:'start',behavior:'smooth'}),60);
+ }
 }
 function cerrarConfiguracion(){document.getElementById('settingsModal').classList.remove('active');}
 function guardarPreferencias(){
