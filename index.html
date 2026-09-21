@@ -70,6 +70,8 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .kpi{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:8px 14px;font-size:0.82rem;font-weight:600;font-variant-numeric:tabular-nums;cursor:pointer;transition:background 0.15s,border-color 0.15s;-webkit-user-select:none;user-select:none;}
 .kpi:active{transform:scale(0.96);}
 .kpi.neg{color:var(--red);}
+.kpi-usd{color:var(--dim);font-family:inherit;margin-left:auto;}
+.kpi-usd.active-pill{color:var(--green);background:rgba(0,214,143,0.16);border-color:rgba(0,214,143,0.45);}
 .kpi.pos{color:var(--green);}
 .kpi.neg.active-pill{background:rgba(255,59,107,0.16);border-color:rgba(255,59,107,0.45);}
 .kpi.pos.active-pill{background:rgba(0,214,143,0.16);border-color:rgba(0,214,143,0.45);}
@@ -633,6 +635,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <div class="kpi-row" id="kpiRow">
         <div class="kpi neg" id="kpiOut" onclick="togglePillTipo('gastos')">- S/ 0</div>
         <div class="kpi pos" id="kpiIn" onclick="togglePillTipo('ingresos')">+ S/ 0</div>
+        <button type="button" class="kpi kpi-usd" id="btnUsd" aria-pressed="false" aria-label="Ver en dólares" onclick="toggleVistaUSD()">US$</button>
       </div>
       <div class="bal-nota" id="balNota" hidden></div>
     </div>
@@ -1593,6 +1596,7 @@ function renderBal(){
 
   smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
   smoothSetText(document.getElementById('kpiIn'), '+ ' + fmt(iPeriodo), iPeriodo);
+  aplicarVistaUSD();
 }
 
 function renderCat(){
@@ -2650,6 +2654,49 @@ function getCuentaBalanceMoneda(cuenta){
   return {moneda,saldo};
 }
 function fmtCuenta(n,moneda){return moneda==='USD'?fmtMoneda(n,'USD'):fmt(n);}
+
+// Efectivo que hay en tus cuentas, cada moneda por separado y sin convertir.
+// Es informativo: el saldo grande de Inicio sigue en soles al costo histórico.
+// Quedan fuera las tarjetas (deuda, no efectivo) y las cuentas de inversión.
+function efectivoPorMoneda(){
+  const r={PEN:0,USD:0};
+  [...cuentasDisponibles(),...cuentasLegacy()]
+    .filter(c=>!esCuentaInversion(c)&&!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)))
+    .forEach(c=>{const {moneda,saldo}=getCuentaBalanceMoneda(c);r[moneda==='USD'?'USD':'PEN']+=saldo;});
+  return r;
+}
+
+// Vista en dólares del balance de Inicio: el botón US$ cambia el número grande
+// a los dólares que hay en tus cuentas y los dos chips a lo ingresado y gastado
+// en dólares en el período. No convierte nada; volver a pulsar deja todo como
+// estaba.
+let verUSD=false;
+function toggleVistaUSD(){verUSD=!verUSD;render();}
+function totalesUSD(tx){
+  let i=0,g=0;
+  tx.forEach(t=>{
+    if(t[9]!=='USD')return;
+    const v=Number(t[10])||0;
+    if(t[3]==='Ingreso')i+=v;else if(t[3]==='Gasto')g+=v;else if(t[3]==='Reembolso')g-=v;
+  });
+  return{i,g};
+}
+function aplicarVistaUSD(){
+  const btn=document.getElementById('btnUsd');
+  if(btn){btn.classList.toggle('active-pill',verUSD);btn.setAttribute('aria-pressed',String(verUSD));}
+  const cur=document.querySelector('.hero2 .currency');
+  if(cur)cur.textContent=verUSD?'US$':'S/';
+  if(!verUSD)return;
+  const saldo=efectivoPorMoneda().USD,{i,g}=totalesUSD(filtrar());
+  smoothSetText(document.getElementById('balAmt'),fmtN(Math.abs(saldo)),Math.abs(saldo));
+  const dot=document.getElementById('balDot');
+  dot.textContent=saldo>=0?'+':'−';dot.classList.toggle('neg',saldo<0);
+  document.getElementById('balLbl').textContent='Dólares en tus cuentas';
+  smoothSetText(document.getElementById('kpiOut'),'− US$ '+fmtN(g),g);
+  smoothSetText(document.getElementById('kpiIn'),'+ US$ '+fmtN(i),i);
+  const nota=document.getElementById('balNota');
+  if(nota){nota.textContent='Solo movimientos en dólares. Sin convertir a soles.';nota.hidden=false;}
+}
 
 // El tipo de cambio que se propone depende de quién hace la conversión. Si
 // pagas con dólares tuyos, lo que importa es a cuánto los compraste. Si paga
@@ -4111,7 +4158,7 @@ async function bootAuth(){
 }
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 const previousRender=render;
-render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=verUSD?'Dólares en tus cuentas':soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
 const APP_PREFS_KEY='finanzas.appearance.v1';
 function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
 let appPreferences=leerPreferencias();
