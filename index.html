@@ -554,10 +554,13 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 
 /* Portafolio: superficies neutras y color solo para identificar activos. */
 .pf-source-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);grid-column:1/-1;margin-bottom:6px}.pf-source-badge{padding:8px 12px;border:1px solid var(--border);border-radius:20px;color:var(--text);font-weight:600;background:var(--card)}
-#anPanelPortafolio .chart-card{padding:22px;border:1px solid var(--border)}#pfResumenCard .metric-grid{grid-template-columns:1.5fr 1fr 1fr}#pfResumenCard .metric.full{grid-column:auto}#pfResumenCard .metric{background:transparent;padding:12px 0}#pfValorTotal{font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}#pfUltimaSync{padding-top:12px;border-top:1px solid var(--border);line-height:1.5}#pfEstado:empty{display:none}#pfChartCard .hint,#pfDistCard .hint{margin-top:16px;font-size:11px;line-height:1.6}#pfPeriodoTabs{flex-wrap:wrap}
+#anPanelPortafolio .chart-card{padding:22px;border:1px solid var(--border)}#pfResumenCard .metric-grid{grid-template-columns:repeat(3,1fr)}#pfResumenCard .metric.pf-main{grid-column:1/-1}#pfResumenCard .metric.full{grid-column:auto}#pfResumenCard .metric{background:transparent;padding:12px 0}#pfValorTotal{font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}#pfUltimaSync{padding-top:12px;border-top:1px solid var(--border);line-height:1.5}#pfEstado:empty{display:none}#pfChartCard .hint,#pfDistCard .hint{margin-top:16px;font-size:11px;line-height:1.6}#pfPeriodoTabs{flex-wrap:wrap}
+/* Una descripción larga (transferencias, ajustes) no debe ensanchar la fila ni la página:
+   la columna central puede encogerse y el texto pasa a dos líneas. */
+.tx>div:nth-child(2){min-width:0}.tdesc{white-space:normal;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}.tamt-pill{white-space:nowrap;flex-shrink:0;max-width:44vw}#pfResumenCard .m-val.pf-mid{font-size:clamp(16px,2.6vw,20px)}#pfGanancia{font-size:clamp(21px,3.4vw,28px);letter-spacing:-.03em}.pf-chart-title{font-size:11px;color:var(--dim);letter-spacing:.02em;margin:12px 0 4px}.pf-desde{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:var(--card2);font-size:12px;color:var(--dim)}.pf-desde input{margin-left:6px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font:inherit}.pf-desde-info{flex-basis:100%;font-size:11px;line-height:1.5}.pf-rend-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.pf-rend-row>div{font-size:11px;color:var(--dim)}.pf-rend-row strong{display:block;margin-top:3px;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}.pf-bench{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}.pf-rend-big{margin-top:12px;font-size:12px;color:var(--dim)}.pf-rend-big strong{display:block;font-size:22px;letter-spacing:-.02em;margin-top:2px}.pf-pos-top{display:block}.pf-pos-perf{display:block;margin:10px 0 2px}.pf-pos-perf strong{display:block;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.pf-pos-perf small{display:block;margin-top:2px;font-size:11px;color:var(--dim)}.pf-pos-sub{display:block;margin-top:8px;font-size:12px;color:var(--dim);line-height:1.5}.pf-est-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:#7aa2ff22;color:#7aa2ff;font-size:10px;letter-spacing:.04em;text-transform:uppercase}.pf-position-perf{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px;padding:10px 12px;border-radius:12px;background:var(--card2)}.pf-position-perf span{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}.pf-position-perf strong{display:block;margin-top:3px;font-size:14px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
 #pfDistArea{position:relative;max-width:250px;margin:4px auto 16px;min-height:100px}.pf-donut{display:block;width:100%;height:auto}.pf-donut circle[role=button]{cursor:pointer;transition:opacity .15s}.pf-donut circle[role=button]:focus{outline:none;stroke-width:35}.pf-donut-caption{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:7px}.pf-donut-caption span{max-width:145px;font-size:10px;color:var(--dim);text-align:center}.pf-donut-caption strong{font-size:17px;letter-spacing:-.03em;color:var(--text)}#pfDistLegend{display:flex;flex-direction:column;gap:4px}.pf-allocation-row{display:grid;grid-template-columns:9px minmax(0,1fr) auto 48px;align-items:center;gap:10px;padding:11px 8px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);width:100%;text-align:left;cursor:pointer;font-size:12px}.pf-allocation-row[aria-pressed=true]{background:var(--card2);border-color:var(--border)}.pf-allocation-row:disabled{opacity:1;cursor:default}.pf-allocation-name{overflow-wrap:anywhere}.pf-allocation-value{font-size:11px;color:var(--dim)}.pf-allocation-row strong{text-align:right;font-size:11px}.pf-color-dot{display:inline-block;width:8px;height:8px;flex-shrink:0;border-radius:50%}.pf-data-note{font-size:11px;color:var(--yellow);line-height:1.6;padding:10px 0}
 .pf-position-tools{display:flex;gap:12px;margin-bottom:12px}.pf-position-tools input{min-width:0;flex:1}.pf-position-tools select{width:auto;max-width:150px}#pfPositionCount{margin-bottom:14px}#pfPosicionesLista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pf-position{display:block;width:100%;text-align:left;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer}.pf-position:hover{background:var(--card2);border-color:#44444c}.pf-position-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.pf-position-head>strong{font-size:16px;font-variant-numeric:tabular-nums}.pf-position-symbol{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:700}.pf-position-name{display:block;font-size:11px;color:var(--dim);line-height:1.5;margin:7px 0 18px;min-height:32px}.pf-position-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.pf-position-details>span{font-size:10px;color:var(--dim)}.pf-position-details strong{display:block;font-size:12px;font-weight:500;color:var(--text);margin-top:6px}.pf-position-foot{display:flex;justify-content:space-between;gap:8px;font-size:10px;line-height:1.5;color:var(--dim);padding-top:14px;margin-top:16px;border-top:1px solid var(--border)}
-@media(max-width:600px){#pfResumenCard .metric-grid{grid-template-columns:1fr 1fr}#pfResumenCard .metric:first-child{grid-column:1/-1}#pfPosicionesLista{grid-template-columns:1fr}#anPanelPortafolio .chart-card{padding:18px}#pfPositionSort{max-width:135px}.pf-position-tools{gap:8px}.pf-position{padding:16px}}
+@media(max-width:600px){#pfResumenCard .metric-grid{grid-template-columns:1fr 1fr}#pfResumenCard .metric.pf-gain{grid-column:1/-1}#pfPosicionesLista{grid-template-columns:1fr}#anPanelPortafolio .chart-card{padding:18px}#pfPositionSort{max-width:135px}.pf-position-tools{gap:8px}.pf-position{padding:16px}}
 
 
 #pfMarketCard{grid-column:1/-1} .pf-market-total{font-size:clamp(25px,4vw,34px);font-weight:700;letter-spacing:-.03em;margin:12px 0}.pf-market-disclaimer{font-size:12px;line-height:1.6;color:var(--dim)}.pf-market-position{display:flex;flex-direction:column;gap:6px;padding-top:13px;margin-top:13px;border-top:1px dashed var(--border);font-size:10px;line-height:1.5;color:var(--dim)}.pf-market-position>strong{font-size:16px;color:var(--text)}.pf-market-label{font-size:9px;letter-spacing:.08em;color:var(--blue)}
@@ -694,12 +697,40 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
             </button>
           </div>
         </div>
-        <div class="metric-grid">
-          <div class="metric"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
-          <div class="metric"><div class="m-lbl">Efectivo reportado</div><div class="m-val" id="pfEfectivo">—</div><div class="m-sub">saldo de efectivo</div></div>
-          <div class="metric full"><div class="m-lbl">P&amp;L no realizado</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">posiciones abiertas</div></div>
+        <div class="metric-grid" id="pfMetricGrid">
+          <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
+          <div class="metric pf-gain"><div class="m-lbl">P&amp;L no realizado · tus posiciones</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">sobre el costo de tus posiciones</div><div class="m-sub" id="pfPnlEst" style="color:var(--dim)"></div></div>
+          <div class="metric"><div class="m-lbl">Ganancia total · vs. aportes</div><div class="m-val pf-mid" id="pfGanancia">—</div><div class="m-sub" id="pfGananciaPct">—</div></div>
+          <div class="metric"><div class="m-lbl">Aportes netos</div><div class="m-val pf-mid" id="pfAportes">—</div><div class="m-sub" id="pfAportesSub">lo que has puesto</div></div>
         </div>
+        <p class="hint" id="pfGananciaNota" style="margin-top:6px"></p>
         <div class="s-sub" id="pfUltimaSync" style="margin-top:8px">—</div>
+      </div>
+
+      <div class="chart-card" id="pfChartCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Rendimiento</div></div>
+        <div class="an-tabs" id="pfVistaTabs" role="group" aria-label="Qué muestra el gráfico" style="margin-bottom:8px">
+          <button class="antb active" data-v="valor" aria-pressed="true" onclick="setPfVista('valor',this)">Valor</button>
+          <button class="antb" data-v="rendimiento" aria-pressed="false" onclick="setPfVista('rendimiento',this)">Rendimiento</button>
+        </div>
+        <div class="an-tabs" id="pfPeriodoTabs">
+          <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1M</button>
+          <button class="antb" data-p="3M" onclick="setPfPeriodo('3M',this)">3M</button>
+          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6M</button>
+          <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">Año actual</button>
+          <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
+          <button class="antb" data-p="DESDE" onclick="setPfPeriodo('DESDE',this)">Desde…</button>
+        </div>
+        <div class="pf-desde" id="pfDesdePanel" hidden>
+          <label>Desde <input type="date" id="pfDesdeInput" onchange="setPfDesde(this.value)"></label>
+          <span class="pf-desde-hasta">Hasta: hoy</span>
+          <div class="pf-desde-info" id="pfDesdeInfo" role="status"></div>
+        </div>
+        <div class="pf-chart-title" id="pfChartTitulo"></div>
+        <div id="pfChartArea"></div>
+        <div id="pfRendResumen"></div>
+        <p class="hint" id="pfChartHint"></p>
+        <div id="pfBenchmark"></div>
       </div>
 
       <div class="chart-card" id="pfMarketCard" style="display:none">
@@ -708,18 +739,6 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <p class="pf-market-disclaimer">Precio de mercado con retraso variable. Consultas cada 20 min; la hora del dato puede ser anterior. No modifica el cierre ni el histórico oficial de IBKR.</p>
         <p id="pfMarketStatus" class="pf-data-note" role="status">Pendiente de consulta</p>
         <p id="pfMarketDetail" class="hint"></p>
-      </div>
-
-      <div class="chart-card" id="pfChartCard" style="display:none">
-        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Valor del portafolio</div></div>
-        <div class="an-tabs" id="pfPeriodoTabs">
-          <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1M</button>
-          <button class="antb" data-p="3M" onclick="setPfPeriodo('3M',this)">3M</button>
-          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6M</button>
-          <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">Año actual</button>
-          <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
-        </div>
-        <div id="pfChartArea"></div><p class="hint">El valor incluye aportes y retiros. No representa tu rentabilidad.</p>
       </div>
 
       <div class="chart-card" id="pfDistCard" style="display:none">
@@ -752,7 +771,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       </div>
 
       <div class="chart-card">
-        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Saldo registrado por cuenta · S/</div><div class="s-sub">Incluye transferencias y pagos de tarjeta</div></div>
+        <div class="s-head" style="margin-bottom:10px"><div><div class="s-title">Saldos por cuenta</div><div class="s-sub">Según tus movimientos registrados, cada cuenta en su moneda</div></div><button type="button" class="pay-small-btn" id="btnConciliar" aria-pressed="false" onclick="toggleConciliar()">Comparar con banco</button></div>
         <div id="saldoCuentas" class="card-stat-grid"></div>
       </div>
 
@@ -993,7 +1012,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
           <div class="line-field"><label for="tcUsdPen">USD → PEN</label><input id="tcUsdPen" type="number" inputmode="decimal" step="0.001" min="0" placeholder="Ej. 3.750"></div>
           <button class="btn btn-p" style="align-self:end" onclick="guardarTipoCambio()">Guardar</button>
         </div>
-        <p class="hint">Convierte el valor de IBKR en el modo Patrimonio. Es un único tipo de cambio, el de hoy: todavía no hay serie histórica del patrimonio.</p>
+        <p class="hint">El modo Patrimonio convierte IBKR con el tipo de cambio de mercado de hoy. Este valor solo se usa si no hay uno de mercado (por ejemplo, sin conexión). Todavía no hay serie histórica del patrimonio.</p>
       </section>
       <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
       <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
@@ -1320,6 +1339,7 @@ function filaTx(t){
 
 async function cargar(){
   const b=document.getElementById('refreshBtn');b.classList.add('loading');
+  cargarTcMercado();   // sin esperar: solo alimenta el tipo de cambio propuesto
   // Aparte del Promise.all: si la migración de cuentas todavía no está
   // aplicada, cargar() no debe fallar.
   const cuentasReq=sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc').catch(()=>null);
@@ -1327,7 +1347,7 @@ async function cargar(){
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelect('transacciones','?select=*&order=fecha.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
-      sbSelect('pagos_tarjetas','?select=id,tarjeta,ciclo_key,monto,fecha,nota,cuenta_origen&order=fecha.asc'),
+      sbSelect('pagos_tarjetas','?select=*&order=fecha.asc'),
       sbSelect('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key'),
       sbSelect('categorias','?select=nombre,color'),
       sbSelect('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo'),
@@ -1337,7 +1357,7 @@ async function cargar(){
     ]);
     datos.transacciones=tx.map(filaTx);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
-    datos.pagosTarjetas=pagos.map(p=>[p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota,p.cuenta_origen]);
+    datos.pagosTarjetas=pagos.map(filaPago);
     datos.ciclosOverride=ciclos.map(c=>[c.id,c.tarjeta,c.tx_id,c.ciclo_key]);
     datos.categorias=cats.map(c=>[c.nombre,c.color]);
     datos.deudas=deu.filter(d=>!d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo]);
@@ -2235,6 +2255,7 @@ function abrirM(){
 function editarTx(row){
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
+  if(t[2]==='Diferencia de cambio'&&!String(t[5]||'').trim()){toast('Es la diferencia de cambio de un pago en dólares. Se quita eliminando ese pago en Tarjetas.');return;}
   editando=String(getTxRow(t));
   editandoFecha=t[0];
   document.getElementById('modalTitle').textContent='Editar transacción';
@@ -2539,27 +2560,73 @@ function movimientoCuenta(t,cuenta){
   if(t[3]==='Transferencia')return (sameAccount(t[7]||'',cuenta)?m:0)-(sameAccount(t[5]||'',cuenta)?m:0);
   return sameAccount(t[5]||'',cuenta)?efectoResultado(t):0;
 }
+// Pagos de tarjeta en dólares (ver filaPago): posición 7 = moneda del pago.
+function pagoEsUSD(p){return p[7]==='USD';}
+// Soles que un pago descuenta de la deuda en soles de su ciclo.
+function pagoEnSoles(p){return pagoEsUSD(p)?(Number(p[10])||0):(Number(p[3])||0);}
+// Soles que un pago saca de la cuenta de origen.
+function pagoSalidaSoles(p){return pagoEsUSD(p)?(Number(p[8])||0):(Number(p[3])||0);}
 function getCuentaBalance(cuenta){
   let bal=datos.transacciones.reduce((sum,t)=>sum+movimientoCuenta(t,cuenta),0);
-  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(String(p[6]||''),cuenta))bal-=(parseFloat(p[3])||0);});
+  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(String(p[6]||''),cuenta))bal-=pagoSalidaSoles(p);});
   return bal;
 }
 
+// Saldos por cuenta: cada cuenta en su moneda y sin convertir. IBKR va aparte
+// porque es inversión, no efectivo. "Comparar con banco" no guarda nada: sirve
+// para ver en qué cuenta está la diferencia contra el saldo real del banco.
+let conciliando=false;const conciliacion={};
+function toggleConciliar(){conciliando=!conciliando;renderSaldoCuentas();}
+function actualizarDiferenciaBanco(i,valor){
+  const c=cuentasSaldos()[i];if(!c)return;
+  conciliacion[c]=valor;
+  const el=document.getElementById('difBanco'+i);if(!el)return;
+  const {moneda,saldo}=getCuentaBalanceMoneda(c),banco=parseFloat(String(valor).replace(',','.'));
+  if(!isFinite(banco)||String(valor).trim()===''){el.textContent='';el.className='card-stat-sub';return;}
+  const dif=Math.round((banco-saldo)*100)/100;
+  if(Math.abs(dif)<0.005){el.textContent='✓ Cuadra con el banco';el.className='card-stat-sub stat-delta-pos';return;}
+  el.className='card-stat-sub stat-delta-neg';
+  el.textContent=dif>0?'El banco tiene '+fmtCuenta(dif,moneda)+' más: falta registrar un ingreso o sobra un gasto en la app'
+                      :'La app tiene '+fmtCuenta(-dif,moneda)+' más: falta registrar un gasto, pago o transferencia';
+}
+// Cuentas de efectivo (todas menos inversión y tarjetas). Las viejas se siguen
+// mostrando mientras tengan movimientos.
+function cuentasSaldos(){
+  return [...cuentasDisponibles(),...cuentasLegacy()].filter(c=>!esCuentaInversion(c)&&!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
+}
+// Ingresos y gastos sin cuenta: no entran en el saldo de ninguna. Los de
+// "Diferencia de cambio" no llevan cuenta a propósito.
+function movimientosSinCuenta(){
+  let n=0,total=0;
+  (datos.transacciones||[]).forEach(t=>{
+    if(String(t[5]||'').trim()||t[3]==='Transferencia'||t[2]==='Diferencia de cambio')return;
+    n++;total+=efectoResultado(t);
+  });
+  return{n,total};
+}
 function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
-  // Las cuentas viejas se siguen mostrando mientras tengan movimientos.
-  const cuentas=[...cuentasDisponibles(),...cuentasLegacy()].filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
-  cont.innerHTML=cuentas.map(c=>{
-    // Cada cuenta se muestra en su propia moneda: una cuenta en dólares debe
-    // decir cuántos dólares tienes, no los soles con que se compraron. El
-    // perímetro líquido sigue midiéndose en soles con getCuentaBalance().
-    const {moneda,saldo}=getCuentaBalanceMoneda(c);
-    // En una cuenta de inversión esto son aportes netos registrados, no el
-    // valor de mercado (ese está en Mi Portafolio).
-    const nota=esCuentaInversion(c)?' · aportes netos':'';
-    const costo=moneda==='USD'&&!esCuentaInversion(c)?`<div class="card-stat-sub">costo ${fmt(getCuentaBalance(c))}</div>`:'';
-    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}${nota}</div><div class="card-stat-val ${saldo>=0?'stat-delta-pos':'stat-delta-neg'}">${fmtCuenta(saldo,moneda)}</div>${costo}</div>`;
+  const btn=document.getElementById('btnConciliar');
+  if(btn){btn.classList.toggle('active-pill',conciliando);btn.setAttribute('aria-pressed',String(conciliando));btn.textContent=conciliando?'Ocultar comparación':'Comparar con banco';}
+  const efectivo=cuentasSaldos();
+  let html=efectivo.map((c,i)=>{
+    const {moneda,saldo}=getCuentaBalanceMoneda(c),av=avisosCuenta(c);
+    // El costo en soles de los dólares es un dato secundario: el saldo de la
+    // cuenta es el nominal en dólares.
+    const costo=moneda==='USD'?`<div class="card-stat-sub">costo ${fmt(getCuentaBalance(c))}</div>`:'';
+    const avisos=(av.pendientes?`<div class="card-stat-sub">${av.pendientes} transferencia${av.pendientes>1?'s':''} sin importe recibido (${fmt(av.solesPendientes)} enviados): no suman aún</div>`:'')
+      +(av.enSoles?`<div class="card-stat-sub">${av.enSoles} movimiento${av.enSoles>1?'s':''} en soles en esta cuenta en dólares: no suman</div>`:'');
+    const conc=conciliando?`<input type="number" inputmode="decimal" step="0.01" class="sel" style="margin-top:8px;width:100%" placeholder="Saldo banco" value="${escAttr(conciliacion[c]||'')}" oninput="actualizarDiferenciaBanco(${i},this.value)"><div class="card-stat-sub" id="difBanco${i}"></div>`:'';
+    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}</div><div class="card-stat-val ${saldo>=0?'stat-delta-pos':'stat-delta-neg'}">${fmtCuenta(saldo,moneda)}</div>${costo}${avisos}${conc}</div>`;
   }).join('');
+  const sin=movimientosSinCuenta();
+  if(sin.n)html+=`<div class="card-stat full"><div class="card-stat-lbl">Sin cuenta asignada</div><div class="card-stat-val">${fmt(sin.total)}</div><div class="card-stat-sub">${sin.n} movimiento${sin.n>1?'s':''} sin cuenta: no están en el saldo de ninguna. Edítalos y elígeles una cuenta para que cuadren.</div></div>`;
+  // Inversión aparte: aportes netos en soles, no valor de mercado ni efectivo.
+  html+=cuentasApp().filter(c=>!c[3]&&c[1]==='inversion').map(c=>{
+    const n=c[0],usd=getCuentaBalanceMoneda(n).saldo,av=avisosCuenta(n);
+    return `<div class="card-stat full"><div class="card-stat-lbl">${escHtml(n)} · inversión, no es efectivo</div><div class="card-stat-val">${fmt(getCuentaBalance(n))} <small style="color:var(--dim)">aportes netos</small></div>${Math.abs(usd)>=0.005?`<div class="card-stat-sub">${fmtCuenta(usd,'USD')} acreditados</div>`:''}${av.pendientes?`<div class="card-stat-sub">${av.pendientes} aporte${av.pendientes>1?'s':''} sin dólares confirmados (${fmt(av.solesPendientes)})</div>`:''}</div>`;
+  }).join('');
+  cont.innerHTML=html;
 }
 
 // ============ MULTIMONEDA ============
@@ -2615,8 +2682,12 @@ function costoPromedioUSD(){
     if(usd<0.005){usd=0;pen=0;}          // agotado: el pozo vuelve a empezar
     else if(usd<0){descuadre=true;}
   };
-  [...(datos.transacciones||[])].sort((a,b)=>pf(a[0])-pf(b[0])).forEach(t=>{
-    const soles=Number(t[4])||0,orig=Number(t[10])||0;
+  // Pagar una tarjeta con dólares propios también los consume.
+  const pagosUSD=(datos.pagosTarjetas||[]).filter(p=>pagoEsUSD(p)&&esUSD(p[6])).map(p=>({pago:p,fecha:pf(p[4])}));
+  const eventos=[...(datos.transacciones||[]).map(t=>({t,fecha:pf(t[0])})),...pagosUSD].sort((a,b)=>a.fecha-b.fecha);
+  eventos.forEach(ev=>{
+    if(ev.pago){sale(Number(ev.pago[3])||0);return;}
+    const t=ev.t,soles=Number(t[4])||0,orig=Number(t[10])||0;
     if(t[3]==='Transferencia'){
       if(esUSD(t[7])&&Number(t[14])>0)entra(Number(t[14]),soles);
       else if(esUSD(t[5]))sale(orig);
@@ -2635,34 +2706,89 @@ function costoPromedioUSD(){
 function movimientoCuentaMoneda(t,cuenta){
   const usd=monedaCuenta(cuenta)==='USD';
   if(t[3]==='Transferencia'){
-    if(sameAccount(t[7]||'',cuenta))return usd&&Number(t[14])>0?Number(t[14]):(Number(t[4])||0);
-    if(sameAccount(t[5]||'',cuenta))return -(usd&&Number(t[10])>0?Number(t[10]):(Number(t[4])||0));
+    // monto es lo que sale, en la moneda de la cuenta de origen; monto_destino
+    // es lo que entra, en la del destino.
+    if(sameAccount(t[5]||'',cuenta))return -(Number(t[4])||0);
+    if(sameAccount(t[7]||'',cuenta)){
+      if(Number(t[14])>0)return Number(t[14]);
+      // Entre monedas distintas sin importe confirmado no se inventa: cuenta 0
+      // hasta conciliarlo (ver avisosCuenta).
+      return monedaCuenta(t[5]||'')===monedaCuenta(cuenta)?(Number(t[4])||0):0;
+    }
     return 0;
   }
   if(!sameAccount(t[5]||'',cuenta))return 0;
-  if(usd&&t[9]==='USD'&&Number(t[10])>0)return (t[3]==='Gasto'?-1:1)*Number(t[10]);
-  return efectoResultado(t);
+  if(!usd)return efectoResultado(t);
+  // Una cuenta en dólares solo suma lo que está en dólares originales: nunca
+  // soles tomados por dólares.
+  return t[9]==='USD'&&Number(t[10])>0?(t[3]==='Gasto'?-1:1)*Number(t[10]):0;
+}
+// Lo que no entra en el saldo de una cuenta y conviene saber para conciliarla.
+function avisosCuenta(cuenta){
+  const usd=monedaCuenta(cuenta)==='USD',a={pendientes:0,solesPendientes:0,enSoles:0};
+  (datos.transacciones||[]).forEach(t=>{
+    if(t[3]==='Transferencia'){
+      if(sameAccount(t[7]||'',cuenta)&&!(Number(t[14])>0)&&monedaCuenta(t[5]||'')!==monedaCuenta(cuenta)){a.pendientes++;a.solesPendientes+=Number(t[4])||0;}
+    }else if(usd&&sameAccount(t[5]||'',cuenta)&&!(t[9]==='USD'&&Number(t[10])>0))a.enSoles++;
+  });
+  return a;
 }
 function getCuentaBalanceMoneda(cuenta){
   const moneda=monedaCuenta(cuenta);
   let saldo=(datos.transacciones||[]).reduce((s,t)=>s+movimientoCuentaMoneda(t,cuenta),0);
-  // pagos_tarjetas no guarda moneda y las tarjetas se pagan en soles, así que
-  // solo descuenta de cuentas en soles.
-  if(moneda==='PEN')(datos.pagosTarjetas||[]).forEach(p=>{
-    if(sameAccount(String(p[6]||''),cuenta))saldo-=(parseFloat(p[3])||0);
+  // Un pago en soles descuenta de una cuenta en soles lo que pagó. Un pago en
+  // dólares descuenta de una cuenta en soles lo que costó, y de una cuenta en
+  // dólares los dólares pagados.
+  (datos.pagosTarjetas||[]).forEach(p=>{
+    if(!sameAccount(String(p[6]||''),cuenta))return;
+    if(moneda==='PEN')saldo-=pagoSalidaSoles(p);
+    else if(pagoEsUSD(p))saldo-=Number(p[3])||0;
   });
   return {moneda,saldo};
 }
-function fmtCuenta(n,moneda){return moneda==='USD'?fmtMoneda(n,'USD'):fmt(n);}
+function fmtCuenta(n,moneda){return moneda==='USD'?(n<0?'−':'')+'US$ '+fmtN(Math.abs(n)):fmt(n);}
+
+// ── Pagos de tarjeta en dólares ────────────────────────────────────────────
+// Posiciones 0-6 no se mueven. Un pago en soles deja 7 en 'PEN' y el resto en
+// null. En un pago en USD: 3 son los dólares, 8 los soles que costó, 9 el TC
+// real, 10 los soles que ya se habían reconocido como gasto por esos dólares.
+function filaPago(p){
+  return [p.id,p.tarjeta,p.ciclo_key,p.monto,p.fecha,p.nota,p.cuenta_origen,
+    p.moneda||'PEN',p.monto_origen!=null?Number(p.monto_origen):null,p.tc!=null?Number(p.tc):null,
+    p.equivalente!=null?Number(p.equivalente):null,p.ajuste_id||null,p.tc_fuente||null];
+}
+
+// Deuda en dólares de una tarjeta y los soles ya reconocidos por ella. Es la
+// misma cuenta que hace pagar_tarjeta_usd() en el servidor, para que lo que se
+// previsualiza coincida con lo que se guarda.
+function deudaTarjetaUSD(card){
+  let usd=0,pen=0;
+  (datos.transacciones||[]).forEach(t=>{
+    if(!sameAccount(t[5]||'',card.cuenta)||t[9]!=='USD')return;
+    const o=Number(t[10])||0,m=Number(t[4])||0;
+    if(t[3]==='Gasto'){usd+=o;pen+=m;}else if(t[3]==='Reembolso'){usd-=o;pen-=m;}
+  });
+  (datos.pagosTarjetas||[]).forEach(p=>{
+    if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p)){usd-=Number(p[3])||0;pen-=Number(p[10])||0;}
+  });
+  usd=Math.round(usd*100)/100;pen=Math.round(pen*100)/100;
+  return{usd:usd>0.004?usd:0,pen:usd>0.004?pen:0};
+}
+function deudaUSDTotal(){return CREDIT_CARDS.reduce((s,c)=>s+deudaTarjetaUSD(c).usd,0);}
+// Soles que ya estaban reconocidos por `usd` dólares de la deuda de una tarjeta.
+// Al saldar todo se toma el resto exacto, igual que el servidor.
+function equivalenteReconocido(card,usd){
+  const d=deudaTarjetaUSD(card);
+  if(!(d.usd>0)||!(usd>0))return null;
+  return Math.abs(usd-d.usd)<0.005?d.pen:Math.round(usd*d.pen/d.usd*100)/100;
+}
 
 // Efectivo que hay en tus cuentas, cada moneda por separado y sin convertir.
 // Es informativo: el saldo grande de Inicio sigue en soles al costo histórico.
 // Quedan fuera las tarjetas (deuda, no efectivo) y las cuentas de inversión.
 function efectivoPorMoneda(){
   const r={PEN:0,USD:0};
-  [...cuentasDisponibles(),...cuentasLegacy()]
-    .filter(c=>!esCuentaInversion(c)&&!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)))
-    .forEach(c=>{const {moneda,saldo}=getCuentaBalanceMoneda(c);r[moneda==='USD'?'USD':'PEN']+=saldo;});
+  cuentasSaldos().forEach(c=>{const {moneda,saldo}=getCuentaBalanceMoneda(c);r[moneda==='USD'?'USD':'PEN']+=saldo;});
   return r;
 }
 
@@ -2695,7 +2821,7 @@ function aplicarVistaUSD(){
   smoothSetText(document.getElementById('kpiOut'),'− US$ '+fmtN(g),g);
   smoothSetText(document.getElementById('kpiIn'),'+ US$ '+fmtN(i),i);
   const nota=document.getElementById('balNota');
-  if(nota){nota.textContent='Solo movimientos en dólares. Sin convertir a soles.';nota.hidden=false;}
+  if(nota){const deuda=deudaUSDTotal();nota.textContent=(deuda>0?'Debes US$ '+fmtN(deuda)+' en tarjetas. ':'')+'Solo movimientos en dólares. Sin convertir a soles.';nota.hidden=false;}
 }
 
 // El tipo de cambio que se propone depende de quién hace la conversión. Si
@@ -2706,9 +2832,37 @@ function tcPropuesto(cuenta){
   if(monedaCuenta(cuenta)==='USD'){
     const p=costoPromedioUSD();
     return p?{tc:p,fuente:'costo_promedio',nota:'Costo promedio de tus dólares.'}
+            :tcMercado>0?{tc:tcMercado,fuente:'mercado',nota:'Aún no hay compras de dólares registradas: se propone el tipo de cambio de mercado de hoy.'}
             :{tc:null,fuente:'manual',nota:'Aún no hay compras de dólares registradas: escribe el tipo de cambio.'};
   }
+  // Con tarjeta o cuenta en soles convierte el banco y aún no se sabe a cuánto:
+  // se propone el tipo de cambio de mercado de hoy como estimación. El real
+  // queda fijado cuando pagas la tarjeta en dólares.
+  if(tcMercado>0)return {tc:tcMercado,fuente:'mercado',
+    nota:'Tipo de cambio de mercado'+(tcMercadoFecha&&tcMercadoFecha!==hoyISO()?' del '+formatISODate(tcMercadoFecha):' de hoy')+', como estimación. Al pagar la tarjeta se fija el real.'};
   return {tc:tcUsdPen||null,fuente:'manual',nota:'La conversión la hace el banco: usa la tasa de tu estado de cuenta.'};
+}
+
+// Tipo de cambio de mercado (referencia, no el de tu banco). Una consulta por
+// día como mucho: se guarda en el navegador y, si falla la red, se usa el último
+// que hubo. Si no hay ninguno, el formulario cae al tipo de cambio de
+// Configuración y, si tampoco existe, se escribe a mano.
+let tcMercado=null,tcMercadoFecha='';
+async function cargarTcMercado(){
+  const hoy=hoyISO();
+  try{
+    const c=JSON.parse(localStorage.getItem('tc_mercado')||'null');
+    if(c&&c.tc>0){tcMercado=c.tc;tcMercadoFecha=c.fecha;if(c.fecha===hoy)return;}
+  }catch(e){}
+  try{
+    const r=await fetch('https://open.er-api.com/v6/latest/USD',{signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(6000):undefined});
+    const j=await r.json(),v=Number(j&&j.rates&&j.rates.PEN);
+    // Cota de cordura: un dato absurdo es peor que ninguno.
+    if(j&&j.result==='success'&&v>1&&v<10){
+      tcMercado=Math.round(v*1e6)/1e6;tcMercadoFecha=hoy;
+      try{localStorage.setItem('tc_mercado',JSON.stringify({tc:tcMercado,fecha:hoy}));}catch(e){}
+    }
+  }catch(e){}
 }
 
 // ── Campos de moneda del formulario ────────────────────────────────────────
@@ -2726,6 +2880,11 @@ function sincronizarCamposMoneda(){
   const transferencia=tipoA==='Transferencia';
   selMon.hidden=transferencia||cuentasUSDGastables().length===0;
   if(selMon.hidden)selMon.value='PEN';
+  // En una cuenta en dólares el movimiento es en dólares: así su saldo nunca
+  // mezcla soles. En una cuenta en soles la moneda sigue siendo libre.
+  const cuentaUSD=!transferencia&&monedaCuenta(elv('iCue'))==='USD';
+  if(cuentaUSD){selMon.value='USD';selMon.disabled=true;}
+  else if(selMon.disabled){selMon.disabled=false;selMon.value='PEN';}
   const enDivisa=!transferencia&&monedaTx()==='USD';
   div.hidden=!enDivisa;
   const campo=document.getElementById('iTc'),nota=document.getElementById('divisaEquiv');
@@ -2770,6 +2929,7 @@ let pfPeriodo='6M';
 let pfHistoricoCache=[];
 let pfPosicionesCache=[];
 let pfModalPeriodo='6M';
+let pfModalDesde='';
 let pfModalHistoricoCache=[];
 let pfModalContractId=null;
 
@@ -2784,6 +2944,7 @@ function parseDateOnly(s){
 }
 function fmtMoneda(n,moneda){
   if(n===null||n===undefined||!isFinite(n))return '—';
+  if(moneda==='USD')return (n<0?'−':'')+'US$ '+Number(Math.abs(n)).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
   try{
     return new Intl.NumberFormat('es-PE',{style:'currency',currency:moneda||'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
   }catch(e){
@@ -2861,14 +3022,17 @@ async function renderPortafolio(){
   if(!pfHistoricoCache.length)['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard','pfMarketCard'].forEach(id=>document.getElementById(id).style.display='none');
   estadoEl.innerHTML='<div class="empty">Cargando portafolio…</div>';
 
-  let config,sync,historial,posiciones,lastSuccess;
+  let config,sync,historial,posiciones,lastSuccess,bench;
   try{
-    [config,sync,historial,posiciones,lastSuccess]=await Promise.all([
+    [config,sync,historial,posiciones,lastSuccess,bench]=await Promise.all([
       sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
       sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
       sbFetch('portafolio_historial?select=*&order=fecha_valoracion.asc'),
       sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
       sbFetch('sincronizaciones_portafolio?select=estado,finalizado_en,iniciado_en&estado=in.(ok,ok_historico)&order=finalizado_en.desc.nullslast&limit=1'),
+      // Referencia para "vs S&P 500": cierres oficiales de IBKR de un ETF del S&P 500
+      // que ya está en la cartera. Si falla, solo se pierde la comparación.
+      sbFetch('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc').catch(()=>[]),
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
@@ -2879,6 +3043,7 @@ async function renderPortafolio(){
   if(sequence!==pfLoadSequence)return;
   pfHistoricoCache=historial||[];
   pfPosicionesCache=posiciones||[];
+  pfBenchCache=bench||[];
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
   const ultimaSync=(sync&&sync[0])||null;
 
@@ -2916,12 +3081,36 @@ async function renderPortafolio(){
 }
 
 function renderPfResumen(row,ultimaSync){
-  document.getElementById('pfValorTotal').textContent=fmtMoneda(row.valor_total,row.moneda_base);
-  document.getElementById('pfMonedaBase').textContent='moneda base: '+(row.moneda_base||'—');
-  document.getElementById('pfEfectivo').textContent=fmtMoneda(row.efectivo,row.moneda_base);
-  const pnlEl=document.getElementById('pfPnl');
-  pnlEl.textContent=row.pnl_no_realizado!==null?fmtMoneda(row.pnl_no_realizado,row.moneda_base):'No disponible';
-  pnlEl.style.color=row.pnl_no_realizado>0?'var(--green)':(row.pnl_no_realizado<0?'var(--red)':'');
+  const moneda=row.moneda_base;
+  document.getElementById('pfValorTotal').textContent=fmtMoneda(row.valor_total,moneda);
+  document.getElementById('pfMonedaBase').textContent='Efectivo en IBKR '+fmtMoneda(row.efectivo,moneda)+' · moneda base '+(moneda||'—');
+  // Rentabilidad de las posiciones: P&L ÷ costo de las posiciones abiertas. El
+  // efectivo está en el valor total pero NO en este cálculo.
+  const pnlEl=document.getElementById('pfPnl'),pnlSub=document.getElementById('pfPnlSub');
+  const rp=pfResumenPosiciones(row,pfPosicionesCache);
+  if(rp.ok&&pfPosicionesCache.length){
+    pnlEl.textContent=pfSigned(rp.pnl,moneda)+(rp.pct===null?'':' · '+pfSignedPct(rp.pct));
+    pnlEl.style.color=pfColor(rp.pnl);
+    pnlSub.textContent='sobre el costo de tus posiciones ('+fmtMoneda(rp.costo,moneda)+') · cierre IBKR';
+  }else{
+    const v=pfNumber(row.pnl_no_realizado);
+    pnlEl.textContent=v!==null?pfSigned(v,moneda):'No disponible';pnlEl.style.color=pfColor(v);
+    pnlSub.textContent=pfPosicionesCache.length?'porcentaje no disponible: posiciones no comparables con el cierre':'sin posiciones abiertas';
+  }
+  // Ganancia frente a lo aportado (valor y ganancia son cosas distintas).
+  const g=pfModeloGanancia(row,pfFlujos());
+  const gEl=document.getElementById('pfGanancia'),gp=document.getElementById('pfGananciaPct'),aEl=document.getElementById('pfAportes'),aSub=document.getElementById('pfAportesSub'),nota=document.getElementById('pfGananciaNota');
+  if(g.ok){
+    gEl.textContent=pfSigned(g.ganancia,moneda);
+    gp.textContent=g.pct===null?'—':pfSignedPct(g.pct)+' sobre aportes';
+    const c=pfColor(g.ganancia);gEl.style.color=c;gp.style.color=c;
+    aEl.textContent=fmtMoneda(g.aportes,moneda);aSub.textContent='transferencias registradas';
+    nota.textContent=g.aviso||'';
+  }else{
+    gEl.textContent='—';gEl.style.color='';gp.textContent='no disponible';gp.style.color='';
+    aEl.textContent=g.aportes!==null&&g.aportes!==undefined?fmtMoneda(g.aportes,moneda):'—';aSub.textContent='incompletos';
+    nota.textContent=g.mensaje;
+  }
   const fecha=parseDateOnly(row.fecha_valoracion);
   document.getElementById('pfFechaEfectiva').textContent='Datos al '+fmtDateLong(fecha);
   const ultOkTxt = ultimaSync && ultimaSync.estado!=='error'
@@ -2932,15 +3121,216 @@ function renderPfResumen(row,ultimaSync){
 
 function setPfPeriodo(p,btn){
   pfPeriodo=p;
+  // Primera vez en "Desde…": propone el primer día con valor en la cuenta.
+  if(p==='DESDE'&&!pfDesde){const f=pfHistoricoCache.find(r=>Number(r.valor_total)>0)||pfHistoricoCache[0];if(f)pfDesde=f.fecha_valoracion;}
   document.querySelectorAll('#pfPeriodoTabs .antb').forEach(x=>x.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderPfChart();
 }
 
+// ── Rendimiento: cuánto tengo, cuánto he aportado y cuánto he ganado ────────
+// Todo lo de aquí es cálculo puro sobre datos oficiales de IBKR y sobre tus
+// transferencias registradas. Yahoo nunca entra en histórico, costos ni aportes.
+//
+// Aportes = transferencias desde/hacia cuentas de inversión, en dólares. IBKR
+// Flex no trae depósitos ni retiros: lo que muevas directo en IBKR sin
+// registrarlo aquí no se detecta. Una transferencia de soles sin los dólares
+// recibidos confirmados NO se cuenta como importe (se avisa), pero sí cuenta
+// como flujo en su fecha, para no vender como rentabilidad un cambio de valor
+// causado por un depósito.
+//
+// Para un TWR futuro ya están los tres insumos: filas diarias del histórico
+// (valor_total por fecha), flujos fechados (pfFlujos) y la ventana del período
+// (pfResolverPeriodo). pfRendimientoPortafolio devuelve `metodo`; el TWR sería
+// otro método con esos mismos insumos, sin tocar la interfaz.
+let pfVista='valor',pfDesde='';
+function pfIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function pfSigned(n,moneda){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+fmtMoneda(Math.abs(n),moneda);}
+function pfSignedPct(n){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+Math.abs(n).toFixed(2)+'%';}
+function pfColor(n){return n===null||n===undefined||!isFinite(n)||Math.abs(n)<0.005?'var(--dim)':n>0?'var(--green)':'var(--red)';}
+function pfFechaCorta(iso){const d=parseDateOnly(iso);return d?fmtDateShort(d):(iso||'—');}
+function pfFechaLarga(iso){const d=parseDateOnly(iso);return d?fmtDateLong(d):(iso||'—');}
+function pfFlujos(){
+  const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]==='inversion'&&c[2]==='USD').map(c=>c[0]);
+  const flujos=[],pendientesFechas=[];let pendientes=0,solesPendientes=0;
+  cuentas.forEach(c=>{const a=avisosCuenta(c);pendientes+=a.pendientes;solesPendientes+=a.solesPendientes;});
+  (datos.transacciones||[]).forEach(t=>{
+    if(t[3]!=='Transferencia')return;
+    cuentas.forEach(c=>{
+      const m=movimientoCuentaMoneda(t,c);
+      if(m)flujos.push({fecha:pfIso(pf(t[0])),monto:m});
+      else if(sameAccount(t[7]||'',c)&&!(Number(t[14])>0)&&monedaCuenta(t[5]||'')!==monedaCuenta(c))pendientesFechas.push(pfIso(pf(t[0])));
+    });
+  });
+  flujos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return{flujos,pendientes,solesPendientes,pendientesFechas};
+}
+function pfAportesHasta(flujos,fecha){return Math.round(flujos.filter(f=>f.fecha<=fecha).reduce((s,f)=>s+f.monto,0)*100)/100;}
+// ¿Hubo aportes o retiros después del cierre inicial y hasta el final? El cierre
+// del día inicial ya incluye lo movido ese día.
+function pfFlujosEnPeriodo(fl,desde,hasta){
+  const dentro=f=>f>desde&&f<=hasta;
+  return fl.flujos.filter(f=>dentro(f.fecha)).length+fl.pendientesFechas.filter(dentro).length;
+}
+// Aportes, ganancia y rentabilidad simple frente a lo aportado, al cierre de `row`.
+function pfModeloGanancia(row,fl){
+  if(!row||row.valor_total===null||row.valor_total===undefined)return{ok:false,mensaje:'Sin valor total en el último cierre.'};
+  if(row.moneda_base!=='USD')return{ok:false,mensaje:'Los aportes se registran en dólares y el portafolio está en '+(row.moneda_base||'otra moneda')+': no se puede comparar.'};
+  if(fl.pendientes>0)return{ok:false,aportes:null,mensaje:fl.pendientes+' aporte'+(fl.pendientes>1?'s':'')+' a IBKR sin dólares recibidos confirmados ('+fmt(fl.solesPendientes)+' enviados). Edita la transferencia y escribe cuántos dólares llegaron para calcular la ganancia.'};
+  if(!fl.flujos.length)return{ok:false,aportes:null,mensaje:'No hay aportes registrados: crea una transferencia hacia IBKR en la app para calcular la ganancia.'};
+  const aportes=pfAportesHasta(fl.flujos,row.fecha_valoracion),valor=Number(row.valor_total);
+  if(!(aportes>0))return{ok:false,aportes,mensaje:'Los aportes netos a esta fecha no son positivos: no se calcula la rentabilidad.'};
+  const ganancia=Math.round((valor-aportes)*100)/100;
+  // Control de coherencia: el primer valor visible en IBKR debería ser lo primero que aportaste.
+  let aviso='';
+  const primero=(pfHistoricoCache||[]).find(r=>Number(r.valor_total)>0);
+  if(primero){const ap=pfAportesHasta(fl.flujos,primero.fecha_valoracion),v=Number(primero.valor_total);
+    if(!(ap>0)||Math.abs(v-ap)>Math.max(1,ap*0.02))aviso='El primer valor que muestra IBKR ('+fmtMoneda(v,'USD')+', '+primero.fecha_valoracion+') no coincide con tus aportes registrados a esa fecha ('+fmtMoneda(ap,'USD')+'). Revisa las transferencias.';}
+  return{ok:true,aportes,ganancia,pct:ganancia/aportes*100,aviso};
+}
+
+// ── Períodos: 1M/3M/6M/Año actual/Todo o "Desde…" ──────────────────────────
+// Con "Desde…", si no hay un registro exacto en esa fecha se usa el primero
+// disponible después de ella, y siempre se informa cuál fue.
+function pfResolverPeriodo(rows,periodo,desdeISO,campo='fecha_valoracion'){
+  if(periodo!=='DESDE'){const filas=filtrarPorPeriodo(rows,periodo,campo);return{ok:true,filas,efectiva:filas.length?filas[0][campo]:null,seleccionada:null,ajustada:false};}
+  if(!desdeISO)return{ok:false,filas:[],mensaje:'Elige una fecha de inicio.'};
+  const i=rows.findIndex(r=>r[campo]>=desdeISO);
+  if(i<0)return{ok:false,filas:[],seleccionada:desdeISO,mensaje:'No hay datos desde '+pfFechaCorta(desdeISO)+(rows.length?' · el último dato es de '+pfFechaCorta(rows[rows.length-1][campo]):'')};
+  return{ok:true,filas:rows.slice(i),efectiva:rows[i][campo],seleccionada:desdeISO,ajustada:rows[i][campo]!==desdeISO};
+}
+function pfTextoDesde(r,rows,campo='fecha_valoracion'){
+  if(!r.ok)return r.mensaje||'';
+  const primera=rows.length?rows[0][campo]:null;
+  let t='Seleccionado: '+pfFechaCorta(r.seleccionada)+' · Dato utilizado: '+pfFechaCorta(r.efectiva);
+  if(primera&&r.seleccionada<primera)t+=' · antes del inicio del histórico disponible ('+pfFechaCorta(primera)+')';
+  return t;
+}
+
+// ── Rendimiento del portafolio en un período ────────────────────────────────
+// método 'simple': valor final / valor inicial − 1, válido solo si NO hubo
+// aportes ni retiros dentro del período. Con flujos no se calcula ningún
+// porcentaje: solo valor inicial, valor actual y cambio absoluto.
+function pfRendimientoPortafolio(filas,fl){
+  const validas=filas.filter(r=>Number(r.valor_total)>0);
+  if(validas.length<2)return{ok:false,mensaje:'Hacen falta al menos dos cierres con valor en el período.'};
+  const a=validas[0],b=validas[validas.length-1],inicial=Number(a.valor_total),actual=Number(b.valor_total);
+  const base={ok:true,metodo:'simple',desde:a.fecha_valoracion,hasta:b.fecha_valoracion,inicial,actual,cambio:actual-inicial,moneda:b.moneda_base};
+  const n=pfFlujosEnPeriodo(fl,a.fecha_valoracion,b.fecha_valoracion);
+  if(n>0)return{...base,conFlujos:true,flujos:n};
+  return{...base,conFlujos:false,pct:(actual/inicial-1)*100,
+    serie:validas.map(r=>({fecha:r.fecha_valoracion,valor:(Number(r.valor_total)/inicial-1)*100}))};
+}
+
+// ── Comparación con el S&P 500 ──────────────────────────────────────────────
+// Solo comparación numérica del mismo período: cierres oficiales de IBKR del
+// portafolio y de un ETF del S&P 500 (CSPX) que está en tu cartera. Igual que el
+// rendimiento del portafolio, solo es válida si NO hubo aportes ni retiros dentro
+// del período; si los hubo no se muestra ninguna cifra aproximada.
+const PF_BENCHMARK={simbolo:'CSPX',etiqueta:'S&P 500'};
+let pfBenchCache=[];
+function pfModeloBenchmark(filas,bench,fl){
+  const precios=new Map((bench||[]).filter(b=>Number(b.precio_mercado)>0).map(b=>[b.fecha_valoracion,Number(b.precio_mercado)]));
+  if(!precios.size)return{ok:false,mensaje:'No hay historial oficial del '+PF_BENCHMARK.etiqueta+' ('+PF_BENCHMARK.simbolo+') en tu portafolio.'};
+  const comunes=filas.filter(r=>Number(r.valor_total)>0&&precios.has(r.fecha_valoracion));
+  if(comunes.length<2)return{ok:false,mensaje:'Este período no tiene al menos dos cierres comparables con el '+PF_BENCHMARK.etiqueta+'.'};
+  const a=comunes[0],b=comunes[comunes.length-1];
+  if(pfFlujosEnPeriodo(fl,a.fecha_valoracion,b.fecha_valoracion)>0)
+    return{ok:false,mensaje:'Hubo aportes o retiros dentro de este período. Compararlo bien requiere rentabilidad ponderada por tiempo (fase posterior); prueba un período más corto, por ejemplo Desde… una fecha posterior al último aporte.'};
+  const port=(Number(b.valor_total)/Number(a.valor_total)-1)*100,mkt=(precios.get(b.fecha_valoracion)/precios.get(a.fecha_valoracion)-1)*100;
+  return{ok:true,port,mkt,dif:port-mkt,desde:a.fecha_valoracion,hasta:b.fecha_valoracion};
+}
+function renderPfBenchmark(filas){
+  const el=document.getElementById('pfBenchmark');if(!el)return;
+  if(!filas){el.innerHTML='';return;}
+  const m=pfModeloBenchmark(filas,pfBenchCache,pfFlujos());
+  if(!m.ok){el.innerHTML='<div class="pf-bench"><div class="pf-data-note">vs '+esc(PF_BENCHMARK.etiqueta)+': no disponible. '+esc(m.mensaje)+'</div></div>';return;}
+  el.innerHTML='<div class="pf-bench"><div class="pf-rend-row" style="margin-top:0"><div>Portafolio<strong>'+esc(pfSignedPct(m.port))+'</strong></div><div>'+esc(PF_BENCHMARK.etiqueta)+'<strong>'+esc(pfSignedPct(m.mkt))+'</strong></div><div>Diferencia<strong>'+(m.dif>0.004?'+':m.dif<-0.004?'−':'')+Math.abs(m.dif).toFixed(2)+' pp</strong></div></div><p class="hint" style="margin-top:8px">Del '+esc(pfFechaCorta(m.desde))+' al '+esc(pfFechaCorta(m.hasta))+' · cierres oficiales de IBKR; el '+esc(PF_BENCHMARK.etiqueta)+' se mide con '+esc(PF_BENCHMARK.simbolo)+' (iShares Core S&amp;P 500). Solo comparación numérica del período.</p></div>';
+}
+
+// ── Posiciones ──────────────────────────────────────────────────────────────
+// Costo = cantidad × costo promedio (× multiplicador, × tipo de cambio a la
+// moneda base). P&L % = P&L no realizado / costo. Sin datos no se inventa.
+function pfRendimientoPosicion(p){
+  const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
+  const qty=num(p.cantidad),avg=num(p.costo_promedio),mult=num(p.multiplicador)||1;
+  const fx=p.moneda===p.moneda_base?1:(p.conversion_incompleta?null:num(p.fx_rate_a_base));
+  const valor=num(p.valor_mercado_base),pnl=num(p.pnl_no_realizado_base);
+  const costoTotal=qty!==null&&avg!==null&&fx>0?Math.round(qty*avg*mult*fx*100)/100:null;
+  return{valor,pnl,costoTotal,pnlPct:costoTotal>0&&pnl!==null?pnl/costoTotal*100:null};
+}
+// P&L agregado: solo posiciones (el efectivo no entra en el costo). Se calcula
+// solo si todas las posiciones son comparables con el cierre de la cuenta.
+function pfResumenPosiciones(row,posiciones){
+  if(!posiciones.length)return{ok:true,costo:0,pnl:0,pct:null};
+  let costo=0,pnl=0;
+  for(const p of posiciones){
+    const r=pfRendimientoPosicion(p);
+    const igual=p.moneda_base===row.moneda_base&&p.fecha_datos===row.fecha_valoracion&&p.cuenta_ibkr===row.cuenta_ibkr;
+    if(!igual||r.costoTotal===null||r.pnl===null)return{ok:false};
+    costo+=r.costoTotal;pnl+=r.pnl;
+  }
+  return{ok:true,costo:Math.round(costo*100)/100,pnl:Math.round(pnl*100)/100,pct:costo>0?pnl/costo*100:null};
+}
+// Qué mostrar de una posición: la estimación con Yahoo solo si es válida y
+// comparable; si no, el cierre oficial de IBKR.
+function pfPosicionMostrada(p,est){
+  const o=pfRendimientoPosicion(p);
+  if(est&&est.baseValue!==null&&est.basePnl!==null&&o.costoTotal>0)
+    return{fuente:'yahoo',valor:est.baseValue,pnl:est.basePnl,pct:est.basePnl/o.costoTotal*100,costoTotal:o.costoTotal};
+  return{fuente:'ibkr',valor:o.valor,pnl:o.pnl,pct:o.pnlPct,costoTotal:o.costoTotal};
+}
+// Rendimiento del ACTIVO: cambio de precio entre dos fechas. No es el P&L de tu
+// posición (puede haber compras a otros precios durante el período).
+function pfRendimientoActivo(filas){
+  const v=filas.filter(r=>Number(r.precio_mercado)>0).sort((a,b)=>a.fecha_valoracion.localeCompare(b.fecha_valoracion));
+  if(v.length<2)return null;
+  const a=v[0],b=v[v.length-1],ini=Number(a.precio_mercado),fin=Number(b.precio_mercado);
+  return{desde:a.fecha_valoracion,hasta:b.fecha_valoracion,inicial:ini,actual:fin,pct:(fin/ini-1)*100};
+}
+
+// ── Vista del gráfico ───────────────────────────────────────────────────────
+function setPfVista(v){
+  pfVista=v;
+  document.querySelectorAll('#pfVistaTabs .antb').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));});
+  renderPfChart();
+}
+function setPfDesde(iso){pfDesde=iso||'';renderPfChart();}
 function renderPfChart(){
-  const filas=filtrarPorPeriodo(pfHistoricoCache,pfPeriodo,'fecha_valoracion');
-  const puntos=filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total}));
-  document.getElementById('pfChartArea').innerHTML=construirLineChartSVG(puntos);
+  const panel=document.getElementById('pfDesdePanel'),info=document.getElementById('pfDesdeInfo');
+  const per=pfResolverPeriodo(pfHistoricoCache,pfPeriodo,pfDesde);
+  if(panel){
+    panel.hidden=pfPeriodo!=='DESDE';
+    if(pfPeriodo==='DESDE'){
+      const inp=document.getElementById('pfDesdeInput'),f=pfHistoricoCache;
+      if(inp){if(f.length){inp.min=f[0].fecha_valoracion;inp.max=f[f.length-1].fecha_valoracion;}if(inp.value!==pfDesde)inp.value=pfDesde;}
+      info.textContent=pfTextoDesde(per,pfHistoricoCache);
+    }
+  }
+  const area=document.getElementById('pfChartArea'),titulo=document.getElementById('pfChartTitulo'),hint=document.getElementById('pfChartHint'),res=document.getElementById('pfRendResumen');
+  res.innerHTML='';renderPfBenchmark(null);
+  if(!per.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
+  const filas=per.filas;
+  if(pfVista==='rendimiento'){
+    const r=pfRendimientoPortafolio(filas,pfFlujos());
+    titulo.textContent=r.ok?'Rendimiento desde '+pfFechaLarga(r.desde):'Rendimiento';
+    if(!r.ok){area.innerHTML='<div class="pf-data-note">'+esc(r.mensaje)+'</div>';hint.textContent='';return;}
+    const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(r.inicial,r.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(r.actual,r.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(r.cambio)+'">'+esc(pfSigned(r.cambio,r.moneda))+'</strong></div></div>';
+    if(r.conFlujos){
+      area.innerHTML='<div class="pf-data-note">Hubo aportes o retiros durante este período ('+r.flujos+'). El cambio de valor no representa rentabilidad.</div>';
+      res.innerHTML=cifras;
+      hint.textContent='Se detectan los aportes y retiros que registraste en la app. Para medir rentabilidad con flujos hará falta una metodología ponderada por tiempo (fase posterior). Prueba un período sin aportes, por ejemplo Desde… una fecha posterior al último.';
+    }else{
+      area.innerHTML=construirLineChartSVG(r.serie,{ganancia:true,fmt:v=>v.toFixed(1)+'%'});
+      res.innerHTML='<div class="pf-rend-big">Rendimiento del período<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
+      hint.textContent='Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.';
+    }
+  }else{
+    titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
+    area.innerHTML=construirLineChartSVG(filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total})));
+    hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.';
+  }
+  renderPfBenchmark(filas);
 }
 
 // La distribución usa exclusivamente las valoraciones oficiales de IBKR.
@@ -3012,6 +3402,20 @@ function renderPfDistribucion(row){
     button.addEventListener('click',()=>selectPart(index));leg.append(button);
   });
 }
+// Parte superior de la tarjeta: valor y P&L. Con una estimación válida de Yahoo se
+// muestra esa y se rotula "Estimado · Yahoo"; si no, el cierre oficial de IBKR.
+function pfPintarPosicion(button,p,est){
+  const top=button.querySelector('.pf-pos-top');if(!top)return;
+  const m=pfPosicionMostrada(p,est),oficial=pfRendimientoPosicion(p);
+  const pnlTxt=m.pnl===null?'No disponible':pfSigned(m.pnl,p.moneda_base)+(m.pct===null?'':' · '+pfSignedPct(m.pct));
+  const fuente=m.fuente==='yahoo'
+    ?'<span class="pf-est-badge">Estimado · Yahoo</span> hace '+Math.max(0,Math.floor(est.age))+' min'
+    :'Cierre IBKR · '+esc(pfFechaCorta(p.fecha_datos)||'sin fecha');
+  const cierre=m.fuente==='yahoo'&&oficial.pnl!==null?'<small>Cierre IBKR: '+esc(pfSigned(oficial.pnl,p.moneda_base))+(oficial.pnlPct===null?'':' · '+esc(pfSignedPct(oficial.pnlPct)))+'</small>':'';
+  top.innerHTML=`<span class="pf-position-head"><span class="pf-position-symbol"><i class="pf-color-dot" style="background:${pfAssetColor(p.simbolo)}"></i>${esc(p.simbolo)}</span><strong>${esc(fmtMoneda(m.valor,p.moneda_base))}</strong></span>
+    <span class="pf-position-name">${esc(p.nombre||'')}</span>
+    <span class="pf-pos-perf"><strong style="color:${pfColor(m.pnl)}">${esc(pnlTxt)}</strong><small>${fuente}</small>${cierre}</span>`;
+}
 function renderPfPosiciones(posiciones){
   const cont=document.getElementById('pfPosicionesLista');
   const query=norm(document.getElementById('pfPositionSearch').value);
@@ -3023,12 +3427,11 @@ function renderPfPosiciones(posiciones){
   if(!visible.length){cont.innerHTML='<div class="empty">'+(query?'No hay posiciones que coincidan con tu búsqueda.':'No hay posiciones abiertas en el último reporte IBKR.')+'</div>';return;}
   visible.forEach(p=>{
     const button=document.createElement('button');button.type='button';button.className='pf-position';button.dataset.positionKey=pfQuoteKey(p);
-    const pnl=pfNumber(p.pnl_no_realizado_base),color=pnl===null?'var(--dim)':pnl>0?'var(--green)':pnl<0?'var(--red)':'var(--dim)';
-    button.innerHTML=`<span class="pf-position-head"><span class="pf-position-symbol"><i class="pf-color-dot" style="background:${pfAssetColor(p.simbolo)}"></i>${esc(p.simbolo)}</span><strong>${esc(fmtMoneda(p.valor_mercado_base,p.moneda_base))}</strong></span>
-      <span class="pf-position-name">${esc(p.nombre||'')}</span>
-      <span class="pf-position-details"><span>Cantidad<strong>${esc(fmtN(p.cantidad))}</strong></span><span>Costo promedio<strong>${esc(fmtMoneda(p.costo_promedio,p.moneda))}</strong></span><span>Precio IBKR<strong>${esc(fmtMoneda(p.precio_mercado,p.moneda))}</strong></span></span>
-      <span class="pf-position-foot"><span>Cierre ${esc(p.fecha_datos||'no disponible')}</span><span style="color:${color}">P&amp;L ${esc(fmtMoneda(pnl,p.moneda_base))}</span></span>
+    const o=pfRendimientoPosicion(p);
+    button.innerHTML=`<span class="pf-pos-top"></span>
+      <span class="pf-pos-sub">${esc(fmtN(p.cantidad))} acciones · Costo promedio ${esc(fmtMoneda(p.costo_promedio,p.moneda))}${o.costoTotal===null?'':' · Costo total '+esc(fmtMoneda(o.costoTotal,p.moneda_base))}<br>Precio IBKR ${esc(fmtMoneda(p.precio_mercado,p.moneda))}</span>
       ${p.conversion_incompleta?'<span class="pf-data-note">Conversión a moneda base pendiente</span>':''}`;
+    pfPintarPosicion(button,p,null);
     button.addEventListener('click',()=>abrirPfPosModal(p.contract_id));cont.append(button);
   });
   renderPfYahoo();
@@ -3039,7 +3442,7 @@ async function abrirPfPosModal(contractId){
   document.getElementById('pfPosModalTitle').textContent=pos?pos.simbolo+' · '+(pos.nombre||''):'Posición';
   document.getElementById('pfPosModalBody').innerHTML='<div class="empty">Cargando histórico…</div>';
   document.getElementById('pfPosModal').classList.add('active');
-  pfModalPeriodo='6M';
+  pfModalPeriodo='6M';pfModalDesde='';
   pfModalContractId=contractId;
   try{
     const hist=await sbFetch(`posiciones_historial?select=*&contract_id=eq.${Number(contractId)}&order=fecha_valoracion.asc`);
@@ -3054,40 +3457,72 @@ async function abrirPfPosModal(contractId){
 
 function renderPfPosModalBody(pos){
   const body=document.getElementById('pfPosModalBody');
-  const resumen=pos?`
-    <div class="metric-grid" style="margin-bottom:10px">
-      <div class="metric"><div class="m-lbl">Valor de mercado</div><div class="m-val">${esc(fmtMoneda(pos.valor_mercado,pos.moneda))}</div></div>
-      <div class="metric"><div class="m-lbl">% del portafolio</div><div class="m-val">${esc(fmtPct(pos.porcentaje_portafolio))}</div></div>
-      <div class="metric"><div class="m-lbl">Cantidad</div><div class="m-val">${esc(fmtN(pos.cantidad))}</div></div>
-      <div class="metric"><div class="m-lbl">Costo promedio</div><div class="m-val">${esc(fmtMoneda(pos.costo_promedio,pos.moneda))}</div></div>
-    </div>`:'';
+  let tuPosicion='';
+  if(pos){
+    const key=pfQuoteKey(pos),q=pfYahoo.quotes.find(x=>String(x.account)+'|'+String(x.contract_id)===key);
+    const m=pfPosicionMostrada(pos,pfMarketEstimate(pos,q));
+    tuPosicion=`
+    <div class="pf-pos-modal-block"><div class="m-lbl">Tu posición</div>
+      <div class="pf-rend-big" style="margin-top:4px"><strong style="color:${pfColor(m.pnl)}">${esc(m.pnl===null?'No disponible':pfSigned(m.pnl,pos.moneda_base)+(m.pct===null?'':' · '+pfSignedPct(m.pct)))}</strong>${m.fuente==='yahoo'?'<span class="pf-est-badge" style="margin:4px 0 0">Estimado · Yahoo</span>':'<span>Cierre IBKR · '+esc(pfFechaCorta(pos.fecha_datos)||'sin fecha')+'</span>'}</div>
+      <div class="metric-grid" style="margin-top:10px">
+        <div class="metric"><div class="m-lbl">Valor de mercado</div><div class="m-val">${esc(fmtMoneda(m.valor,pos.moneda_base))}</div></div>
+        <div class="metric"><div class="m-lbl">% del portafolio</div><div class="m-val">${esc(fmtPct(pos.porcentaje_portafolio))}</div></div>
+        <div class="metric"><div class="m-lbl">Cantidad</div><div class="m-val">${esc(fmtN(pos.cantidad))}</div></div>
+        <div class="metric"><div class="m-lbl">Costo promedio</div><div class="m-val">${esc(fmtMoneda(pos.costo_promedio,pos.moneda))}</div></div>
+      </div>
+      <p class="hint">Calculado con tu cantidad actual y tu costo promedio.</p></div>`;
+  }
   body.innerHTML=`
-    ${resumen}
-    <div class="s-head" style="margin-bottom:10px"><div class="s-title">Histórico oficial de la posición</div></div>
-    <div class="an-tabs" id="pfModalPeriodoTabs" style="margin-bottom:10px">
+    ${tuPosicion}
+    <div class="s-head" style="margin:14px 0 10px"><div class="s-title">Rendimiento del activo</div></div>
+    <div class="an-tabs" id="pfModalPeriodoTabs" style="margin-bottom:10px;flex-wrap:wrap">
       <button class="antb" data-p="1M" onclick="setPfModalPeriodo('1M',this)">1M</button>
       <button class="antb" data-p="3M" onclick="setPfModalPeriodo('3M',this)">3M</button>
       <button class="antb active" data-p="6M" onclick="setPfModalPeriodo('6M',this)">6M</button>
       <button class="antb" data-p="YTD" onclick="setPfModalPeriodo('YTD',this)">Año actual</button>
       <button class="antb" data-p="ALL" onclick="setPfModalPeriodo('ALL',this)">Todo</button>
+      <button class="antb" data-p="DESDE" onclick="setPfModalPeriodo('DESDE',this)">Desde…</button>
     </div>
+    <div class="pf-desde" id="pfModalDesdePanel" hidden><label>Desde <input type="date" id="pfModalDesdeInput" onchange="setPfModalDesde(this.value)"></label><span class="pf-desde-hasta">Hasta: hoy</span><div class="pf-desde-info" id="pfModalDesdeInfo" role="status"></div></div>
+    <div id="pfModalRendActivo"></div>
+    <div class="pf-chart-title">Precio del activo · cierre oficial de IBKR</div>
     <div id="pfModalChartArea"></div>
+    <p class="hint" id="pfModalHint"></p>
   `;
-  if(pfModalHistoricoCache.length){const note=document.createElement('p');note.className='hint';note.textContent='Histórico oficial disponible desde '+pfModalHistoricoCache[0].fecha_valoracion+'.';body.append(note);}
   renderPfModalChart();
 }
 
 function setPfModalPeriodo(p,btn){
   pfModalPeriodo=p;
+  if(p==='DESDE'&&!pfModalDesde&&pfModalHistoricoCache.length)pfModalDesde=pfModalHistoricoCache[0].fecha_valoracion;
   document.querySelectorAll('#pfModalPeriodoTabs .antb').forEach(x=>x.classList.remove('active'));
   if(btn)btn.classList.add('active');
   renderPfModalChart();
 }
+function setPfModalDesde(iso){pfModalDesde=iso||'';renderPfModalChart();}
 
+// Precio del activo en el período y su cambio. Es el rendimiento del ACTIVO, no
+// el de tu inversión: compras adicionales durante el período no lo alteran.
 function renderPfModalChart(){
-  const filas=filtrarPorPeriodo(pfModalHistoricoCache,pfModalPeriodo,'fecha_valoracion');
-  const puntos=filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_mercado_base}));
-  document.getElementById('pfModalChartArea').innerHTML=construirLineChartSVG(puntos);
+  const per=pfResolverPeriodo(pfModalHistoricoCache,pfModalPeriodo,pfModalDesde);
+  const panel=document.getElementById('pfModalDesdePanel'),area=document.getElementById('pfModalChartArea'),rend=document.getElementById('pfModalRendActivo'),hint=document.getElementById('pfModalHint');
+  if(!area)return;
+  if(panel){
+    panel.hidden=pfModalPeriodo!=='DESDE';
+    if(pfModalPeriodo==='DESDE'){
+      const inp=document.getElementById('pfModalDesdeInput'),h=pfModalHistoricoCache;
+      if(inp){if(h.length){inp.min=h[0].fecha_valoracion;inp.max=h[h.length-1].fecha_valoracion;}if(inp.value!==pfModalDesde)inp.value=pfModalDesde;}
+      document.getElementById('pfModalDesdeInfo').textContent=pfTextoDesde(per,pfModalHistoricoCache);
+    }
+  }
+  if(!per.ok){rend.innerHTML='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent='';return;}
+  const pos=pfPosicionesCache.find(p=>Number(p.contract_id)===Number(pfModalContractId)),moneda=pos?pos.moneda:'USD';
+  const r=pfRendimientoActivo(per.filas);
+  if(r){
+    rend.innerHTML='<div class="pf-rend-big">Rendimiento del activo · desde '+esc(pfFechaCorta(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div><div class="pf-rend-row" style="grid-template-columns:1fr 1fr"><div>Precio inicial<strong>'+esc(fmtMoneda(r.inicial,moneda))+'</strong></div><div>Precio '+esc(pfFechaCorta(r.hasta))+'<strong>'+esc(fmtMoneda(r.actual,moneda))+'</strong></div></div>';
+    hint.textContent='Es el cambio de precio del activo en el período, con cierres oficiales de IBKR. No es el P&L de tu posición: cambia con tus compras y tu costo promedio.';
+  }else{rend.innerHTML='';hint.textContent='';}
+  area.innerHTML=construirLineChartSVG(per.filas.map(x=>({fecha:x.fecha_valoracion,valor:x.precio_mercado})),{escala:'detail'});   // un precio no debe arrancar en cero
 }
 
 function cerrarPfPosModal(){pfModalContractId=null;document.getElementById('pfPosModal').classList.remove('active');}
@@ -3738,6 +4173,17 @@ function cerrarCardDetail(){document.getElementById('cardDetailModal').classList
 function cardCycleTotal(offset=cardCycleOffset){
   return CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,offset).pendiente,0);
 }
+// Deuda en dólares. Se muestra en dólares; el equivalente en soles de hoy es solo
+// una referencia con el tipo de cambio de mercado y no se suma a nada.
+function refSolesHoy(usd){return tcMercado>0?' <small style="color:var(--dim)">≈ '+fmt(usd*tcMercado)+' hoy</small>':'';}
+function filaDeudaUSD(card){
+  const d=deudaTarjetaUSD(card);
+  return d.usd>0?`<div class="credit-row"><span>Debes en dólares</span><span style="color:var(--red)">US$ ${fmtN(d.usd)}${refSolesHoy(d.usd)}</span></div>`:'';
+}
+function bannerDeudaUSD(){
+  const total=deudaUSDTotal();
+  return total>0?`<div class="line-summary-card" style="margin-bottom:12px"><div class="line-summary-title">Debes en dólares · todas las tarjetas</div><div class="line-summary-main">US$ ${fmtN(total)}${refSolesHoy(total)}</div><p class="hint">Consumos en dólares menos pagos en dólares. Lo que costó en soles se fija al pagar.</p></div>`:'';
+}
 function renderCreditLineSummary(){
   const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
   const currentItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
@@ -3781,7 +4227,7 @@ function renderCardsPage(){
   const cont=document.getElementById('cardsPage'); if(!cont)return;
 
   if(cardPageTab==='resumen'){
-    cont.innerHTML=CREDIT_CARDS.map(card=>{
+    cont.innerHTML=bannerDeudaUSD()+CREDIT_CARDS.map(card=>{
       const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
       const pct=total>0?Math.min((pagado/total)*100,100):0;
       return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
@@ -3793,6 +4239,7 @@ function renderCardsPage(){
           <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
           <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
+          ${filaDeudaUSD(card)}
         </div>${renderCardRefundSummary(data)}${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
     }).join('');
     return;
@@ -3900,7 +4347,7 @@ function getCardPaymentRecords(card,cycle){
   const key=getCycleKey(cycle);
   return (datos.pagosTarjetas||[])
     .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&normCycleKey(r[2])===key)
-    .map(r=>({id:String(r[0]),amount:Math.max(0,parseFloat(r[3])||0),date:normCycleKey(r[4]),note:String(r[5]||''),cuentaOrigen:r[6]||null}));
+    .map(r=>({id:String(r[0]),amount:Math.max(0,pagoEnSoles(r)),date:normCycleKey(r[4]),note:String(r[5]||''),cuentaOrigen:r[6]||null,moneda:r[7]||'PEN',usd:Number(r[3])||0,soles:r[8],tc:r[9]}));
 }
 function getCardPayment(card,cycle){return getCardPaymentRecords(card,cycle).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);}
 // Cuenta de la que normalmente sale el pago de cada tarjeta (editable por pago).
@@ -3922,6 +4369,12 @@ async function updateCardPaymentRecord(card,cycle,id,amount,date,note){
   if(row){row[3]=n;row[4]=date||row[4];row[5]=note||'';}
 }
 async function deleteCardPaymentRecord(card,cycle,id){
+  const fila=datos.pagosTarjetas.find(r=>String(r[0])===String(id));
+  if(fila&&pagoEsUSD(fila)){
+    await sbFetch('rpc/eliminar_pago_tarjeta_usd',{method:'POST',body:JSON.stringify({p_id:id})});
+    await cargar();
+    return;
+  }
   await sbDelete('pagos_tarjetas',id);
   datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>String(r[0])!==String(id));
 }
@@ -3948,7 +4401,7 @@ function cardLedger(card){
   const bucket=key=>{if(!buckets.has(key))buckets.set(key,{total:0,pagado:0,reembolsos:0,creditoAplicado:0});return buckets.get(key);};
   const expenses=datos.transacciones.filter(t=>isCardExpenseFor(card,t));
   expenses.forEach(t=>bucket(cardTxCycleKey(card,t)).total+=Number(t[4]));
-  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=Number(p[3])||0);
+  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=pagoEnSoles(p));
   datos.transacciones.filter(t=>t[3]==='Reembolso'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=endOfDay(new Date())).forEach(t=>{
     const original=expenses.find(g=>String(g[6])===String(t[8]));
     if(original)bucket(cardTxCycleKey(card,original)).reembolsos+=Number(t[4]);
@@ -4002,6 +4455,9 @@ async function limpiarPagoTarjeta(){
   if(!confirm('¿Eliminar todo el historial de pagos de este ciclo?'))return;
   const key=getCycleKey(ctx.data.cycle);
   try{
+    // Los pagos en dólares se borran por su función para llevarse su diferencia de cambio.
+    const enUSD=datos.pagosTarjetas.filter(r=>norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key&&pagoEsUSD(r));
+    for(const r of enUSD)await sbFetch('rpc/eliminar_pago_tarjeta_usd',{method:'POST',body:JSON.stringify({p_id:r[0]})});
     await sbFetch(`pagos_tarjetas?tarjeta=eq.${encodeURIComponent(ctx.card.cuenta)}&ciclo_key=eq.${key}`,{method:'DELETE'});
     datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key));
     renderBal(); renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
@@ -4048,13 +4504,71 @@ async function eliminarPagoTarjeta(id){
 function renderPaymentHistory(card,cycle){
   const pagos=getCardPaymentRecords(card,cycle).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!pagos.length)return '<div class="pay-history"><div class="pay-history-title">Historial de pagos</div><div class="empty" style="padding:18px 8px">Aún no registras pagos para este ciclo</div></div>';
-  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions"><button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button><button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${fmt(p.amount)}</div></div>`).join('')}</div>`;
+  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.moneda==='USD'?escHtml('Pago en dólares · costó '+fmt(p.soles)+' · TC '+Number(p.tc).toFixed(4)+(p.cuentaOrigen?' · desde '+p.cuentaOrigen:'')):escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions">${p.moneda==='USD'?'':`<button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button>`}<button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${p.moneda==='USD'?'US$ '+fmtN(p.usd):fmt(p.amount)}</div></div>`).join('')}</div>`;
 }
 function renderPaymentForm(pendiente,card){
+  // Cualquier cuenta de efectivo en soles puede pagar la tarjeta. La habitual
+  // va preseleccionada si aún existe con ese nombre (puede haberse renombrado).
   const def=defaultCuentaOrigen(card);
-  const cuentas=['Plin','Yape'];
-  const opts=cuentas.map(c=>`<option value="${c}"${c===def?' selected':''}>${c}</option>`).join('');
-  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>`;
+  const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
+  const elegida=cuentas.find(c=>sameAccount(c,def))||cuentas[0];
+  const opts=cuentas.map(c=>`<option value="${escAttr(c)}"${c===elegida?' selected':''}>${escHtml(c)}</option>`).join('');
+  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>${renderPagoUSD(card)}`;
+}
+// ── Pagar la tarjeta en dólares ────────────────────────────────────────────
+// Aquí se fija el costo real: pones cuántos soles costó (o pagas con dólares
+// tuyos y cuenta su costo promedio) y de ahí sale el tipo de cambio verdadero.
+// Lo que difiera de lo que se había reconocido al gastar queda como "Diferencia
+// de cambio" en la fecha del pago; ningún mes anterior se reescribe.
+function renderPagoUSD(card){
+  const d=deudaTarjetaUSD(card);
+  if(!(d.usd>0))return '';
+  const def=defaultCuentaOrigen(card);
+  const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion').map(c=>c[0]);
+  const opts=cuentas.map(c=>`<option value="${escAttr(c)}"${sameAccount(c,def)?' selected':''}>${escHtml(c)} · ${monedaCuenta(c)}</option>`).join('');
+  const sug=tcMercado>0?(Math.round(d.usd*tcMercado*100)/100).toFixed(2):'';
+  return `<div class="pay-usd" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)"><div class="pay-history-title">Pagar en dólares · debes US$ ${fmtN(d.usd)}</div><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares a pagar</label><input id="cardUsdMonto" type="number" inputmode="decimal" step="0.01" value="${d.usd.toFixed(2)}" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Desde</label><select id="cardUsdCuenta" class="sel" onchange="actualizarPagoUSD()">${opts}</select></div><div class="pay-field" id="cardUsdSolesRow"><label>Soles que costó</label><input id="cardUsdSoles" type="number" inputmode="decimal" step="0.01" value="${sug}" placeholder="0.00" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Fecha</label><input id="cardUsdFecha" type="date" value="${hoyISO()}"></div></div><button class="btn btn-p" onclick="guardarPagoTarjetaUSD()">Pagar US$</button></div><div class="hint" id="cardUsdPreview" style="margin-top:10px"></div></div>`;
+}
+// Costo en soles de un pago en dólares y su diferencia de cambio. Misma cuenta
+// que hace el servidor con el promedio de la deuda pendiente.
+function costoPagoUSD(card,usd,cuenta,solesTexto){
+  const d=deudaTarjetaUSD(card);
+  if(!(usd>0))return{ok:false,mensaje:'Escribe cuántos dólares pagas.'};
+  if(usd>d.usd+0.004)return{ok:false,mensaje:'Supera lo que debes: US$ '+fmtN(d.usd)+'.'};
+  if(!cuenta)return{ok:false,mensaje:'Elige la cuenta de la que sale el pago.'};
+  let soles,fuente;
+  if(monedaCuenta(cuenta)==='USD'){
+    const cp=costoPromedioUSD(),saldo=getCuentaBalanceMoneda(cuenta).saldo;
+    if(!cp)return{ok:false,mensaje:'Aún no hay compras de dólares registradas para calcular su costo. Registra primero la compra.'};
+    if(usd>saldo+0.004)return{ok:false,mensaje:'No alcanza el saldo de esa cuenta: tiene US$ '+fmtN(saldo)+'.'};
+    soles=Math.round(usd*cp*100)/100;fuente='costo_promedio';
+  }else{
+    soles=Math.round(Number(solesTexto)*100)/100;fuente='manual';
+    if(!(soles>0))return{ok:false,mensaje:'Escribe cuántos soles costó este pago.'};
+  }
+  const eq=equivalenteReconocido(card,usd),dif=Math.round((soles-eq)*100)/100,tc=soles/usd;
+  const txt=Math.abs(dif)<0.005?'Sin diferencia de cambio.':dif>0?'Diferencia de cambio: costó '+fmt(dif)+' más de lo estimado.':'Diferencia de cambio: costó '+fmt(-dif)+' menos de lo estimado.';
+  return{ok:true,soles,fuente,tc,eq,dif,mensaje:'TC real: '+tc.toFixed(6)+' · costó '+fmt(soles)+' · estaba reconocido '+fmt(eq)+'. '+txt};
+}
+function actualizarPagoUSD(){
+  const ctx=getSelectedCardAndData(),prev=document.getElementById('cardUsdPreview');
+  if(!ctx||!prev)return;
+  const cuenta=elv('cardUsdCuenta'),fila=document.getElementById('cardUsdSolesRow');
+  if(fila)fila.hidden=monedaCuenta(cuenta)==='USD';
+  prev.textContent=costoPagoUSD(ctx.card,Number(elv('cardUsdMonto')),cuenta,elv('cardUsdSoles')).mensaje;
+}
+async function guardarPagoTarjetaUSD(){
+  const ctx=getSelectedCardAndData(); if(!ctx)return;
+  const usd=Math.round(Number(elv('cardUsdMonto'))*100)/100,cuenta=elv('cardUsdCuenta'),fecha=elv('cardUsdFecha')||hoyISO();
+  const r=costoPagoUSD(ctx.card,usd,cuenta,elv('cardUsdSoles'));
+  if(!r.ok){toast(r.mensaje,'error');return;}
+  try{
+    await sbFetch('rpc/pagar_tarjeta_usd',{method:'POST',body:JSON.stringify({p_tarjeta:ctx.card.cuenta,p_ciclo:getCycleKey(ctx.data.cycle),p_monto_usd:usd,p_fecha:fecha+'T12:00:00Z',p_nota:null,p_cuenta_origen:cuenta,p_monto_origen:r.soles,p_tc_fuente:r.fuente})});
+  }catch(e){
+    toast(/pagar_tarjeta_usd|schema cache|Could not find/i.test(e.message||'')?'Falta activar los pagos en dólares en Supabase. Ejecuta el SQL de tarjetas en dólares.':(e.message||'No se pudo registrar el pago'),'error');
+    return;
+  }
+  await cargar(); renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago en dólares registrado','success');
 }
 function goPrevCardCycle(){cardCycleOffset -= 1; renderCardsPage();}
 function goNextCardCycle(){cardCycleOffset += 1; renderCardsPage();}
@@ -4095,6 +4609,7 @@ function renderCardDetail(){
     <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
     ${renderPaymentForm(pendiente,card)}
     ${renderPaymentHistory(card,cycle)}`;
+  actualizarPagoUSD();
 }
 
 // ── Protección contra doble clic ─────────────────────────────────────────────
@@ -4113,7 +4628,7 @@ function guardedOnce(fn){
 [
   'guardar','eliminar','guardarDeuda','guardarAbono','confirmarArchivar',
   'confirmarDesarchivar','guardarEditAbono','eliminarAbono','editarFechaDeuda',
-  'guardarPagoTarjeta','pagarSaldoCompleto','limpiarPagoTarjeta',
+  'guardarPagoTarjeta','guardarPagoTarjetaUSD','pagarSaldoCompleto','limpiarPagoTarjeta',
   'guardarEditPago','confirmarEliminarPago','eliminarPagoTarjeta',
   'guardarTarjetaInline','agregarTarjeta','eliminarTarjeta','guardarMetaPct',
   'cargar'
@@ -4192,7 +4707,11 @@ async function cargarPatrimonio(forzar){
  patrimonio={...patrimonio,estado:'loading',mensaje:'Cargando el valor de IBKR…'};
  try{
   const hist=await sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
-  await leerTipoCambio();
+  // El patrimonio se valora al tipo de cambio de mercado de hoy, el mismo que
+  // se propone en los gastos con tarjeta. El de Configuración solo se usa si
+  // no hay uno de mercado (sin red y sin ninguno guardado).
+  await Promise.all([leerTipoCambio(),cargarTcMercado()]);
+  const tc=tcMercado>0?tcMercado:tcUsdPen,tcOrigen=tcMercado>0?'mercado':'configurado';
   const row=(hist||[])[0];
   const valor=row?Number(row.valor_total):NaN;
   const f=row?parseDateOnly(row.fecha_valoracion):null;
@@ -4202,10 +4721,10 @@ async function cargarPatrimonio(forzar){
   }else if((row.moneda_base||'')==='PEN'){
    // Ya está en soles: no se convierte.
    patrimonio={estado:'ok',soles:valor,valorBase:valor,moneda:'PEN',fechaCorta,detalle:'',mensaje:''};
-  }else if(!(tcUsdPen>0)){
-   patrimonio={estado:'sin_tc',soles:null,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'Configura el tipo de cambio USD → PEN en Configuración para ver tu patrimonio.'};
+  }else if(!(tc>0)){
+   patrimonio={estado:'sin_tc',soles:null,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'No hay tipo de cambio de mercado disponible. Configura el USD → PEN en Configuración para ver tu patrimonio.'};
   }else{
-   patrimonio={estado:'ok',soles:valor*tcUsdPen,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valor,row.moneda_base||'USD')+' × '+tcUsdPen,mensaje:''};
+   patrimonio={estado:'ok',soles:valor*tc,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valor,row.moneda_base||'USD')+' × '+tc+' ('+tcOrigen+')',mensaje:''};
   }
  }catch(e){
   patrimonio={estado:'error',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'No se pudo cargar el valor de IBKR. Vuelve a intentarlo.'};
@@ -4325,15 +4844,16 @@ function pfChartDomain(values,scale='overview'){
 }
 aplicarPreferencias();
 // Mejora el eje temporal y el rango de series constantes.
-construirLineChartSVG=function(puntos){
+construirLineChartSVG=function(puntos,opts={}){
  const pts=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(+parseDateOnly(p.fecha))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
  if(pts.length<2)return '<div class="empty">'+(pts.length?'Histórico disponible desde '+esc(pts[0].fecha)+'. Se necesitan al menos dos fechas.':'No hay datos para este período.')+'</div>';
- const vals=pts.map(p=>Number(p.valor));const [lo,hi]=pfChartDomain(vals,appPreferences.chartScale);
+ const vals=pts.map(p=>Number(p.valor));let [lo,hi]=pfChartDomain(vals,opts.escala||appPreferences.chartScale);if(opts.ganancia){lo=Math.min(lo,0);hi=Math.max(hi,0);if(hi===lo)hi=lo+1;}
  const t0=+parseDateOnly(pts[0].fecha),tn=+parseDateOnly(pts.at(-1).fecha),x=p=>52+(+parseDateOnly(p.fecha)-t0)/(tn-t0||1)*488,y=p=>172-(Number(p.valor)-lo)/(hi-lo)*150;
  const path=pts.map((p,i)=>(i?'L':'M')+x(p).toFixed(2)+' '+y(p).toFixed(2)).join(' ');
- let svg='<svg viewBox="0 0 560 205" class="chart-svg" role="img" aria-label="Evolución del valor en el período"><title>Evolución del valor; incluye aportes y retiros</title>';
- for(let i=0;i<4;i++){const yy=22+i*50;svg+=`<line x1="52" y1="${yy}" x2="540" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
- svg+=`<path d="${path} L 540 172 L 52 172 Z" fill="var(--green)" opacity=".08"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+ let svg='<svg viewBox="0 0 560 205" class="chart-svg" role="img" aria-label="'+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
+ for(let i=0;i<4;i++){const yy=22+i*50;svg+=`<line x1="52" y1="${yy}" x2="540" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
+ if(opts.ganancia){const y0=y({valor:0}),c=vals.at(-1)>=0?'var(--green)':'var(--red)';svg+=`<line x1="52" y1="${y0.toFixed(2)}" x2="540" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="44" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${c}" stroke-width="2.5"/>`;}
+ else svg+=`<path d="${path} L 540 172 L 52 172 Z" fill="var(--green)" opacity=".08"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
  [pts[0],pts.at(-1)].forEach((p,i)=>svg+=`<text x="${i?540:52}" y="198" text-anchor="${i?'end':'start'}" font-size="10">${esc(fmtDateShort(parseDateOnly(p.fecha)))}</text>`);
  return svg+'</svg>';
 };
@@ -4404,12 +4924,20 @@ function renderPfYahoo(){
     delta+=estimate.baseValue-old;
   });
   value.textContent=complete?fmtMoneda(Number(official.valor_total)+delta,official.moneda_base):'—';
+  // P&L estimado de las posiciones (solo si todas tienen cotización comparable).
+  const est=document.getElementById('pfPnlEst');
+  if(est){
+    const rp=pfResumenPosiciones(official||{},pfPosicionesCache);
+    if(complete&&rp.ok&&rp.costo>0){const pnlE=rp.pnl+delta;est.textContent='Estimado · Yahoo: '+pfSigned(pnlE,official.moneda_base)+' · '+pfSignedPct(pnlE/rp.costo*100);}
+    else est.textContent='';
+  }
   status.textContent=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
   detail.textContent=covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable. '+(complete?'Estimación con efectivo, ajustes y tipos de cambio del cierre IBKR.':'Se muestra un total estimado solo cuando todas las posiciones tienen precios comparables de hasta 60 min de antigüedad.');
   document.querySelectorAll('#pfPosicionesLista .pf-position').forEach(button=>{
     const p=pfPosicionesCache.find(p=>pfQuoteKey(p)===button.dataset.positionKey);if(!p)return;
     let block=button.querySelector('.pf-market-position');if(!block){block=document.createElement('span');block.className='pf-market-position';button.append(block);}
     const q=qByKey.get(pfQuoteKey(p)),estimate=pfMarketEstimate(p,q);
+    pfPintarPosicion(button,p,estimate);
     block.replaceChildren();const label=document.createElement('span');label.className='pf-market-label';label.textContent='YAHOO · PRECIO CON RETRASO';block.append(label);
     if(!q||q.status!=='ok'){const note=document.createElement('span');note.textContent=q?.status==='unmapped'?'Equivalencia Yahoo pendiente de verificar.':pfYahoo.status==='loading'?'Consultando…':'Sin cotización disponible. Cierre IBKR conservado.';block.append(note);return;}
     const t=Date.parse(q.price_at),price=pfNumber(q.price);
