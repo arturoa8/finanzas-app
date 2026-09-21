@@ -247,10 +247,22 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .cchip.selected{border-color:var(--green);color:var(--green);background:rgba(0,214,143,0.06);}
 .cchip-emoji{font-size:1rem;}
 .cuenta-row{display:flex;align-items:center;gap:8px;margin-bottom:18px;}
-.monto-row{display:flex;align-items:center;gap:10px;}
-.moneda-sel{flex:0 0 auto;width:auto;font-weight:800;}
 .cuenta-lbl{font-size:0.72rem;color:var(--muted);}
 .sel{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:var(--text);font-size:0.85rem;font-family:inherit;font-weight:500;outline:none;}
+/* La moneda es un prefijo del importe, no un control aparte: sin caja propia
+   para que el número siga siendo lo que más pesa en la pantalla. Va DESPUÉS de
+   .sel porque comparte especificidad con ella y necesita ganarle. El tamaño de
+   letra lo fija el !important global de más abajo, que evita que iOS haga zoom
+   al enfocar, así que la jerarquía se consigue con color y peso, no con px. */
+.monto-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.moneda-sel{flex:0 0 auto;width:auto;background:transparent;border:0;border-radius:0;
+  padding:0 12px 0 0;color:var(--muted);font-weight:800;cursor:pointer;
+  -webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 6px) calc(50% + 1px),calc(100% - 2px) calc(50% + 1px);
+  background-size:4px 4px;background-repeat:no-repeat;}
+/* Cuenta en dólares: la moneda no se elige, así que se quita la flecha. */
+.moneda-sel:disabled{opacity:1;background-image:none;padding-right:0;cursor:default;}
 .brow{display:flex;gap:8px;margin-top:10px;}
 .btn{flex:1;padding:14px;border-radius:14px;border:none;font-family:inherit;font-size:0.92rem;font-weight:700;cursor:pointer;}
 .btn-p{background:var(--text);color:var(--bg);}
@@ -580,7 +592,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 .header{gap:10px;flex-wrap:wrap}.actions-row{flex-wrap:wrap}
 @media(max-width:600px){#anPanelPortafolio .s-head{flex-wrap:wrap;gap:8px}}
 
-#catChips[hidden],#transferFields[hidden],#refundFields[hidden]{display:none}
+#catChips[hidden],#transferFields[hidden],#refundFields[hidden],#destinoMontoRow[hidden]{display:none}
 #tr.active,#tre.active,.tamt-pill.transfer{color:var(--blue);background:#7aa2ff18}
 .transfer-note{color:var(--dim);line-height:1.6;margin-bottom:18px}
 .cuenta-row input{min-width:0;flex:1}.tt{flex-wrap:wrap}.ttb{min-width:0}
@@ -2381,7 +2393,9 @@ async function guardar(){
   // pasar un movimiento de US$ a S/ los limpie en lugar de dejar restos.
   // El equivalente en soles que se manda es solo un punto de partida: lo
   // recalcula el trigger derivar_importes_moneda y se relee de la respuesta.
-  const enDivisa=tipoA!=='Transferencia'&&monedaTx()==='USD';
+  // Incluye la transferencia que sale de una cuenta en dólares: su importe es
+  // en dólares y su equivalente en soles lo deriva el servidor.
+  const enDivisa=monedaTx()==='USD';
   const distintaMoneda=tipoA==='Transferencia'&&!!destino&&monedaCuenta(destino)!==monedaCuenta(cu);
   let equivalente=m,tcUsado=null,montoDestino=null;
   if(enDivisa){
@@ -2706,14 +2720,19 @@ function costoPromedioUSD(){
 function movimientoCuentaMoneda(t,cuenta){
   const usd=monedaCuenta(cuenta)==='USD';
   if(t[3]==='Transferencia'){
-    // monto es lo que sale, en la moneda de la cuenta de origen; monto_destino
-    // es lo que entra, en la del destino.
-    if(sameAccount(t[5]||'',cuenta))return -(Number(t[4])||0);
+    // Cada lado se cuenta en la moneda de SU cuenta. monto está en soles
+    // siempre, así que una cuenta en dólares nunca puede usarlo: usa
+    // monto_original al salir y monto_destino al entrar.
+    const origenUSD=t[9]==='USD'&&Number(t[10])>0;
+    if(sameAccount(t[5]||'',cuenta))
+      return usd?(origenUSD?-Number(t[10]):0):-(Number(t[4])||0);
     if(sameAccount(t[7]||'',cuenta)){
       if(Number(t[14])>0)return Number(t[14]);
-      // Entre monedas distintas sin importe confirmado no se inventa: cuenta 0
-      // hasta conciliarlo (ver avisosCuenta).
-      return monedaCuenta(t[5]||'')===monedaCuenta(cuenta)?(Number(t[4])||0):0;
+      // Sin importe de destino confirmado solo se puede deducir cuando ambas
+      // cuentas comparten moneda: entra lo mismo que salió. Entre monedas
+      // distintas no se inventa nada (ver avisosCuenta).
+      if(monedaCuenta(t[5]||'')!==monedaCuenta(cuenta))return 0;
+      return usd?(origenUSD?Number(t[10]):0):(Number(t[4])||0);
     }
     return 0;
   }
@@ -2729,6 +2748,9 @@ function avisosCuenta(cuenta){
   (datos.transacciones||[]).forEach(t=>{
     if(t[3]==='Transferencia'){
       if(sameAccount(t[7]||'',cuenta)&&!(Number(t[14])>0)&&monedaCuenta(t[5]||'')!==monedaCuenta(cuenta)){a.pendientes++;a.solesPendientes+=Number(t[4])||0;}
+      // Salida de una cuenta en dólares sin importe en dólares: no se puede
+      // descontar del saldo sin mezclar monedas, así que se avisa.
+      else if(usd&&sameAccount(t[5]||'',cuenta)&&!(t[9]==='USD'&&Number(t[10])>0))a.enSoles++;
     }else if(usd&&sameAccount(t[5]||'',cuenta)&&!(t[9]==='USD'&&Number(t[10])>0))a.enSoles++;
   });
   return a;
@@ -2868,7 +2890,24 @@ async function cargarTcMercado(){
 // ── Campos de moneda del formulario ────────────────────────────────────────
 let tcFuenteActual='manual';
 function elv(id){const e=document.getElementById(id);return e?String(e.value==null?'':e.value).trim():'';}
-function monedaTx(){return elv('iMoneda')==='USD'?'USD':'PEN';}
+// En una transferencia la moneda del importe la fija la cuenta de origen: lo
+// que sale de una cuenta en dólares son dólares. En el resto la elige el
+// selector, que queda bloqueado en US$ si la cuenta ya es en dólares.
+function monedaTx(){
+  if(tipoA==='Transferencia')return monedaCuenta(elv('iCue'));
+  return elv('iMoneda')==='USD'?'USD':'PEN';
+}
+// Transferencia entre monedas distintas: el tipo de cambio no se escribe, sale
+// de los dos importes. Siempre soles por dólar, se mire desde el lado que se
+// mire (S/3.800 -> US$1.000 y US$500 -> S/1.900 dan los dos 3,80).
+function tcDerivadoTransferencia(){
+  if(tipoA!=='Transferencia')return null;
+  const sale=Number(elv('iMon')),entra=Number(elv('iMonDestino'));
+  if(!(sale>0)||!(entra>0))return null;
+  const mo=monedaCuenta(elv('iCue')),md=monedaCuenta(elv('iDestino'));
+  if(mo===md)return null;
+  return Math.round((mo==='USD'?entra/sale:sale/entra)*1e8)/1e8;
+}
 
 // Muestra u oculta los campos de divisa según el tipo y las cuentas elegidas, y
 // propone un tipo de cambio si el campo está vacío. Nunca pisa lo ya escrito:
@@ -2878,21 +2917,36 @@ function sincronizarCamposMoneda(){
   const selMon=document.getElementById('iMoneda'),div=document.getElementById('divisaFields');
   if(!selMon||!div)return;
   const transferencia=tipoA==='Transferencia';
-  selMon.hidden=transferencia||cuentasUSDGastables().length===0;
+  selMon.hidden=cuentasUSDGastables().length===0;
   if(selMon.hidden)selMon.value='PEN';
-  // En una cuenta en dólares el movimiento es en dólares: así su saldo nunca
-  // mezcla soles. En una cuenta en soles la moneda sigue siendo libre.
-  const cuentaUSD=!transferencia&&monedaCuenta(elv('iCue'))==='USD';
-  if(cuentaUSD){selMon.value='USD';selMon.disabled=true;}
+  // Hay dos casos en los que la moneda no se elige sino que se hereda: una
+  // transferencia la toma de su cuenta de origen, y una cuenta en dólares solo
+  // puede mover dólares (así su saldo nunca mezcla monedas). En ambos se deja
+  // visible pero deshabilitada, para que se vea en qué moneda es el importe.
+  const heredada=transferencia||monedaCuenta(elv('iCue'))==='USD';
+  if(heredada){selMon.value=monedaCuenta(elv('iCue'));selMon.disabled=true;}
   else if(selMon.disabled){selMon.disabled=false;selMon.value='PEN';}
-  const enDivisa=!transferencia&&monedaTx()==='USD';
+  // También una transferencia que sale de una cuenta en dólares: su importe
+  // está en dólares y necesita equivalente en soles como cualquier otro.
+  const enDivisa=monedaTx()==='USD';
   div.hidden=!enDivisa;
   const campo=document.getElementById('iTc'),nota=document.getElementById('divisaEquiv');
   if(enDivisa){
-    const p=tcPropuesto(elv('iCue'));
-    if(campo&&!campo.value){if(p.tc)campo.value=p.tc;tcFuenteActual=p.tc?p.fuente:'manual';}
-    if(nota)nota.dataset.nota=p.nota;
-  }else if(campo)campo.value='';
+    const derivado=tcDerivadoTransferencia();
+    if(derivado){
+      // Con los dos importes el tipo de cambio es un hecho, no una estimación.
+      if(campo){campo.value=derivado;campo.readOnly=true;}
+      tcFuenteActual='transferencia';
+      if(nota)nota.dataset.nota='Sale de los dos importes de esta operación.';
+    }else{
+      if(campo)campo.readOnly=false;
+      const p=tcPropuesto(transferencia?elv('iCue'):elv('iCue'));
+      if(campo&&!campo.value){if(p.tc)campo.value=p.tc;tcFuenteActual=p.tc?p.fuente:'manual';}
+      if(nota)nota.dataset.nota=transferencia
+        ? 'Valora en soles los dólares que salen, para el saldo disponible.'
+        : p.nota;
+    }
+  }else if(campo){campo.value='';campo.readOnly=false;}
 
   const fila=document.getElementById('destinoMontoRow'),notaTr=document.getElementById('transferTc');
   const distinta=transferencia&&!!elv('iDestino')&&monedaCuenta(elv('iDestino'))!==monedaCuenta(elv('iCue'));
@@ -2916,9 +2970,9 @@ function actualizarEquivalente(){
   }
   const tr=document.getElementById('transferTc');
   if(tr&&!tr.hidden){
-    const sale=Number(elv('iMon')),entra=Number(elv('iMonDestino'));
-    tr.textContent=sale>0&&entra>0
-      ? 'Tipo de cambio de esta operación: '+(sale/entra).toFixed(6)
+    const d=tcDerivadoTransferencia();
+    tr.textContent=d
+      ? 'Tipo de cambio de esta operación: '+d.toFixed(6)
       : 'Si aún no sabes cuánto llegó, déjalo vacío: queda pendiente de conciliar.';
   }
 }
@@ -3150,8 +3204,20 @@ function pfSignedPct(n){return n===null||n===undefined||!isFinite(n)?'—':(n>0.
 function pfColor(n){return n===null||n===undefined||!isFinite(n)||Math.abs(n)<0.005?'var(--dim)':n>0?'var(--green)':'var(--red)';}
 function pfFechaCorta(iso){const d=parseDateOnly(iso);return d?fmtDateShort(d):(iso||'—');}
 function pfFechaLarga(iso){const d=parseDateOnly(iso);return d?fmtDateLong(d):(iso||'—');}
+// Detectar aportes y retiros mira el HISTÓRICO, no el estado de hoy: se
+// incluyen las cuentas de inversión archivadas y las que solo viven en
+// movimientos antiguos. Si se filtrara por cuentas activas, archivar IBKR
+// dejaría cero flujos y el portafolio mostraría como rentabilidad lo que en
+// realidad fueron depósitos. Ante la duda, mejor detectar de más: un flujo
+// sobrante solo hace que se muestre el aviso en vez de un porcentaje.
+function cuentasInversionHistoricas(){
+  const nombres=cuentasApp().filter(c=>c[1]==='inversion').map(c=>c[0]);
+  // Nombres que ya no están en la tabla pero sí en movimientos guardados.
+  cuentasLegacy().forEach(n=>{if(esCuentaInversion(n)&&!nombres.some(v=>sameAccount(v,n)))nombres.push(n);});
+  return nombres;
+}
 function pfFlujos(){
-  const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]==='inversion'&&c[2]==='USD').map(c=>c[0]);
+  const cuentas=cuentasInversionHistoricas();
   const flujos=[],pendientesFechas=[];let pendientes=0,solesPendientes=0;
   cuentas.forEach(c=>{const a=avisosCuenta(c);pendientes+=a.pendientes;solesPendientes+=a.solesPendientes;});
   (datos.transacciones||[]).forEach(t=>{
@@ -3159,7 +3225,10 @@ function pfFlujos(){
     cuentas.forEach(c=>{
       const m=movimientoCuentaMoneda(t,c);
       if(m)flujos.push({fecha:pfIso(pf(t[0])),monto:m});
-      else if(sameAccount(t[7]||'',c)&&!(Number(t[14])>0)&&monedaCuenta(t[5]||'')!==monedaCuenta(c))pendientesFechas.push(pfIso(pf(t[0])));
+      // Toca la cuenta de inversión pero no se puede cuantificar (falta el
+      // importe en dólares, de entrada o de salida). Cuenta igual como flujo
+      // del período: preferimos el aviso a un porcentaje que no lo es.
+      else if(sameAccount(t[5]||'',c)||sameAccount(t[7]||'',c))pendientesFechas.push(pfIso(pf(t[0])));
     });
   });
   flujos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
