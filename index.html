@@ -3193,10 +3193,12 @@ function setPfPeriodo(p,btn){
 // como flujo en su fecha, para no vender como rentabilidad un cambio de valor
 // causado por un depósito.
 //
-// Para un TWR futuro ya están los tres insumos: filas diarias del histórico
-// (valor_total por fecha), flujos fechados (pfFlujos) y la ventana del período
-// (pfResolverPeriodo). pfRendimientoPortafolio devuelve `metodo`; el TWR sería
-// otro método con esos mismos insumos, sin tocar la interfaz.
+// Con aportes o retiros en el período, pfRendimientoPortafolio calcula TWR
+// (rentabilidad ponderada por tiempo, ver pfRendimientoTWR) en vez de
+// rendirse: encadena el rendimiento entre cierres consecutivos del histórico,
+// aislando el efecto de cada flujo fechado (pfFlujos). Solo se bloquea si
+// algún flujo del período no tiene dólares confirmados (pendientesFechas):
+// ahí no hay forma de aislar su efecto y se prefiere el aviso al porcentaje.
 let pfVista='valor',pfDesde='';
 function pfIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function pfSigned(n,moneda){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+fmtMoneda(Math.abs(n),moneda);}
@@ -3278,24 +3280,46 @@ function pfTextoDesde(r,rows,campo='fecha_valoracion'){
 
 // ── Rendimiento del portafolio en un período ────────────────────────────────
 // método 'simple': valor final / valor inicial − 1, válido solo si NO hubo
-// aportes ni retiros dentro del período. Con flujos no se calcula ningún
-// porcentaje: solo valor inicial, valor actual y cambio absoluto.
+// aportes ni retiros dentro del período. Con flujos se intenta TWR
+// (pfRendimientoTWR); si algún flujo no tiene dólares confirmados, ni TWR
+// puede aislarlo y no se calcula ningún porcentaje: solo valor inicial, valor
+// actual y cambio absoluto.
+function pfRendimientoTWR(validas,fl){
+  const desde=validas[0].fecha_valoracion,hasta=validas[validas.length-1].fecha_valoracion;
+  if(fl.pendientesFechas.some(f=>f>desde&&f<=hasta))return{ok:false};
+  let factor=1;
+  const serie=[{fecha:desde,valor:0}];
+  for(let i=1;i<validas.length;i++){
+    const prev=Number(validas[i-1].valor_total),cur=Number(validas[i].valor_total);
+    const d=validas[i-1].fecha_valoracion,h=validas[i].fecha_valoracion;
+    const flujo=fl.flujos.filter(f=>f.fecha>d&&f.fecha<=h).reduce((s,f)=>s+f.monto,0);
+    if(!(prev>0))return{ok:false};
+    factor*=(cur-flujo)/prev;
+    serie.push({fecha:h,valor:(factor-1)*100});
+  }
+  return{ok:true,pct:(factor-1)*100,serie};
+}
 function pfRendimientoPortafolio(filas,fl){
   const validas=filas.filter(r=>Number(r.valor_total)>0);
   if(validas.length<2)return{ok:false,mensaje:'Hacen falta al menos dos cierres con valor en el período.'};
   const a=validas[0],b=validas[validas.length-1],inicial=Number(a.valor_total),actual=Number(b.valor_total);
   const base={ok:true,metodo:'simple',desde:a.fecha_valoracion,hasta:b.fecha_valoracion,inicial,actual,cambio:actual-inicial,moneda:b.moneda_base};
   const n=pfFlujosEnPeriodo(fl,a.fecha_valoracion,b.fecha_valoracion);
-  if(n>0)return{...base,conFlujos:true,flujos:n};
+  if(n>0){
+    const twr=pfRendimientoTWR(validas,fl);
+    if(twr.ok)return{...base,metodo:'twr',conFlujos:true,flujos:n,pct:twr.pct,serie:twr.serie};
+    return{...base,conFlujos:true,flujos:n};
+  }
   return{...base,conFlujos:false,pct:(actual/inicial-1)*100,
     serie:validas.map(r=>({fecha:r.fecha_valoracion,valor:(Number(r.valor_total)/inicial-1)*100}))};
 }
 
 // ── Comparación con el S&P 500 ──────────────────────────────────────────────
-// Solo comparación numérica del mismo período: cierres oficiales de IBKR del
-// portafolio y de un ETF del S&P 500 (CSPX) que está en tu cartera. Igual que el
-// rendimiento del portafolio, solo es válida si NO hubo aportes ni retiros dentro
-// del período; si los hubo no se muestra ninguna cifra aproximada.
+// Comparación numérica del mismo período: cierres oficiales de IBKR del
+// portafolio y de un ETF del S&P 500 (CSPX) que está en tu cartera. El lado
+// del portafolio reutiliza pfRendimientoPortafolio (simple o TWR si hubo
+// flujos); si algún flujo del período no tiene dólares confirmados, tampoco
+// aquí se puede aislar su efecto y no se muestra ninguna cifra aproximada.
 const PF_BENCHMARK={simbolo:'CSPX',etiqueta:'S&P 500'};
 let pfBenchCache=[];
 function pfModeloBenchmark(filas,bench,fl){
@@ -3304,17 +3328,19 @@ function pfModeloBenchmark(filas,bench,fl){
   const comunes=filas.filter(r=>Number(r.valor_total)>0&&precios.has(r.fecha_valoracion));
   if(comunes.length<2)return{ok:false,mensaje:'Este período no tiene al menos dos cierres comparables con el '+PF_BENCHMARK.etiqueta+'.'};
   const a=comunes[0],b=comunes[comunes.length-1];
-  if(pfFlujosEnPeriodo(fl,a.fecha_valoracion,b.fecha_valoracion)>0)
-    return{ok:false,mensaje:'Hubo aportes o retiros dentro de este período. Compararlo bien requiere rentabilidad ponderada por tiempo (fase posterior); prueba un período más corto, por ejemplo Desde… una fecha posterior al último aporte.'};
-  const port=(Number(b.valor_total)/Number(a.valor_total)-1)*100,mkt=(precios.get(b.fecha_valoracion)/precios.get(a.fecha_valoracion)-1)*100;
-  return{ok:true,port,mkt,dif:port-mkt,desde:a.fecha_valoracion,hasta:b.fecha_valoracion};
+  const rango=filas.filter(r=>r.fecha_valoracion>=a.fecha_valoracion&&r.fecha_valoracion<=b.fecha_valoracion);
+  const pr=pfRendimientoPortafolio(rango,fl);
+  if(pr.pct===undefined)
+    return{ok:false,mensaje:'Hubo aportes o retiros sin dólares confirmados dentro de este período: no se puede aislar su efecto. Confírmalos, o prueba un período más corto.'};
+  const port=pr.pct,mkt=(precios.get(b.fecha_valoracion)/precios.get(a.fecha_valoracion)-1)*100;
+  return{ok:true,port,mkt,dif:port-mkt,desde:a.fecha_valoracion,hasta:b.fecha_valoracion,metodo:pr.metodo};
 }
 function renderPfBenchmark(filas){
   const el=document.getElementById('pfBenchmark');if(!el)return;
   if(!filas){el.innerHTML='';return;}
   const m=pfModeloBenchmark(filas,pfBenchCache,pfFlujos());
   if(!m.ok){el.innerHTML='<div class="pf-bench"><div class="pf-data-note">vs '+esc(PF_BENCHMARK.etiqueta)+': no disponible. '+esc(m.mensaje)+'</div></div>';return;}
-  el.innerHTML='<div class="pf-bench"><div class="pf-rend-row" style="margin-top:0"><div>Portafolio<strong>'+esc(pfSignedPct(m.port))+'</strong></div><div>'+esc(PF_BENCHMARK.etiqueta)+'<strong>'+esc(pfSignedPct(m.mkt))+'</strong></div><div>Diferencia<strong>'+(m.dif>0.004?'+':m.dif<-0.004?'−':'')+Math.abs(m.dif).toFixed(2)+' pp</strong></div></div><p class="hint" style="margin-top:8px">Del '+esc(pfFechaCorta(m.desde))+' al '+esc(pfFechaCorta(m.hasta))+' · cierres oficiales de IBKR; el '+esc(PF_BENCHMARK.etiqueta)+' se mide con '+esc(PF_BENCHMARK.simbolo)+' (iShares Core S&amp;P 500). Solo comparación numérica del período.</p></div>';
+  el.innerHTML='<div class="pf-bench"><div class="pf-rend-row" style="margin-top:0"><div>Portafolio<strong>'+esc(pfSignedPct(m.port))+'</strong></div><div>'+esc(PF_BENCHMARK.etiqueta)+'<strong>'+esc(pfSignedPct(m.mkt))+'</strong></div><div>Diferencia<strong>'+(m.dif>0.004?'+':m.dif<-0.004?'−':'')+Math.abs(m.dif).toFixed(2)+' pp</strong></div></div><p class="hint" style="margin-top:8px">Del '+esc(pfFechaCorta(m.desde))+' al '+esc(pfFechaCorta(m.hasta))+' · cierres oficiales de IBKR; el '+esc(PF_BENCHMARK.etiqueta)+' se mide con '+esc(PF_BENCHMARK.simbolo)+' (iShares Core S&amp;P 500). Solo comparación numérica del período.'+(m.metodo==='twr'?' Hubo aportes o retiros en el período: el lado del portafolio es rentabilidad ponderada por tiempo (TWR), no valor final ÷ valor inicial.':'')+'</p></div>';
 }
 
 // ── Posiciones ──────────────────────────────────────────────────────────────
@@ -3385,14 +3411,16 @@ function renderPfChart(){
     titulo.textContent=r.ok?'Rendimiento desde '+pfFechaLarga(r.desde):'Rendimiento';
     if(!r.ok){area.innerHTML='<div class="pf-data-note">'+esc(r.mensaje)+'</div>';hint.textContent='';return;}
     const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(r.inicial,r.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(r.actual,r.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(r.cambio)+'">'+esc(pfSigned(r.cambio,r.moneda))+'</strong></div></div>';
-    if(r.conFlujos){
-      area.innerHTML='<div class="pf-data-note">Hubo aportes o retiros durante este período ('+r.flujos+'). El cambio de valor no representa rentabilidad.</div>';
+    if(r.conFlujos&&r.pct===undefined){
+      area.innerHTML='<div class="pf-data-note">Hubo aportes o retiros durante este período ('+r.flujos+') sin dólares confirmados. El cambio de valor no representa rentabilidad.</div>';
       res.innerHTML=cifras;
-      hint.textContent='Se detectan los aportes y retiros que registraste en la app. Para medir rentabilidad con flujos hará falta una metodología ponderada por tiempo (fase posterior). Prueba un período sin aportes, por ejemplo Desde… una fecha posterior al último.';
+      hint.textContent='Hay un aporte o retiro sin dólares confirmados en este período: sin ese dato no se puede aislar su efecto para calcular la rentabilidad. Confírmalo en la transferencia, o prueba un período sin ese movimiento.';
     }else{
       area.innerHTML=construirLineChartSVG(r.serie,{ganancia:true,fmt:v=>v.toFixed(1)+'%'});
       res.innerHTML='<div class="pf-rend-big">Rendimiento del período<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
-      hint.textContent='Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.';
+      hint.textContent=r.metodo==='twr'
+        ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
+        :'Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.';
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
