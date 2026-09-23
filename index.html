@@ -575,6 +575,10 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 .pf-view-icon[aria-pressed="true"]{border-color:var(--accent);background:var(--card2)}
 .pf-view-icon[aria-pressed="true"] svg{stroke:var(--accent)}
 .pf-desde-toggle{display:block;margin:10px 0 2px;padding:0;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;text-align:left}
+.pf-moneda-toggle{display:inline-block;margin:0 0 8px;padding:0;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;text-align:left}
+.pf-moneda-toggle:hover{color:var(--text)}
+.pf-spinner{display:flex;justify-content:center;padding:18px 0}
+.pf-spinner svg{width:22px;height:22px;animation:spin 1s linear infinite}
 .pf-desde-toggle:hover{color:var(--text)}
 #pfPeriodoTabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #pfPeriodoTabs::-webkit-scrollbar{display:none}
@@ -717,14 +721,15 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
             <button class="icon-btn pf-view-icon" id="pfViewValor" aria-pressed="false" aria-label="Ver valor" title="Valor" onclick="setPfVista('valor')">
               <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2Z"/><path d="M18 13h.01"/></svg>
             </button>
-            <button class="icon-btn" id="pfRefreshBtn" onclick="solicitarSyncManual(this)" aria-label="Sincronizar posiciones y cierre oficial con IBKR" title="Sincronizar IBKR">
+            <button class="icon-btn" id="pfRefreshBtn" onclick="pfRefrescarTodo(this)" aria-label="Actualizar portafolio (IBKR y Yahoo)" title="Actualizar">
               <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
             </button>
           </div>
         </div>
         <div class="pf-hero-valor" id="pfHeroValor">—</div>
         <div class="pf-hero-hoy" id="pfHeroHoy"></div>
-        <div class="s-sub" id="pfFrescura" style="margin-top:4px;margin-bottom:10px;color:var(--dim)"></div>
+        <div class="s-sub" id="pfFrescura" style="margin-top:4px;color:var(--dim)"></div>
+        <button class="pf-moneda-toggle" id="pfMonedaBtn" aria-pressed="false" onclick="togglePfMoneda(this)">Ver en soles (S/)</button>
         <div class="pf-chart-title" id="pfChartTitulo"></div>
         <div id="pfChartArea"></div>
         <!-- Períodos DEBAJO del gráfico (sección 9): toda la barra, no solo "Desde". -->
@@ -3027,12 +3032,24 @@ function filtrarPorPeriodo(rows,periodo,campoFecha){
 // cualquier función con este nombre declarada antes en el script. Ese es el
 // único código que realmente corre — no declarar una segunda versión acá.
 
-let pfLoadSequence=0;
+let pfLoadSequence=0,pfUltimaSyncCache=null;
+// Carga sin layout shift (Parte A, sección 1-2): si ya había datos en caché
+// de esta sesión, se quedan en pantalla tal cual — nada se oculta, nada
+// mueve el layout — y solo gira el ícono de refresh mientras se refresca en
+// segundo plano. El texto largo "Cargando portafolio…" y el spinner chico
+// SOLO existen para la primera carga de la sesión, cuando todavía no hay
+// nada que mostrar.
 async function renderPortafolio(){
   const sequence=++pfLoadSequence;
   const estadoEl=document.getElementById('pfEstado');
-  if(!pfHistoricoCache.length)['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
-  estadoEl.innerHTML='<div class="empty">Cargando portafolio…</div>';
+  const teniaCache=pfHistoricoCache.length>0;
+  if(teniaCache){
+    estadoEl.innerHTML='';
+    pfSetActualizando(true);
+  }else{
+    ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
+    estadoEl.innerHTML='<div class="pf-spinner" role="status" aria-label="Cargando"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8" fill="none" stroke="var(--dim)" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
+  }
 
   let config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy;
   try{
@@ -3055,17 +3072,21 @@ async function renderPortafolio(){
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
-    estadoEl.innerHTML=`<div class="empty">No se pudo conectar con el servidor para cargar tu portafolio.<br>${esc(e.message||'Error de red')}<br><span style="font-size:.68rem">Si tenías datos antes, no se han borrado — vuelve a intentarlo en un momento.</span></div>`;
+    pfSetActualizando(false);
+    if(teniaCache)toast('No se pudo actualizar el portafolio ahora. Se conservan los últimos datos.','error');
+    else estadoEl.innerHTML=`<div class="empty">No se pudo conectar con el servidor para cargar tu portafolio.<br>${esc(e.message||'Error de red')}<br><span style="font-size:.68rem">Si tenías datos antes, no se han borrado — vuelve a intentarlo en un momento.</span></div>`;
     return;
   }
 
   if(sequence!==pfLoadSequence)return;
+  pfSetActualizando(false);
   pfHistoricoCache=historial||[];
   pfPosicionesCache=posiciones||[];
   pfBenchCache=bench||[];
   pfSnapshotsHoyCache=snapshotsHoy||[];
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
   const ultimaSync=(sync&&sync[0])||null;
+  pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
 
   if(!ultimoHistorial){
     ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
@@ -3141,10 +3162,16 @@ function obtenerValorActualPortafolio(){
   if(!pfPosicionesCache.length){r.diferenciaVsIbkr=0;return r;}
 
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
-  let delta=0,completo=true;
+  let delta=0,completo=true,ultimoPrecioEn=null;
   pfPosicionesCache.forEach(p=>{
     const q=qByKey.get(pfQuoteKey(p));
     const estimate=pfMarketEstimate(p,q);
+    // La hora real del precio (para "último dato HH:MM" fuera de sesión, ver
+    // pintarValorPrincipal) es la del quote de Yahoo, NO el instante en que
+    // se calculó este estimado — con mercado cerrado esas dos horas pueden
+    // diferir por horas, y mostrar "ahora" sería inventar una actualización
+    // que no ocurrió.
+    if(estimate&&(ultimoPrecioEn===null||estimate.time>ultimoPrecioEn))ultimoPrecioEn=estimate.time;
     const old=pfNumber(p.valor_mercado_base);
     // Motivo exacto si esta posición no puede usar Yahoo (sección 6): se
     // guarda SIEMPRE (aunque ya esté completo=false por otra posición) para
@@ -3166,7 +3193,7 @@ function obtenerValorActualPortafolio(){
   if(completo){
     r.valor=r.cierreIbkr+delta;
     r.fuente='YAHOO';
-    r.timestamp=new Date().toISOString();
+    r.timestamp=ultimoPrecioEn?new Date(ultimoPrecioEn).toISOString():new Date().toISOString();
     const rp=pfResumenPosiciones(official,pfPosicionesCache);
     if(rp.ok&&rp.costo>0)r.pnlEstimado=rp.pnl+delta;
   }
@@ -3184,12 +3211,15 @@ function pintarValorPrincipal(){
   if(!official){if(heroEl)heroEl.textContent='—';return;}
   const v=obtenerValorActualPortafolio();
   const usaVivo=v.fuente==='YAHOO';
-  const texto=fmtMoneda(v.valor,official.moneda_base);
+  const texto=pfFmt(v.valor,official.moneda_base);
   if(heroEl)heroEl.textContent=texto;
   if(totalEl)totalEl.textContent=texto;
-  if(refEl)refEl.textContent=usaVivo?'Cierre IBKR: '+fmtMoneda(v.cierreIbkr,official.moneda_base):'';
+  if(refEl)refEl.textContent=usaVivo?'Cierre IBKR: '+pfFmt(v.cierreIbkr,official.moneda_base):'';
+  // "Mercado cerrado" (Parte A, sección 5) no es un problema ni algo
+  // desactualizado: es simplemente el último precio vigente mientras ninguna
+  // posición tenga sesión abierta — se dice así, sin sonar a advertencia.
   if(frescura)frescura.textContent=usaVivo
-    ?'● Yahoo · actualizado '+new Date(v.timestamp).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
+    ?(pfYahooSessionOpen()?'● Yahoo · en vivo · ':'Yahoo · mercado cerrado · último dato ')+new Date(v.timestamp).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
     :'IBKR cierre oficial · '+fmtDateShort(parseDateOnly(official.fecha_valoracion));
   // P&L no realizado (sección 18): con Yahoo completo, el P&L PRINCIPAL pasa
   // a ser el calculado con precios Yahoo (renderPfResumen ya dejó ahí el
@@ -3233,7 +3263,7 @@ function renderPfResumen(row,ultimaSync){
   // pfValorTotal/pfValorRef/pfFrescura los pinta pintarValorPrincipal() (fuente
   // única del "valor actual estimado" con prioridad Yahoo) — acá solo lo que
   // depende exclusivamente del cierre oficial de IBKR.
-  document.getElementById('pfMonedaBase').textContent='Efectivo en IBKR '+fmtMoneda(row.efectivo,moneda)+' · moneda base '+(moneda||'—');
+  document.getElementById('pfMonedaBase').textContent='Efectivo en IBKR '+pfFmt(row.efectivo,moneda)+' · moneda base '+(moneda||'—');
   // Rentabilidad de las posiciones: P&L ÷ costo de las posiciones abiertas. El
   // efectivo está en el valor total pero NO en este cálculo.
   const pnlEl=document.getElementById('pfPnl'),pnlSub=document.getElementById('pfPnlSub');
@@ -3241,7 +3271,7 @@ function renderPfResumen(row,ultimaSync){
   if(rp.ok&&pfPosicionesCache.length){
     pnlEl.textContent=pfSigned(rp.pnl,moneda)+(rp.pct===null?'':' · '+pfSignedPct(rp.pct));
     pnlEl.style.color=pfColor(rp.pnl);
-    pnlSub.textContent='sobre el costo de tus posiciones ('+fmtMoneda(rp.costo,moneda)+') · cierre IBKR';
+    pnlSub.textContent='sobre el costo de tus posiciones ('+pfFmt(rp.costo,moneda)+') · cierre IBKR';
   }else{
     const v=pfNumber(row.pnl_no_realizado);
     pnlEl.textContent=v!==null?pfSigned(v,moneda):'No disponible';pnlEl.style.color=pfColor(v);
@@ -3254,11 +3284,11 @@ function renderPfResumen(row,ultimaSync){
     gEl.textContent=pfSigned(g.ganancia,moneda);
     gp.textContent=g.pct===null?'—':pfSignedPct(g.pct)+' sobre aportes';
     const c=pfColor(g.ganancia);gEl.style.color=c;gp.style.color=c;
-    aEl.textContent=fmtMoneda(g.aportes,moneda);aSub.textContent='transferencias registradas';
+    aEl.textContent=pfFmt(g.aportes,moneda);aSub.textContent='transferencias registradas';
     nota.textContent=g.aviso||'';
   }else{
     gEl.textContent='—';gEl.style.color='';gp.textContent='no disponible';gp.style.color='';
-    aEl.textContent=g.aportes!==null&&g.aportes!==undefined?fmtMoneda(g.aportes,moneda):'—';aSub.textContent='incompletos';
+    aEl.textContent=g.aportes!==null&&g.aportes!==undefined?pfFmt(g.aportes,moneda):'—';aSub.textContent='incompletos';
     nota.textContent=g.mensaje;
   }
   const fecha=parseDateOnly(row.fecha_valoracion);
@@ -3297,7 +3327,32 @@ function setPfPeriodo(p,btn){
 // ahí no hay forma de aislar su efecto y se prefiere el aviso al porcentaje.
 let pfVista='rendimiento',pfDesde='';
 function pfIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function pfSigned(n,moneda){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+fmtMoneda(Math.abs(n),moneda);}
+// Toggle USD→PEN solo dentro de Portafolio (pedido del usuario): no persiste
+// entre sesiones a propósito, es un cambio de vista momentáneo, no una
+// preferencia. pfFmt reemplaza a fmtMoneda en las cifras de Portafolio —
+// pfSigned (usado en P&L, ganancia, cambio de valor) ya pasa por acá, así
+// que las 12 cifras que dependen de pfSigned respetan el toggle sin tocarlas
+// una por una. Con el toggle apagado (por defecto) esto es idéntico a
+// fmtMoneda: cero cambio de comportamiento salvo que el usuario lo active.
+let pfMostrarPEN=false;
+function pfFmt(n,moneda){
+  if(pfMostrarPEN&&moneda==='USD'){
+    const tc=tcMercado>0?tcMercado:tcUsdPen;
+    if(tc>0)return fmtMoneda(n===null||n===undefined?null:Number(n)*tc,'PEN');
+  }
+  return fmtMoneda(n,moneda);
+}
+async function togglePfMoneda(btn){
+  pfMostrarPEN=!pfMostrarPEN;
+  if(pfMostrarPEN&&!(tcMercado>0)){await cargarTcMercado().catch(()=>{});if(!(tcMercado>0))await leerTipoCambio().catch(()=>{});}
+  if(btn){btn.setAttribute('aria-pressed',String(pfMostrarPEN));btn.textContent=pfMostrarPEN?'Ver en dólares (US$)':'Ver en soles (S/)';}
+  if(!pfHistoricoCache.length)return;
+  pintarValorPrincipal();
+  renderPfResumen(pfHistoricoCache[pfHistoricoCache.length-1],pfUltimaSyncCache);
+  renderPfChart();
+  renderPfPosiciones(pfPosicionesCache);
+}
+function pfSigned(n,moneda){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+pfFmt(Math.abs(n),moneda);}
 function pfSignedPct(n){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+Math.abs(n).toFixed(2)+'%';}
 function pfColor(n){return n===null||n===undefined||!isFinite(n)||Math.abs(n)<0.005?'var(--dim)':n>0?'var(--green)':'var(--red)';}
 function pfFechaCorta(iso){const d=parseDateOnly(iso);return d?fmtDateShort(d):(iso||'—');}
@@ -3813,15 +3868,15 @@ function renderPfChart1D(area,titulo,hint,res){
     // construirGraficoIntradia (referencia por defecto).
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,fmt:v=>v.toFixed(2)+'%'});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(s.base*(1+p.valor/100),s.moneda),fmtPct:p=>pfSignedPct(p.valor),pctValor:p=>p.valor});
-    const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
+    pfWireChartTooltip(area,grafico,{fmtValor:p=>pfFmt(s.base*(1+p.valor/100),s.moneda),fmtPct:p=>pfSignedPct(p.valor),pctValor:p=>p.valor});
+    const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(pfFmt(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(pfFmt(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
     res.innerHTML='<div class="pf-rend-big">Rendimiento del día<strong style="color:'+pfColor(pct)+'">'+esc(pfSignedPct(pct))+'</strong></div>'+cifras;
   }else{
     // En valor absoluto la referencia es el primer punto mostrado (el valor
     // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.serie[0]?.valor});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(p.valor,s.moneda),fmtPct:p=>pfSignedPct((p.valor/s.base-1)*100),pctValor:p=>(p.valor/s.base-1)*100});
+    pfWireChartTooltip(area,grafico,{fmtValor:p=>pfFmt(p.valor,s.moneda),fmtPct:p=>pfSignedPct((p.valor/s.base-1)*100),pctValor:p=>(p.valor/s.base-1)*100});
   }
   // Sección 21: sin párrafo técnico en la vista principal — el detalle
   // (fuente, cobertura, fallback, puntos usados) vive en Diagnóstico.
@@ -3909,7 +3964,7 @@ function pfPintarPosicion(button,p,est){
     ?'<span class="pf-est-badge">Estimado · Yahoo</span> hace '+Math.max(0,Math.floor(est.age))+' min'
     :'Cierre IBKR · '+esc(pfFechaCorta(p.fecha_datos)||'sin fecha');
   const cierre=m.fuente==='yahoo'&&oficial.pnl!==null?'<small>Cierre IBKR: '+esc(pfSigned(oficial.pnl,p.moneda_base))+(oficial.pnlPct===null?'':' · '+esc(pfSignedPct(oficial.pnlPct)))+'</small>':'';
-  top.innerHTML=`<span class="pf-position-head"><span class="pf-position-symbol"><i class="pf-color-dot" style="background:${pfAssetColor(p.simbolo)}"></i>${esc(p.simbolo)}</span><strong>${esc(fmtMoneda(m.valor,p.moneda_base))}</strong></span>
+  top.innerHTML=`<span class="pf-position-head"><span class="pf-position-symbol"><i class="pf-color-dot" style="background:${pfAssetColor(p.simbolo)}"></i>${esc(p.simbolo)}</span><strong>${esc(pfFmt(m.valor,p.moneda_base))}</strong></span>
     <span class="pf-position-name">${esc(p.nombre||'')}</span>
     <span class="pf-pos-perf"><strong style="color:${pfColor(m.pnl)}">${esc(pnlTxt)}</strong><small>${fuente}</small>${cierre}</span>`;
 }
@@ -3926,7 +3981,7 @@ function renderPfPosiciones(posiciones){
     const button=document.createElement('button');button.type='button';button.className='pf-position';button.dataset.positionKey=pfQuoteKey(p);
     const o=pfRendimientoPosicion(p);
     button.innerHTML=`<span class="pf-pos-top"></span>
-      <span class="pf-pos-sub">${esc(fmtN(p.cantidad))} acciones · Costo promedio ${esc(fmtMoneda(p.costo_promedio,p.moneda))}${o.costoTotal===null?'':' · Costo total '+esc(fmtMoneda(o.costoTotal,p.moneda_base))}<br>Precio IBKR ${esc(fmtMoneda(p.precio_mercado,p.moneda))}</span>
+      <span class="pf-pos-sub">${esc(fmtN(p.cantidad))} acciones · Costo promedio ${esc(pfFmt(p.costo_promedio,p.moneda))}${o.costoTotal===null?'':' · Costo total '+esc(pfFmt(o.costoTotal,p.moneda_base))}<br>Precio IBKR ${esc(pfFmt(p.precio_mercado,p.moneda))}</span>
       ${p.conversion_incompleta?'<span class="pf-data-note">Conversión a moneda base pendiente</span>':''}`;
     pfPintarPosicion(button,p,null);
     button.addEventListener('click',()=>abrirPfPosModal(p.contract_id));cont.append(button);
@@ -4024,39 +4079,63 @@ function renderPfModalChart(){
 
 function cerrarPfPosModal(){pfModalContractId=null;document.getElementById('pfPosModal').classList.remove('active');}
 
-async function solicitarSyncManual(btn){
-  if(btn.classList.contains('loading'))return;
-  btn.classList.add('loading');
-  btn.disabled = true;
-  const desde = new Date();
+// Refresh unificado (Parte A, sección 3-4, 8-9): un solo botón dispara IBKR
+// y Yahoo EN PARALELO — a Yahoo no le importa si IBKR sigue sincronizando.
+// pfSetActualizando lleva un contador (no un booleano) porque renderPortafolio()
+// también lo usa por su cuenta: así el ícono sigue girando hasta que TODO
+// termine, aunque Yahoo responda antes que IBKR.
+let pfActualizandoNivel=0;
+function pfSetActualizando(on){
+  pfActualizandoNivel=Math.max(0,pfActualizandoNivel+(on?1:-1));
+  const btn=document.getElementById('pfRefreshBtn');
+  if(!btn)return;
+  const activo=pfActualizandoNivel>0;
+  btn.classList.toggle('loading',activo);
+  btn.disabled=activo;
+}
+async function pfRefrescarTodo(btn){
+  if(btn&&btn.disabled)return;
+  pfSetActualizando(true);
   try{
-    const resultados = await sbFetch('rpc/solicitar_sincronizacion_manual', { method:'POST', body: JSON.stringify({}) });
-    const resultado = Array.isArray(resultados) ? resultados[0] : resultados;
-    if(resultado && resultado.estado === 'esperar'){
-      alert(resultado.mensaje || 'Espera un momento antes de volver a sincronizar.');
-      btn.classList.remove('loading'); btn.disabled = false;
-      return;
-    }
+    const [rIbkr]=await Promise.all([pfSincronizarIBKR(),refreshPfYahoo({force:true})]);
+    if(rIbkr&&!rIbkr.ok)toast(rIbkr.mensaje||'IBKR todavía no disponible','error');
+    else if(rIbkr&&rIbkr.mensaje)toast(rIbkr.mensaje,'error');
+  }catch(e){
+    toast(e.message||'No se pudo actualizar el portafolio','error');
+  }
+  await renderPortafolio();
+  pfSetActualizando(false);
+}
+// Sincronización IBKR pura, sin tocar el DOM: respeta el cooldown del
+// servidor (RPC devuelve estado 'esperar') y nunca lanza dos solicitudes en
+// paralelo (pfIbkrSincronizando). Nunca lanza (throw): siempre devuelve
+// {ok,mensaje?} para que el llamador decida qué mostrar.
+let pfIbkrSincronizando=false;
+async function pfSincronizarIBKR(){
+  if(pfIbkrSincronizando)return{ok:true,omitido:true};
+  pfIbkrSincronizando=true;
+  const desde=new Date();
+  try{
+    const resultados=await sbFetch('rpc/solicitar_sincronizacion_manual',{method:'POST',body:JSON.stringify({})});
+    const resultado=Array.isArray(resultados)?resultados[0]:resultados;
+    if(resultado&&resultado.estado==='esperar')return{ok:true,mensaje:resultado.mensaje||'Espera un momento antes de volver a sincronizar IBKR.'};
     // Poll hasta que aparezca el resultado de esta corrida (máx. ~2 minutos).
-    for(let intento=0; intento<24; intento++){
+    for(let intento=0;intento<24;intento++){
       await new Promise(r=>setTimeout(r,5000));
       try{
-        const filas = await sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1');
-        const fila = filas && filas[0];
-        if(fila && fila.finalizado_en && new Date(fila.iniciado_en) >= desde){
-          if(fila.estado === 'error'){
-            alert('La sincronización terminó con error: '+(fila.mensaje_error||'sin detalle'));
-          }
-          break;
+        const filas=await sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1');
+        const fila=filas&&filas[0];
+        if(fila&&fila.finalizado_en&&new Date(fila.iniciado_en)>=desde){
+          if(fila.estado==='error')return{ok:false,mensaje:'IBKR: la sincronización terminó con error ('+(fila.mensaje_error||'sin detalle')+').'};
+          return{ok:true};
         }
-      }catch(e){ /* reintenta en la próxima vuelta */ }
+      }catch(e){/* reintenta en la próxima vuelta */}
     }
+    return{ok:true,mensaje:'IBKR sigue sincronizando en el servidor; se actualizará solo cuando termine.'};
   }catch(e){
-    alert('No se pudo iniciar la sincronización: '+(e.message||'error desconocido'));
+    return{ok:false,mensaje:'IBKR todavía no disponible: '+(e.message||'error desconocido')};
   }finally{
-    btn.classList.remove('loading');
-    btn.disabled = false;
-    renderPortafolio();
+    pfIbkrSincronizando=false;
   }
 }
 
@@ -5203,25 +5282,37 @@ async function cargarPatrimonio(forzar){
  if(patrimonio.estado==='ok'&&!forzar)return;
  patrimonio={...patrimonio,estado:'loading',mensaje:'Cargando el valor de IBKR…'};
  try{
-  const hist=await sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
+  // Si ya visitaste Portafolio en esta sesión (pfHistoricoCache poblado), se
+  // reutiliza EXACTAMENTE el mismo valor que ves ahí — Yahoo en vivo si hay
+  // cotización completa, si no el cierre oficial de IBKR — en vez de
+  // recalcularlo aparte. Así Patrimonio y Portafolio nunca pueden mostrar
+  // números distintos. Si todavía no visitaste Portafolio esta sesión, se
+  // hace la consulta directa de siempre (el cierre oficial más reciente).
+  let row,valorActual,fuenteActual;
+  if(pfHistoricoCache.length){
+   const v=obtenerValorActualPortafolio();
+   row=pfCierreAnterior();valorActual=v.valor;fuenteActual=v.fuente;
+  }else{
+   const hist=await sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
+   row=(hist||[])[0];valorActual=row?Number(row.valor_total):NaN;fuenteActual='IBKR';
+  }
   // El patrimonio se valora al tipo de cambio de mercado de hoy, el mismo que
   // se propone en los gastos con tarjeta. El de Configuración solo se usa si
   // no hay uno de mercado (sin red y sin ninguno guardado).
   await Promise.all([leerTipoCambio(),cargarTcMercado()]);
   const tc=tcMercado>0?tcMercado:tcUsdPen,tcOrigen=tcMercado>0?'mercado':'configurado';
-  const row=(hist||[])[0];
-  const valor=row?Number(row.valor_total):NaN;
   const f=row?parseDateOnly(row.fecha_valoracion):null;
   const fechaCorta=f?String(f.getDate()).padStart(2,'0')+'/'+String(f.getMonth()+1).padStart(2,'0'):'';
-  if(!row||!Number.isFinite(valor)){
+  const enVivo=fuenteActual==='YAHOO';
+  if(!row||!Number.isFinite(valorActual)){
    patrimonio={estado:'sin_datos',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'Todavía no hay un cierre de IBKR que sumar.'};
   }else if((row.moneda_base||'')==='PEN'){
    // Ya está en soles: no se convierte.
-   patrimonio={estado:'ok',soles:valor,valorBase:valor,moneda:'PEN',fechaCorta,detalle:'',mensaje:''};
+   patrimonio={estado:'ok',soles:valorActual,valorBase:valorActual,moneda:'PEN',fechaCorta,detalle:enVivo?'Con precio en vivo de Yahoo':'',mensaje:''};
   }else if(!(tc>0)){
-   patrimonio={estado:'sin_tc',soles:null,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'No hay tipo de cambio de mercado disponible. Configura el USD → PEN en Configuración para ver tu patrimonio.'};
+   patrimonio={estado:'sin_tc',soles:null,valorBase:valorActual,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'No hay tipo de cambio de mercado disponible. Configura el USD → PEN en Configuración para ver tu patrimonio.'};
   }else{
-   patrimonio={estado:'ok',soles:valor*tc,valorBase:valor,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valor,row.moneda_base||'USD')+' × '+tc+' ('+tcOrigen+')',mensaje:''};
+   patrimonio={estado:'ok',soles:valorActual*tc,valorBase:valorActual,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valorActual,row.moneda_base||'USD')+' × '+tc+' ('+tcOrigen+')'+(enVivo?' · con precio en vivo de Yahoo':''),mensaje:''};
   }
  }catch(e){
   patrimonio={estado:'error',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'No se pudo cargar el valor de IBKR. Vuelve a intentarlo.'};
@@ -5447,8 +5538,13 @@ function startPfYahoo(){
   renderPfYahoo();
   if(!pfYahoo.lastAttempt||pfYahooSessionOpen()||pfYahoo.day!==pfLondonDay()||pfYahoo.status==='error')refreshPfYahoo();
 }
-async function refreshPfYahoo(){
-  if(!pfYahooVisible()||pfYahoo.controller||Date.now()-pfYahoo.lastAttempt<PF_YAHOO_INTERVAL)return;
+// force:true (Parte A, sección 8) ignora el throttle de PF_YAHOO_INTERVAL —
+// lo usa únicamente el refresh manual (pfRefrescarTodo). El automático
+// (startPfYahoo) siempre llama sin opts, force:false por defecto.
+async function refreshPfYahoo(opts={}){
+  const force=!!opts.force;
+  if(!pfYahooVisible()||pfYahoo.controller)return;
+  if(!force&&Date.now()-pfYahoo.lastAttempt<PF_YAHOO_INTERVAL)return;
   if(!pfPosicionesCache.length){pfYahoo.quotes=[];pfYahoo.status='empty';renderPfYahoo();return;}
   const controller=new AbortController(),id=++pfYahoo.requestId;
   pfYahoo.controller=controller;pfYahoo.lastAttempt=Date.now();pfYahoo.day=pfLondonDay();pfYahoo.status='loading';pfYahoo.message='Consultando precios de mercado…';renderPfYahoo();
@@ -5473,7 +5569,7 @@ function renderPfYahoo(){
   // guarda lo que hace falta para el diagnóstico y se dispara el pintado.
   const v=obtenerValorActualPortafolio();
   pfYahoo.cobertura=v.cobertura;
-  pfYahoo.statusMsg=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 10 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
+  pfYahoo.statusMsg=pfYahoo.message||(pfYahooSessionOpen()?'Mercado abierto · Yahoo se actualiza cada 10 min':'Mercado cerrado · sin actualización periódica hasta que abra');
 
   pintarValorPrincipal();
   if(v.fuente==='YAHOO')guardarSnapshotCalculado(v.valor,v.pnlEstimado);
@@ -5489,9 +5585,9 @@ function renderPfYahoo(){
     if(!q||q.status!=='ok'){const note=document.createElement('span');note.textContent=q?.status==='unmapped'?'Equivalencia Yahoo pendiente de verificar.':pfYahoo.status==='loading'?'Consultando…':'Sin cotización disponible. Cierre IBKR conservado.';block.append(note);return;}
     const t=Date.parse(q.price_at),price=pfNumber(q.price);
     if(!Number.isFinite(t)||price===null){const note=document.createElement('span');note.textContent='Cotización inválida; cierre IBKR conservado.';block.append(note);return;}
-    const quoteLine=document.createElement('strong');quoteLine.textContent=fmtMoneda(price,q.currency);block.append(quoteLine);
+    const quoteLine=document.createElement('strong');quoteLine.textContent=pfFmt(price,q.currency);block.append(quoteLine);
     const stamp=document.createElement('span');stamp.textContent='Dato del '+new Date(t).toLocaleString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZoneName:'short'})+' · hace '+Math.max(0,Math.floor((Date.now()-t)/60000))+' min';block.append(stamp);
-    const totals=document.createElement('span');totals.textContent=estimate?'Valor estimado '+fmtMoneda(estimate.value,p.moneda)+' · P&L estimado '+fmtMoneda(estimate.pnl,p.moneda):'Dato antiguo o no comparable: no se usa en la estimación.';block.append(totals);
+    const totals=document.createElement('span');totals.textContent=estimate?'Valor estimado '+pfFmt(estimate.value,p.moneda)+' · P&L estimado '+pfFmt(estimate.pnl,p.moneda):'Dato antiguo o no comparable: no se usa en la estimación.';block.append(totals);
   });
 }
 // Snapshot calculado (sección 9): guarda el valor estimado con Yahoo cuando
