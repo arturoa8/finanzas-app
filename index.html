@@ -601,9 +601,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 #anPanelPortafolio>*{min-width:0}.pf-source-strip{grid-column:1/-1}
 #pfChartCard{grid-column:1/-1}#pfChartArea,#pfModalChartArea{width:100%;min-width:0;position:relative}
 #pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:340px;aspect-ratio:4/3}
-.pf-intraday-tooltip{position:absolute;top:6px;transform:translateX(-50%);display:none;flex-direction:column;gap:1px;padding:6px 9px;border-radius:8px;background:var(--card2);border:1px solid var(--border);font-size:11px;line-height:1.4;pointer-events:none;white-space:nowrap;z-index:2}
-.pf-intraday-tooltip strong{font-size:11px;color:var(--dim);font-weight:600}
-.pf-intraday-tooltip span:nth-of-type(1){font-size:13px;font-weight:700;color:var(--text)}
+.pf-intraday-tooltip{position:absolute;top:2px;transform:translateX(-50%);display:none;padding:3px 9px;border-radius:20px;background:var(--card2);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--dim);pointer-events:none;white-space:nowrap;z-index:2}
+#pfChartArea .chart-svg{user-select:none;-webkit-user-select:none;touch-action:pan-y}
 #p-ana .container{padding-top:14px}
 #pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
 .pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}
@@ -3768,21 +3767,29 @@ function pfColorTramo(tramo,fallback,ref=0){
 function construirGraficoIntradia(puntos,opts={}){
   const validos=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t));
   if(validos.length<2)return{svg:'<div class="empty">No hay suficientes datos de hoy para graficar.</div>',meta:null};
-  const VB_W=560,VB_H=420,PAD_L=44,PAD_R=14,PAD_T=16,PAD_B=30;
+  // Composición tipo Yahoo Finance (sección 9-11 del pedido): 560×330
+  // (≈1.7:1, más horizontal que el 4:3 del resto de períodos — el propio
+  // <svg> lleva su aspect-ratio inline, así que esto NO afecta a
+  // construirLineChartSVG ni al modal de posición) y casi sin padding
+  // lateral: ya no hay etiquetas numéricas en el eje Y (se leen tocando el
+  // gráfico), así que ese espacio se le devuelve a la curva.
+  const VB_W=560,VB_H=330,PAD_L=10,PAD_R=8,PAD_T=14,PAD_B=26;
   const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
   const vals=validos.map(p=>p.valor);
   const min=Math.min(...vals),max=Math.max(...vals),range=max-min;
-  // Escala Y (ajuste visual): mucho menos aire que antes — la curva debe
-  // ocupar ~90-95% de la altura útil. Solo cambia el padding, no los datos.
+  // Escala Y: la curva ocupa casi toda la altura útil con datos reales
+  // (min/max de la sesión), nunca arranca en 0 — solo un padding chico.
   const pad=Math.max(range*0.025,0.008);
   const yMin=min-pad,yMax=max+pad,denom=(yMax-yMin)||1;
   const t0=validos[0].t,tn=validos[validos.length-1].t,tden=(tn-t0)||1;
   const x=t=>PAD_L+(t-t0)/tden*innerW;
   const y=v=>baseline-(v-yMin)/denom*innerH;
   const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
-  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="Rendimiento intradía del portafolio">`;
-  for(let i=0;i<=3;i++){const yy=PAD_T+innerH*(i/3);const val=yMax-(yMax-yMin)*(i/3);
-    svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5" opacity=".6"/><text x="0" y="${yy+4}" font-size="9" fill="var(--dim)">${esc(opts.fmt?opts.fmt(val):fmtCompacto(val))}</text>`;}
+  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" style="aspect-ratio:${VB_W}/${VB_H}" role="img" aria-label="Rendimiento intradía del portafolio">`;
+  // Grid horizontal extremadamente sutil (sección 11): sin números — el
+  // rendimiento exacto se lee tocando el gráfico (hero + pill de hora).
+  for(let i=1;i<3;i++){const yy=PAD_T+innerH*(i/3);
+    svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" opacity=".15"/>`;}
   // Referencia (dónde estaba el valor al ARRANCAR el gráfico): 0% en la
   // vista de rendimiento, o el primer punto en la vista de valor absoluto
   // (opts.referencia). Cada tramo se pinta del color de su propio signo
@@ -3806,26 +3813,38 @@ function construirGraficoIntradia(puntos,opts={}){
     svg+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   svg+=`<line x1="${PAD_L}" y1="${yRefClamp.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yRefClamp.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>`;
-  const numEtiquetas=Math.min(5,validos.length);
+  // Eje X: ~4 marcas de hora, no más (sección 12) — la hora exacta aparece
+  // en el pill vertical mientras se hace scrubbing.
+  const numEtiquetas=Math.min(4,validos.length);
   const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
   idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle';
-    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+22}" text-anchor="${anchor}" font-size="10">${esc(new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}))}</text>`;});
+    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}))}</text>`;});
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
   svg+='</svg>';
   return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos}};
 }
-// Tooltip/touch (sección 15): un solo listener sobre el SVG, funciona con
-// mouse y dedo (Pointer Events). Solo se usa en el 1D.
+// Scrubbing tipo Yahoo Finance (secciones 2-8, 18-23 del pedido): el HERO de
+// arriba (pfHeroValor/pfHeroHoy/pfFrescura) pasa a mostrar el punto tocado
+// — el gráfico en sí solo aporta la guía visual (línea + punto + hora), ya
+// no repite valor/% en una caja flotante (eso ahora vive arriba, sección 5).
+// Un solo listener por SVG, Pointer Events (mouse y dedo). Solo se usa en el
+// 1D. Nunca recalcula el portafolio ni toca pfYahoo/Supabase/snapshots
+// (secciones 19-21): usa directamente los puntos ya construidos por
+// construirSerieIntradia y solo escribe texto en el DOM — instantáneo,
+// pensado para que se sienta fluido en un teléfono.
 function pfWireChartTooltip(container,grafico,opts){
   if(!grafico.meta)return;
   const svgEl=container.querySelector('svg');
   if(!svgEl)return;
-  svgEl.style.touchAction='none';
+  // pan-y (no "none"): el navegador conserva el scroll vertical de la
+  // página; el arrastre horizontal lo captura este listener (sección 6).
+  svgEl.style.touchAction='pan-y';
   const tipG=svgEl.querySelector('#pfIntraTip'),tipLine=svgEl.querySelector('#pfIntraTipLine'),tipDot=svgEl.querySelector('#pfIntraTipDot');
   let label=container.querySelector('.pf-intraday-tooltip');
   if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
   label.style.display='none';
   const {puntos,VB_W}=grafico.meta;
+  const heroValorEl=document.getElementById('pfHeroValor'),heroHoyEl=document.getElementById('pfHeroHoy'),frescuraEl=document.getElementById('pfFrescura');
   function puntoDesdeEvento(evt){
     const rect=svgEl.getBoundingClientRect();
     const fracX=(evt.clientX-rect.left)/rect.width;
@@ -3836,20 +3855,30 @@ function pfWireChartTooltip(container,grafico,opts){
   }
   function mostrar(evt){
     const p=puntoDesdeEvento(evt),xPix=grafico.x(p.t),yPix=grafico.y(p.valor);
-    // Sección 9 del pedido visual: el % del punto seleccionado se colorea
-    // por su propio signo (no por el signo del día completo).
-    const pctNum=opts.pctValor?opts.pctValor(p):null;
-    const pctColor=pctNum===null||!Number.isFinite(pctNum)?'':(pctNum>=0?'var(--green)':'var(--red)');
+    const d=opts.describir(p);
+    const color=pfColor(d.pctNum);
     tipLine.setAttribute('x1',xPix);tipLine.setAttribute('x2',xPix);
     tipDot.setAttribute('cx',xPix);tipDot.setAttribute('cy',yPix);
-    if(pctColor)tipDot.setAttribute('fill',pctColor);
+    tipDot.setAttribute('fill',color);
     tipG.style.display='';
-    const hora=new Date(p.t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
-    label.innerHTML=`<strong>${esc(hora)}</strong><span>${esc(opts.fmtValor?opts.fmtValor(p):String(p.valor))}</span><span${pctColor?` style="color:${pctColor}"`:''}>${esc(opts.fmtPct?opts.fmtPct(p):'')}</span>`;
-    label.style.display='flex';
-    label.style.left=Math.min(Math.max((xPix/VB_W)*100,14),86)+'%';
+    const hora=new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'});
+    label.textContent=hora;
+    label.style.display='block';
+    label.style.left=Math.min(Math.max((xPix/VB_W)*100,10),90)+'%';
+    // Hero temporal (secciones 2-3, 14, 18): reemplaza valor/rendimiento/hora
+    // mientras se arrastra. evt.preventDefault evita seleccionar texto.
+    if(heroValorEl)heroValorEl.textContent=d.valorTexto;
+    if(heroHoyEl){heroHoyEl.textContent=d.gananciaTexto+' ('+d.pctTexto+')';heroHoyEl.style.color=color;}
+    if(frescuraEl)frescuraEl.textContent=hora;
+    if(evt.cancelable)evt.preventDefault();
   }
-  function ocultar(){tipG.style.display='none';label.style.display='none';}
+  function ocultar(){
+    tipG.style.display='none';label.style.display='none';
+    // Sección 4: se restaura con las mismas funciones que pintan el hero
+    // normal — nunca se duplica el cálculo acá, y nunca se escribe nada
+    // fuera del DOM (sección 19: pfYahoo/Supabase quedan intactos).
+    pintarValorPrincipal();
+  }
   svgEl.addEventListener('pointerdown',mostrar);
   svgEl.addEventListener('pointermove',evt=>{if(evt.buttons||evt.pointerType==='touch')mostrar(evt);});
   svgEl.addEventListener('pointerup',ocultar);
@@ -3858,29 +3887,43 @@ function pfWireChartTooltip(container,grafico,opts){
 }
 function renderPfChart1D(area,titulo,hint,res){
   const s=construirSerieIntradia();
-  if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';return;}
-  const cambio=s.actual-s.base,pct=(s.actual/s.base-1)*100;
-  const colorLinea=cambio>=0?'var(--green)':'var(--red)';
+  if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';res.innerHTML='';return;}
+  const colorLinea=(s.actual-s.base)>=0?'var(--green)':'var(--red)';
   titulo.textContent=(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión':'Hoy';
   if(pfVista==='rendimiento'){
     // Referencia 0% = "dónde estaba el rendimiento al inicio" (siempre 0,
     // por definición). El coloreado por tramos y la línea punteada viven en
     // construirGraficoIntradia (referencia por defecto).
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,fmt:v=>v.toFixed(2)+'%'});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{fmtValor:p=>pfFmt(s.base*(1+p.valor/100),s.moneda),fmtPct:p=>pfSignedPct(p.valor),pctValor:p=>p.valor});
-    const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(pfFmt(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(pfFmt(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
-    res.innerHTML='<div class="pf-rend-big">Rendimiento del día<strong style="color:'+pfColor(pct)+'">'+esc(pfSignedPct(pct))+'</strong></div>'+cifras;
+    pfWireChartTooltip(area,grafico,{describir:p=>{
+      const valorAbs=s.base*(1+p.valor/100),ganancia=valorAbs-s.base;
+      return{valorTexto:pfFmt(valorAbs,s.moneda),gananciaTexto:pfSigned(ganancia,s.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
+    }});
   }else{
     // En valor absoluto la referencia es el primer punto mostrado (el valor
     // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.serie[0]?.valor});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{fmtValor:p=>pfFmt(p.valor,s.moneda),fmtPct:p=>pfSignedPct((p.valor/s.base-1)*100),pctValor:p=>(p.valor/s.base-1)*100});
+    pfWireChartTooltip(area,grafico,{describir:p=>{
+      const pctNum=(p.valor/s.base-1)*100,ganancia=p.valor-s.base;
+      return{valorTexto:pfFmt(p.valor,s.moneda),gananciaTexto:pfSigned(ganancia,s.moneda),pctTexto:pfSignedPct(pctNum),pctNum};
+    }});
   }
   // Sección 21: sin párrafo técnico en la vista principal — el detalle
   // (fuente, cobertura, fallback, puntos usados) vive en Diagnóstico.
   hint.textContent=s.notaFallback||'';
+  // Secciones 15-17: debajo del 1D NO se repite "Hoy" — eso ya está arriba,
+  // en el hero (y durante el scrubbing). Acá va el rendimiento TOTAL desde
+  // que empezaste a invertir, con la misma metodología que la card Resumen
+  // (pfModeloGanancia), usando el valor actual (Yahoo en vivo si está
+  // disponible — s.actual es exactamente lo que muestra el hero, nunca se
+  // recalcula aparte) en vez de solo el último cierre oficial.
+  const official=pfCierreAnterior();
+  const g=official?pfModeloGanancia({...official,valor_total:s.actual},pfFlujos()):{ok:false,mensaje:''};
+  res.innerHTML=g.ok
+    ?'<div class="pf-rend-big">Rendimiento total<strong style="color:'+pfColor(g.pct)+'">'+esc(pfSignedPct(g.pct))+'</strong></div><div class="pf-rend-row" style="grid-template-columns:1fr 1fr"><div>Ganancia total<strong style="color:'+pfColor(g.ganancia)+'">'+esc(pfSigned(g.ganancia,s.moneda))+'</strong></div><div>Aportes netos<strong>'+esc(pfFmt(g.aportes,s.moneda))+'</strong></div></div>'
+    :(g.mensaje?'<p class="hint">'+esc(g.mensaje)+'</p>':'');
   renderPfDiagnostico1D(s);
   renderPfBenchmark(null);
 }
@@ -5525,6 +5568,19 @@ function pfYahooSessionOpen(now=Date.now()){
   // No deducir festivos: usar la sesión concreta informada por Yahoo.
   return pfYahoo.quotes.some(q=>q.status==='ok'&&Date.parse(q.session_start)<=now&&now<Date.parse(q.session_end));
 }
+// Diagnóstico del intervalo intradía (sección 25 del pedido): cada posición
+// puede haber caído a 5m por separado en el edge function (ver
+// cotizaciones-yahoo), así que se resume: "2 min" si TODAS lo consiguieron,
+// o se lista qué intervalos hay si alguna cayó a 5m — nunca se finge 2 min.
+function pfIntervaloIntradia(){
+  const conDatos=pfYahoo.quotes.filter(q=>q.status==='ok'&&q.intraday);
+  if(!conDatos.length)return{etiqueta:'—',fallback:false,motivo:null};
+  const intervalos=[...new Set(conDatos.map(q=>q.intraday.interval))].sort();
+  const fallback=intervalos.some(i=>i!=='2m');
+  const motivo=conDatos.find(q=>q.intraday.fallback)?.intraday.fallback||null;
+  const nombre=i=>i==='2m'?'2 min':i==='5m'?'5 min':i;
+  return{etiqueta:intervalos.map(nombre).join(' / ')+(fallback?' · fallback':''),fallback,motivo};
+}
 function stopPfYahoo(){
   if(pfYahoo.timer)clearInterval(pfYahoo.timer);pfYahoo.timer=null;
   if(pfYahoo.controller){pfYahoo.controller.abort();pfYahoo.controller=null;pfYahoo.lastAttempt=0;pfYahoo.status='idle';}
@@ -5680,7 +5736,9 @@ function renderPfDiagnostico1D(s){
   const fuenteTxt={YAHOO:'Yahoo intradía',YAHOO_PARCIAL:'Yahoo intradía (parcial)',SNAPSHOTS:'portfolio_snapshots',MINIMO:'cierre anterior + valor actual',SIN_DATOS:'sin datos'}[s.fuente]||s.fuente;
   const primero=s.serie[0],ultimo=s.serie[s.serie.length-1];
   const hora=t=>t?new Date(t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):'—';
-  const filas=[['Fuente',fuenteTxt],['Intervalo','5 min']];
+  const iv=pfIntervaloIntradia();
+  const filas=[['Fuente',fuenteTxt],['Intervalo solicitado','2 min'],['Intervalo efectivo',iv.etiqueta]];
+  if(iv.fallback&&iv.motivo)filas.push(['Motivo del fallback',iv.motivo]);
   if(tl)filas.push(
     ['Puntos recibidos',String(tl.recibidos)],
     ['Puntos usados',String(tl.usados||s.serie.length)],
