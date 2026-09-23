@@ -717,6 +717,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         </div>
         <p class="hint" id="pfGananciaNota" style="margin-top:6px"></p>
         <div class="s-sub" id="pfUltimaSync" style="margin-top:8px">—</div>
+        <div class="s-sub" id="pfFrescura" style="margin-top:2px;color:var(--dim)"></div>
       </div>
 
       <div class="chart-card" id="pfChartCard" style="display:none">
@@ -763,6 +764,17 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div class="s-head" style="margin-bottom:10px"><div class="s-title">Posiciones</div></div>
         <div class="pf-position-tools"><input id="pfPositionSearch" type="search" class="search-inp" placeholder="Buscar activo…" aria-label="Buscar posiciones" oninput="renderPfPosiciones(pfPosicionesCache)"><select id="pfPositionSort" class="sel" aria-label="Ordenar posiciones" onchange="renderPfPosiciones(pfPosicionesCache)"><option value="value">Mayor valor</option><option value="name">Símbolo A–Z</option></select></div><div id="pfPositionCount" class="s-sub" aria-live="polite"></div>
         <div id="pfPosicionesLista"></div>
+      </div>
+
+      <div class="chart-card" id="pfDiagCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px;cursor:pointer" onclick="togglePfDiag()" role="button" tabindex="0">
+          <div class="s-title">Diagnóstico</div>
+          <span class="s-sub" id="pfDiagToggle">Mostrar ▾</span>
+        </div>
+        <div id="pfDiagBody" style="display:none">
+          <div id="pfDiagResumen" class="s-sub" style="line-height:1.7"></div>
+          <div id="pfDiagTabla" style="margin-top:10px"></div>
+        </div>
       </div>
     </div>
 
@@ -3076,9 +3088,9 @@ async function renderPortafolio(){
   if(!pfHistoricoCache.length)['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard','pfMarketCard'].forEach(id=>document.getElementById(id).style.display='none');
   estadoEl.innerHTML='<div class="empty">Cargando portafolio…</div>';
 
-  let config,sync,historial,posiciones,lastSuccess,bench;
+  let config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger;
   try{
-    [config,sync,historial,posiciones,lastSuccess,bench]=await Promise.all([
+    [config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger]=await Promise.all([
       sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
       sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
       sbFetch('portafolio_historial?select=*&order=fecha_valoracion.asc'),
@@ -3087,6 +3099,10 @@ async function renderPortafolio(){
       // Referencia para "vs S&P 500": cierres oficiales de IBKR de un ETF del S&P 500
       // que ya está en la cartera. Si falla, solo se pierde la comparación.
       sbFetch('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc').catch(()=>[]),
+      // Diagnóstico (sección 11): última reconciliación calculado-vs-IBKR y
+      // tamaño del ledger. Si falla, el diagnóstico simplemente no se muestra.
+      sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
+      sbFetch('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc').catch(()=>[]),
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
@@ -3131,6 +3147,8 @@ async function renderPortafolio(){
 
   document.getElementById('pfPosicionesCard').style.display='';
   renderPfPosiciones(pfPosicionesCache);
+
+  renderPfDiagnostico((reconciliacion&&reconciliacion[0])||null, ledger||[]);
   startPfYahoo();
 }
 
@@ -3171,6 +3189,11 @@ function renderPfResumen(row,ultimaSync){
     ? `Última sincronización exitosa: ${fmtDateLong(new Date(ultimaSync.finalizado_en||ultimaSync.iniciado_en))}`
     : 'Fecha de la última sincronización exitosa no disponible';
   document.getElementById('pfUltimaSync').textContent=ultOkTxt;
+  // Línea de frescura discreta (sección 10): arranca en el cierre oficial de
+  // IBKR; renderPfYahoo la actualiza a "Live" en cuanto tiene una estimación
+  // completa y comparable.
+  const frescura=document.getElementById('pfFrescura');
+  if(frescura)frescura.textContent='IBKR cierre oficial · '+fmtDateShort(fecha);
 }
 
 function setPfPeriodo(p,btn){
@@ -4960,6 +4983,17 @@ const PF_YAHOO_INTERVAL=20*60*1000;
 function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
 function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&anTopTab==='portafolio'&&getSession()!==null;}
 function pfQuoteKey(p){return String(p.cuenta_ibkr)+'|'+String(p.contract_id);}
+// Cadena de prioridad de precio de mercado (sección 3): por ahora solo Yahoo
+// y el cierre cacheado de IBKR están implementados — IBKR realtime/delayed
+// necesitaría un proceso propio siempre encendido (IB Gateway/TWS o Client
+// Portal Web API con OAuth), incompatible con este stack serverless, y queda
+// fuera de esta etapa. Envuelve pfMarketEstimate en vez de reimplementarlo.
+function resolverPrecioActual(p,q){
+  const estimate=pfMarketEstimate(p,q);
+  if(estimate)return{precio:estimate.price,fuente:'YAHOO',timestamp:new Date(estimate.time).toISOString()};
+  const cerrado=pfNumber(p.precio_mercado);
+  return cerrado===null?null:{precio:cerrado,fuente:'CACHED',timestamp:null};
+}
 function pfMarketEstimate(p,q,now=Date.now()){
   if(!q||q.status!=='ok'||q.account!==p.cuenta_ibkr||String(q.contract_id)!==String(p.contract_id)||q.ibkr_symbol!==p.simbolo||q.currency!==p.moneda)return null;
   const price=pfNumber(q.price),qty=pfNumber(p.cantidad),mult=pfNumber(p.multiplicador),cost=pfNumber(p.costo_promedio);
@@ -5023,11 +5057,18 @@ function renderPfYahoo(){
   value.textContent=complete?fmtMoneda(Number(official.valor_total)+delta,official.moneda_base):'—';
   // P&L estimado de las posiciones (solo si todas tienen cotización comparable).
   const est=document.getElementById('pfPnlEst');
+  let pnlEstimado=null;
   if(est){
     const rp=pfResumenPosiciones(official||{},pfPosicionesCache);
-    if(complete&&rp.ok&&rp.costo>0){const pnlE=rp.pnl+delta;est.textContent='Estimado · Yahoo: '+pfSigned(pnlE,official.moneda_base)+' · '+pfSignedPct(pnlE/rp.costo*100);}
+    if(complete&&rp.ok&&rp.costo>0){pnlEstimado=rp.pnl+delta;est.textContent='Estimado · Yahoo: '+pfSigned(pnlEstimado,official.moneda_base)+' · '+pfSignedPct(pnlEstimado/rp.costo*100);}
     else est.textContent='';
   }
+  // Línea de frescura discreta (sección 10): "Live" solo cuando el estimado
+  // Yahoo es completo y comparable con el cierre; si no, se queda con el
+  // cierre oficial de IBKR que ya puso renderPfResumen.
+  const frescura=document.getElementById('pfFrescura');
+  if(frescura&&complete)frescura.textContent='● Live · Yahoo actualizado '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  if(complete)guardarSnapshotCalculado(official,Number(official.valor_total)+delta,pnlEstimado);
   status.textContent=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
   detail.textContent=covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable. '+(complete?'Estimación con efectivo, ajustes y tipos de cambio del cierre IBKR.':'Se muestra un total estimado solo cuando todas las posiciones tienen precios comparables de hasta 60 min de antigüedad.');
   document.querySelectorAll('#pfPosicionesLista .pf-position').forEach(button=>{
@@ -5044,6 +5085,66 @@ function renderPfYahoo(){
     const totals=document.createElement('span');totals.textContent=estimate?'Valor estimado '+fmtMoneda(estimate.value,p.moneda)+' · P&L estimado '+fmtMoneda(estimate.pnl,p.moneda):'Dato antiguo o no comparable: no se usa en la estimación.';block.append(totals);
   });
 }
+// Snapshot calculado (sección 9): guarda el valor estimado con Yahoo cuando
+// es completo y comparable. Throttle propio de 10 min (más corto que el
+// throttle de 15 min del servidor, así que en el caso normal es el servidor
+// el que decide "omitido" — este solo evita golpear la RPC en cada repintado
+// de 60s de startPfYahoo cuando Yahoo no ha cambiado). Nunca toca
+// portafolio_historial ni el histórico oficial de IBKR.
+let pfUltimoSnapshotIntento=0;
+async function guardarSnapshotCalculado(official,valorCalculado,pnlEstimado){
+  if(Date.now()-pfUltimoSnapshotIntento<10*60*1000)return;
+  pfUltimoSnapshotIntento=Date.now();
+  try{
+    await sbFetch('rpc/guardar_snapshot_portafolio',{method:'POST',body:JSON.stringify({
+      p_cuenta_ibkr:official.cuenta_ibkr,
+      p_valor_calculado:valorCalculado,
+      p_efectivo:pfNumber(official.efectivo),
+      p_valor_invertido:valorCalculado-(pfNumber(official.efectivo)||0),
+      p_pnl:pnlEstimado,
+      p_fuente_precio:'YAHOO',
+    })});
+  }catch(e){/* silencioso: es una curva auxiliar, nunca debe interrumpir la UI */}
+}
+
+// ── Diagnóstico (sección 11): última reconciliación calculado (ledger) vs
+// oficial (IBKR) y tamaño del ledger de operaciones. Si todavía no hay
+// ninguna reconciliación (p.ej. la Flex Query no trae Trades/CashTransactions
+// aún) la card no se muestra: no tiene sentido diagnosticar sin datos.
+function togglePfDiag(){
+  const body=document.getElementById('pfDiagBody'),toggle=document.getElementById('pfDiagToggle');
+  const abierto=body.style.display!=='none';
+  body.style.display=abierto?'none':'';
+  toggle.textContent=abierto?'Mostrar ▾':'Ocultar ▴';
+}
+function renderPfDiagnostico(recon,ledger){
+  const card=document.getElementById('pfDiagCard');
+  if(!recon){card.style.display='none';return;}
+  card.style.display='';
+  const resumen=document.getElementById('pfDiagResumen'),moneda='USD';
+  const ultimaOp=ledger.length?fmtDateLong(new Date(ledger[0].fecha_hora)):'sin operaciones importadas';
+  resumen.innerHTML=[
+    ['Estado', recon.estado==='cuadrado'?'✓ Cuadrado':'⚠️ Diferencia'],
+    ['Fecha reconciliada', pfFechaCorta(recon.fecha)],
+    ['Portafolio calculado (ledger)', fmtMoneda(recon.valor_calculado,moneda)],
+    ['IBKR (oficial)', fmtMoneda(recon.valor_ibkr,moneda)],
+    ['Diferencia', fmtMoneda(recon.diferencia_absoluta,moneda)+(recon.diferencia_pct!==null?' · '+recon.diferencia_pct.toFixed(3)+'%':'')],
+    ['Operaciones en el ledger', ledger.length+' · última: '+esc(ultimaOp)],
+  ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(String(v))}</strong></div>`).join('');
+
+  const tabla=document.getElementById('pfDiagTabla');
+  const filas=(recon.detalle||[]).filter(f=>{
+    const va=pfNumber(f.valor_app),vi=pfNumber(f.valor_ibkr);
+    return va===null||vi===null||Math.abs(va-vi)>=0.10;
+  });
+  if(recon.estado==='cuadrado'||!filas.length){tabla.innerHTML='';return;}
+  tabla.innerHTML='<p class="hint" style="margin-bottom:6px">Posiciones con diferencia ≥ $0.10 entre lo calculado desde el ledger y el cierre oficial de IBKR:</p>'+
+    '<table style="width:100%;font-size:12px;border-collapse:collapse">'+
+    '<thead><tr><th style="text-align:left">Símbolo</th><th>Cant. app</th><th>Cant. IBKR</th><th>Valor app</th><th>Valor IBKR</th></tr></thead><tbody>'+
+    filas.map(f=>`<tr><td>${esc(f.simbolo||'—')}</td><td style="text-align:right">${f.cantidad_app??'—'}</td><td style="text-align:right">${f.cantidad_ibkr??'—'}</td><td style="text-align:right">${f.valor_app!==null&&f.valor_app!==undefined?fmtMoneda(f.valor_app,moneda):'—'}</td><td style="text-align:right">${f.valor_ibkr!==null&&f.valor_ibkr!==undefined?fmtMoneda(f.valor_ibkr,moneda):'—'}</td></tr>`).join('')+
+    '</tbody></table>';
+}
+
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPfYahoo();else startPfYahoo();});
 window.addEventListener('pagehide',stopPfYahoo);
 window.addEventListener('storage',e=>{if(e.key==='sb_session'){stopPfYahoo();pfYahoo.quotes=[];pfYahoo.lastAttempt=0;pfYahoo.scope='';renderPfYahoo();}});
