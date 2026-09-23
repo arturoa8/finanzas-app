@@ -595,8 +595,11 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 .btn-p{background:var(--accent)}
 #anPanelPortafolio{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 #anPanelPortafolio>*{min-width:0}.pf-source-strip{grid-column:1/-1}
-#pfChartCard{grid-column:1/-1}#pfChartArea,#pfModalChartArea{width:100%;min-width:0}
+#pfChartCard{grid-column:1/-1}#pfChartArea,#pfModalChartArea{width:100%;min-width:0;position:relative}
 #pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:340px;aspect-ratio:4/3}
+.pf-intraday-tooltip{position:absolute;top:6px;transform:translateX(-50%);display:none;flex-direction:column;gap:1px;padding:6px 9px;border-radius:8px;background:var(--card2);border:1px solid var(--border);font-size:11px;line-height:1.4;pointer-events:none;white-space:nowrap;z-index:2}
+.pf-intraday-tooltip strong{font-size:11px;color:var(--dim);font-weight:600}
+.pf-intraday-tooltip span:nth-of-type(1){font-size:13px;font-weight:700;color:var(--text)}
 #p-ana .container{padding-top:14px}
 #pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
 .pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}
@@ -722,7 +725,10 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div class="pf-hero-valor" id="pfHeroValor">—</div>
         <div class="pf-hero-hoy" id="pfHeroHoy"></div>
         <div class="s-sub" id="pfFrescura" style="margin-top:4px;margin-bottom:10px;color:var(--dim)"></div>
-        <div class="an-tabs pf-periodo-tabs" id="pfPeriodoTabs">
+        <div class="pf-chart-title" id="pfChartTitulo"></div>
+        <div id="pfChartArea"></div>
+        <!-- Períodos DEBAJO del gráfico (sección 9): toda la barra, no solo "Desde". -->
+        <div class="an-tabs pf-periodo-tabs" id="pfPeriodoTabs" style="margin-top:10px">
           <button class="antb active" data-p="1D" onclick="setPfPeriodo('1D',this)">1 d</button>
           <button class="antb" data-p="1S" onclick="setPfPeriodo('1S',this)">1 sem</button>
           <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1 m</button>
@@ -731,16 +737,14 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
           <button class="antb" data-p="1A" onclick="setPfPeriodo('1A',this)">1 a</button>
           <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
         </div>
-        <div class="pf-chart-title" id="pfChartTitulo"></div>
-        <div id="pfChartArea"></div>
-        <div id="pfRendResumen"></div>
-        <p class="hint" id="pfChartHint"></p>
         <button class="pf-desde-toggle" id="pfDesdeToggle" onclick="setPfPeriodo('DESDE',null)">Ver desde una fecha →</button>
         <div class="pf-desde" id="pfDesdePanel" hidden>
           <label>Desde <input type="date" id="pfDesdeInput" onchange="setPfDesde(this.value)"></label>
           <span class="pf-desde-hasta">Hasta: hoy</span>
           <div class="pf-desde-info" id="pfDesdeInfo" role="status"></div>
         </div>
+        <div id="pfRendResumen"></div>
+        <p class="hint" id="pfChartHint"></p>
         <div id="pfBenchmark"></div>
       </div>
 
@@ -779,6 +783,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div id="pfDiagBody" style="display:none">
           <div id="pfDiagResumen" class="s-sub" style="line-height:1.7"></div>
           <div id="pfDiagTabla" style="margin-top:10px"></div>
+          <div id="pfDiagYahoo" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"></div>
+          <div id="pfDiag1D" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"></div>
         </div>
       </div>
     </div>
@@ -3094,6 +3100,7 @@ async function renderPortafolio(){
   renderPfPosiciones(pfPosicionesCache);
 
   renderPfDiagnostico((reconciliacion&&reconciliacion[0])||null, ledger||[]);
+  renderPfDiagnosticoYahoo();
   startPfYahoo();
 }
 
@@ -3104,38 +3111,110 @@ function pfCierreAnterior(){
   const filas=pfHistoricoCache.filter(r=>Number(r.valor_total)>0);
   return filas.length?filas[filas.length-1]:null;
 }
-// Cabecera tipo Yahoo Finance + Resumen + frescura: única fuente de verdad
-// del "valor actual estimado" (pfYahoo.valorEnVivo/completo, que solo calcula
-// renderPfYahoo). Se llama al cargar (con pfYahoo.completo=false, o sea el
-// cierre IBKR) y de nuevo cada vez que renderPfYahoo tiene una estimación
-// nueva — nunca se recalcula el precio acá, solo se pinta.
+// Única fuente de verdad del "valor actual del portafolio" (sección 2 del
+// pedido de corrección). IBKR = posiciones/cantidades/costo/efectivo/
+// histórico oficial. Yahoo = precio de mercado actual, cuando hay cotización
+// válida para TODAS las posiciones. Nadie más decide esto: hero, Resumen,
+// 1D y los períodos más largos llaman a esta función en vez de recalcular.
+// Pura y barata (no hace red): lee pfYahoo.quotes (ya pedidas por
+// refreshPfYahoo), pfPosicionesCache y pfCierreAnterior().
+// Delta de UNA posición para un precio dado, frente a su valor oficial IBKR
+// — misma fórmula que pfMarketEstimate usa para el precio en vivo (fx del
+// precio × cantidad × multiplicador − valor_mercado_base oficial), extraída
+// para reutilizarla punto por punto al reconstruir la serie intradía (1D)
+// sin duplicar la lógica.
+function pfDeltaPosicion(p,precio){
+  const old=pfNumber(p.valor_mercado_base);
+  const qty=pfNumber(p.cantidad),mult=pfNumber(p.multiplicador);
+  if(old===null||precio===null||precio<=0||qty===null||mult===null)return null;
+  const fx=p.moneda===p.moneda_base?1:pfNumber(p.fx_rate_a_base);
+  if(fx===null||fx<=0)return null;
+  return precio*qty*mult*fx-old;
+}
+function obtenerValorActualPortafolio(){
+  const official=pfCierreAnterior();
+  const r={valor:null,fuente:'IBKR',timestamp:null,completo:false,cierreIbkr:null,diferenciaVsIbkr:null,pnlEstimado:null,cobertura:[]};
+  if(!official)return r;
+  r.cierreIbkr=Number(official.valor_total);
+  r.valor=r.cierreIbkr;
+  r.timestamp=official.fecha_valoracion;
+  if(!pfPosicionesCache.length){r.diferenciaVsIbkr=0;return r;}
+
+  const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
+  let delta=0,completo=true;
+  pfPosicionesCache.forEach(p=>{
+    const q=qByKey.get(pfQuoteKey(p));
+    const estimate=pfMarketEstimate(p,q);
+    const old=pfNumber(p.valor_mercado_base);
+    // Motivo exacto si esta posición no puede usar Yahoo (sección 6): se
+    // guarda SIEMPRE (aunque ya esté completo=false por otra posición) para
+    // que Diagnóstico pueda mostrar la lista entera, no solo la primera falla.
+    let motivo=null;
+    if(!q)motivo='sin cotización de Yahoo para este contrato';
+    else if(q.status==='unmapped')motivo='sin equivalencia Yahoo verificada';
+    else if(q.status!=='ok')motivo=q.message||('Yahoo: '+q.status);
+    else if(!estimate)motivo='cotización Yahoo no pasó las validaciones (precio/edad/tipo)';
+    else if(old===null)motivo='sin valor de mercado IBKR para comparar';
+    else if(p.cuenta_ibkr!==official.cuenta_ibkr)motivo='cuenta distinta a la del cierre oficial usado como base';
+    else if(p.moneda_base!==official.moneda_base)motivo='moneda base distinta a la del cierre oficial';
+    else if(p.fecha_datos!==official.fecha_valoracion)motivo='posición del '+p.fecha_datos+', cierre base del '+official.fecha_valoracion+' — no son el mismo snapshot IBKR';
+    r.cobertura.push({simbolo:p.simbolo,ok:!motivo,motivo,precioIbkr:pfNumber(p.precio_mercado),precioYahoo:estimate?estimate.price:null,valorIbkr:old,valorYahoo:estimate&&old!==null?estimate.baseValue:null});
+    if(motivo){completo=false;return;}
+    delta+=pfDeltaPosicion(p,estimate.price);
+  });
+  r.completo=completo;
+  if(completo){
+    r.valor=r.cierreIbkr+delta;
+    r.fuente='YAHOO';
+    r.timestamp=new Date().toISOString();
+    const rp=pfResumenPosiciones(official,pfPosicionesCache);
+    if(rp.ok&&rp.costo>0)r.pnlEstimado=rp.pnl+delta;
+  }
+  r.diferenciaVsIbkr=r.valor-r.cierreIbkr;
+  return r;
+}
+// Cabecera tipo Yahoo Finance + Resumen + frescura: se llama al cargar y cada
+// vez que renderPfYahoo trae cotizaciones nuevas. Nunca recalcula el precio
+// acá — todo sale de obtenerValorActualPortafolio().
 function pintarValorPrincipal(){
   const official=pfCierreAnterior();
   const heroEl=document.getElementById('pfHeroValor'),totalEl=document.getElementById('pfValorTotal'),
-        refEl=document.getElementById('pfValorRef'),frescura=document.getElementById('pfFrescura');
+        refEl=document.getElementById('pfValorRef'),frescura=document.getElementById('pfFrescura'),
+        pnlMainEl=document.getElementById('pfPnl'),pnlRefEl=document.getElementById('pfPnlEst');
   if(!official){if(heroEl)heroEl.textContent='—';return;}
-  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
-  const valor=usaVivo?pfYahoo.valorEnVivo:Number(official.valor_total);
-  const texto=fmtMoneda(valor,official.moneda_base);
+  const v=obtenerValorActualPortafolio();
+  const usaVivo=v.fuente==='YAHOO';
+  const texto=fmtMoneda(v.valor,official.moneda_base);
   if(heroEl)heroEl.textContent=texto;
   if(totalEl)totalEl.textContent=texto;
-  if(refEl)refEl.textContent=usaVivo?'Cierre IBKR: '+fmtMoneda(official.valor_total,official.moneda_base):'';
+  if(refEl)refEl.textContent=usaVivo?'Cierre IBKR: '+fmtMoneda(v.cierreIbkr,official.moneda_base):'';
   if(frescura)frescura.textContent=usaVivo
-    ?'● Yahoo · actualizado '+new Date(pfYahoo.momento||Date.now()).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
+    ?'● Yahoo · actualizado '+new Date(v.timestamp).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
     :'IBKR cierre oficial · '+fmtDateShort(parseDateOnly(official.fecha_valoracion));
+  // P&L no realizado (sección 18): con Yahoo completo, el P&L PRINCIPAL pasa
+  // a ser el calculado con precios Yahoo (renderPfResumen ya dejó ahí el
+  // valor IBKR, que es el que se usa cuando Yahoo no está disponible); el
+  // P&L IBKR queda como referencia secundaria, igual que el valor total.
+  const rp=pfResumenPosiciones(official,pfPosicionesCache);
+  if(usaVivo&&v.pnlEstimado!==null&&pnlMainEl){
+    pnlMainEl.textContent=pfSigned(v.pnlEstimado,official.moneda_base)+(rp.ok&&rp.costo>0?' · '+pfSignedPct(v.pnlEstimado/rp.costo*100):'');
+    pnlMainEl.style.color=pfColor(v.pnlEstimado);
+  }
+  if(pnlRefEl)pnlRefEl.textContent=(usaVivo&&v.pnlEstimado!==null)?'Cierre IBKR: '+(rp.ok?pfSigned(rp.pnl,official.moneda_base):'no disponible'):'';
   pintarPfHeroHoy();
 }
 function pintarPfHeroHoy(){
   const hoyEl=document.getElementById('pfHeroHoy');
   if(!hoyEl)return;
   const filas=pfHistoricoCache.filter(r=>Number(r.valor_total)>0);
-  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
+  const v=obtenerValorActualPortafolio();
+  const usaVivo=v.fuente==='YAHOO';
   let anterior,actual,moneda;
   if(usaVivo&&filas.length>=1){
     // Con Yahoo: "hoy" = valor en vivo vs. el cierre oficial más reciente
     // (el que ya representa el día anterior completo).
     anterior=Number(filas[filas.length-1].valor_total);
-    actual=pfYahoo.valorEnVivo;
+    actual=v.valor;
     moneda=filas[filas.length-1].moneda_base;
   }else if(filas.length>=2){
     // Sin Yahoo: mejor disponible es el día-contra-día de los dos últimos cierres.
@@ -3417,6 +3496,21 @@ function setPfDesde(iso){pfDesde=iso||'';renderPfChart();}
 const PF_PERIODO_LABEL={'1D':'Rendimiento del día','1S':'Rendimiento 1 semana','1M':'Rendimiento 1 mes','6M':'Rendimiento 6 meses',YTD:'Rendimiento AIF','1A':'Rendimiento 1 año',ALL:'Rendimiento total'};
 function pfEtiquetaPeriodo(desde){return PF_PERIODO_LABEL[pfPeriodo]||('Rendimiento desde '+pfFechaCorta(desde));}
 
+// Sección 14: los períodos más largos (1S/1M/6M/AIF/1A/Todo/Desde) también
+// deben terminar HOY, no en el último cierre oficial — cuando Yahoo esté
+// disponible se agrega un punto sintético de hoy con el valor en vivo
+// (misma fuente que el hero: obtenerValorActualPortafolio). Si la fila de
+// hoy ya existe en portafolio_historial (cron ya corrió), no se duplica —
+// eso mantiene el histórico oficial intacto (sección 15).
+function pfFilasConVivo(filas){
+  if(!filas.length)return filas;
+  const v=obtenerValorActualPortafolio();
+  if(v.fuente!=='YAHOO')return filas;
+  const ultima=filas[filas.length-1],hoyIso=pfIso(new Date());
+  if(ultima.fecha_valoracion>=hoyIso)return filas;
+  return [...filas,{...ultima,fecha_valoracion:hoyIso,valor_total:v.valor,creado_en:new Date().toISOString()}];
+}
+
 function renderPfChart(){
   const toggle=document.getElementById('pfDesdeToggle');
   if(toggle)toggle.style.display=pfPeriodo==='DESDE'?'none':'';
@@ -3436,7 +3530,7 @@ function renderPfChart(){
     }
   }
   if(!per.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
-  const filas=per.filas;
+  const filas=pfFilasConVivo(per.filas);
   if(pfVista==='rendimiento'){
     const r=pfRendimientoPortafolio(filas,pfFlujos());
     titulo.textContent=r.ok?(pfFechaCorta(r.desde)+' – '+pfFechaCorta(r.hasta)):'';
@@ -3447,7 +3541,7 @@ function renderPfChart(){
       res.innerHTML=cifras;
       hint.textContent='Hay un aporte o retiro sin dólares confirmados en este período: sin ese dato no se puede aislar su efecto para calcular la rentabilidad. Confírmalo en la transferencia, o prueba un período sin ese movimiento.';
     }else{
-      area.innerHTML=construirLineChartSVG(r.serie,{escala:'detail',fmt:v=>v.toFixed(1)+'%'});
+      area.innerHTML=construirLineChartSVG(r.serie,{escala:'detail',zeroLine:true,fmt:v=>v.toFixed(1)+'%'});
       res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
       hint.textContent=r.metodo==='twr'
         ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
@@ -3461,43 +3555,195 @@ function renderPfChart(){
   renderPfBenchmark(filas);
 }
 
-// ── 1D: intradía real a partir de portafolio_snapshots + valor en vivo ──────
-// Punto inicial = cierre oficial anterior (pfCierreAnterior, misma fila que
-// usa pintarPfHeroHoy); luego los snapshots de hoy (pfSnapshotsHoyCache, los
-// guarda guardarSnapshotCalculado); último punto = valor en vivo de Yahoo
-// (pfYahoo.valorEnVivo) si hay uno completo ahora mismo. Nunca inventa
-// puntos: si no hay nada de hoy, repite el cierre anterior + una nota.
+// ── 1D: serie intradía real de Yahoo ────────────────────────────────────────
+// portfolio_value(t) = cierreIbkr + Σ pfDeltaPosicion(posición, precio(t)) —
+// la MISMA fórmula que obtenerValorActualPortafolio(), aplicada a cada
+// timestamp de la serie 5m de Yahoo en vez de solo al precio en vivo. Nunca
+// toca cantidades/costo/efectivo/histórico IBKR: Yahoo solo aporta precio.
+function pfLondonDayDe(t){return pfLondonDay(new Date(t));}
+// Timeline común: unión de los timestamps de HOY (día de Londres, mismo
+// criterio que pfMarketEstimate) de cada posición con datos intradía. En
+// cada punto de la timeline, cada posición aporta su precio más reciente
+// <= t (forward-fill SOLO dentro de hoy); si una posición todavía no tiene
+// ningún precio a esa altura del día, ese timestamp no es utilizable para
+// ella (nunca se inventa un precio, ni se arrastra el cierre de ayer).
+function construirTimelineIntradia(){
+  const anterior=pfCierreAnterior();
+  const r={ok:false,puntos:[],cobertura:[],recibidos:0,usados:0,fuente:null,notaFallback:''};
+  if(!anterior||!(Number(anterior.valor_total)>0)||!pfPosicionesCache.length)return r;
+  const base=Number(anterior.valor_total),hoy=pfLondonDay();
+  const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
+  const series=pfPosicionesCache.map(p=>{
+    const q=qByKey.get(pfQuoteKey(p));
+    const crudos=(q&&q.status==='ok'&&q.intraday&&Array.isArray(q.intraday.points))?q.intraday.points:[];
+    r.recibidos+=crudos.length;
+    const deHoy=crudos.filter(pt=>pfLondonDayDe(pt.t)===hoy).sort((a,b)=>a.t-b.t);
+    return{p,puntos:deHoy};
+  });
+  r.cobertura=series.map(s=>({simbolo:s.p.simbolo,ok:s.puntos.length>0,puntos:s.puntos.length}));
+  const conDatos=series.filter(s=>s.puntos.length>0),faltantes=series.filter(s=>!s.puntos.length);
+  if(!conDatos.length)return r;
+
+  const tsSet=new Set();
+  conDatos.forEach(s=>s.puntos.forEach(pt=>tsSet.add(pt.t)));
+  const timeline=[...tsSet].sort((a,b)=>a-b);
+  r.usados=timeline.length;
+
+  const puntos=[];
+  for(const t of timeline){
+    let deltaTotal=0,completos=0;
+    for(const s of conDatos){
+      let precio=null;
+      for(let i=s.puntos.length-1;i>=0;i--){if(s.puntos[i].t<=t){precio=s.puntos[i].price;break;}}
+      if(precio===null)continue;
+      const d=pfDeltaPosicion(s.p,precio);
+      if(d===null)continue;
+      deltaTotal+=d;completos++;
+    }
+    if(completos===conDatos.length)puntos.push({t,valor:base+deltaTotal});
+  }
+  r.puntos=puntos;
+  r.ok=puntos.length>0;
+  r.fuente=faltantes.length?'YAHOO_PARCIAL':'YAHOO';
+  if(faltantes.length)r.notaFallback='Serie incompleta: '+faltantes.map(f=>f.p.simbolo).join(', ')+' sin datos intradía hoy.';
+  return r;
+}
+// Orquesta la cascada de fallback (A→D) y reconcilia el último punto con
+// obtenerValorActualPortafolio() — así el hero y el final del gráfico NUNCA
+// pueden divergir, comparten la misma función y el mismo valor.
+let pfUltimoDiag1D=null;
 function construirSerieIntradia(){
   const anterior=pfCierreAnterior();
   if(!anterior||!(Number(anterior.valor_total)>0))return{ok:false,mensaje:'Todavía no hay un cierre oficial de referencia para calcular el día.'};
   const base=Number(anterior.valor_total),moneda=anterior.moneda_base;
-  const puntos=[{t:(parseDateOnly(anterior.fecha_valoracion)||new Date()).getTime(),etiqueta:'Cierre ant.',valor:base}];
-  pfSnapshotsHoyCache.forEach(sn=>{
-    const v=Number(sn.valor_calculado),t=Date.parse(sn.capturado_en);
-    if(v>0&&Number.isFinite(t))puntos.push({t,etiqueta:new Date(t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),valor:v});
-  });
-  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
-  if(usaVivo)puntos.push({t:pfYahoo.momento||Date.now(),etiqueta:'Ahora',valor:pfYahoo.valorEnVivo});
+  const v=obtenerValorActualPortafolio();
+  const tl=construirTimelineIntradia();
+  pfUltimoDiag1D=tl;
+  let puntos=[],fuente='SIN_DATOS',notaFallback='';
+
+  if(tl.ok){puntos=tl.puntos.map(p=>({t:p.t,valor:p.valor}));fuente=tl.fuente;notaFallback=tl.notaFallback;}
+  else if(pfSnapshotsHoyCache.length){
+    // C) fallback: portfolio_snapshots (curva calculada guardada durante la sesión).
+    puntos=pfSnapshotsHoyCache
+      .map(sn=>({t:Date.parse(sn.capturado_en),valor:Number(sn.valor_calculado)}))
+      .filter(p=>p.valor>0&&Number.isFinite(p.t));
+    fuente='SNAPSHOTS';
+    notaFallback='Sin serie intradía de Yahoo todavía — usando estimaciones guardadas durante la sesión.';
+  }
+
+  if(v.fuente==='YAHOO'){
+    const ultimo=puntos[puntos.length-1];
+    const yaEsIgual=ultimo&&Math.abs(ultimo.valor-v.valor)<0.005&&(Date.now()-ultimo.t)<5*60*1000;
+    if(!yaEsIgual)puntos.push({t:Date.now(),valor:v.valor});
+  }
+
+  // D) último recurso — sin serie real de ningún tipo: cierre anterior
+  // (excepcionalmente sí como punto, no hay otra referencia) + valor actual,
+  // sin inventar nada intermedio.
+  if(puntos.length<2){
+    puntos=[{t:(parseDateOnly(anterior.fecha_valoracion)||new Date()).getTime(),valor:base},
+            {t:Date.now(),valor:v.valor!==null?v.valor:base}];
+    fuente=v.fuente==='YAHOO'?'MINIMO':'SIN_DATOS';
+    notaFallback='Sin cotizaciones de hoy todavía.';
+  }
+
   puntos.sort((a,b)=>a.t-b.t);
-  let notaFallback='';
-  if(puntos.length<2){puntos.push({...puntos[0],etiqueta:'Ahora'});notaFallback='Sin cotizaciones de hoy todavía. Mostrando el último cierre disponible.';}
   const actual=puntos[puntos.length-1].valor;
-  const serie=puntos.map(p=>({t:p.t,fecha:anterior.fecha_valoracion,etiqueta:p.etiqueta,valor:pfVista==='rendimiento'?(p.valor/base-1)*100:p.valor}));
-  return{ok:true,serie,moneda,base,actual,notaFallback};
+  const serie=puntos.map(p=>({t:p.t,valor:pfVista==='rendimiento'?(p.valor/base-1)*100:p.valor}));
+  return{ok:true,serie,moneda,base,actual,notaFallback,fuente};
+}
+
+// Renderer propio del 1D (no toca construirLineChartSVG, que sigue sirviendo
+// a 1S/1M/6M/AIF/1A/Todo/Desde y al modal de posición): eje X por hora real,
+// escala más ajustada y devuelve el mapeo x(t)/y(valor) para el tooltip.
+function construirGraficoIntradia(puntos,opts={}){
+  const validos=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t));
+  if(validos.length<2)return{svg:'<div class="empty">No hay suficientes datos de hoy para graficar.</div>',meta:null};
+  const VB_W=560,VB_H=420,PAD_L=44,PAD_R=14,PAD_T=16,PAD_B=30;
+  const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
+  const vals=validos.map(p=>p.valor);
+  const min=Math.min(...vals),max=Math.max(...vals),range=max-min;
+  // Escala Y (sección 12): mucho menos padding que el chart compartido — la
+  // serie debe ocupar ~80-90% de la altura útil.
+  const pad=Math.max(range*0.06,0.015);
+  const yMin=min-pad,yMax=max+pad,denom=(yMax-yMin)||1;
+  const t0=validos[0].t,tn=validos[validos.length-1].t,tden=(tn-t0)||1;
+  const x=t=>PAD_L+(t-t0)/tden*innerW;
+  const y=v=>baseline-(v-yMin)/denom*innerH;
+  const path=validos.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
+  const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
+  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="Rendimiento intradía del portafolio">`;
+  for(let i=0;i<=3;i++){const yy=PAD_T+innerH*(i/3);const val=yMax-(yMax-yMin)*(i/3);
+    svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${esc(opts.fmt?opts.fmt(val):fmtCompacto(val))}</text>`;}
+  svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${color}" opacity=".1"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // Línea de 0% (sección 13): solo si cae dentro del rango ya calculado.
+  if(opts.zeroLine&&yMin<=0&&0<=yMax){const y0=y(0);svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3"/>`;}
+  const numEtiquetas=Math.min(5,validos.length);
+  const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
+  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle';
+    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+22}" text-anchor="${anchor}" font-size="10">${esc(new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}))}</text>`;});
+  svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
+  svg+='</svg>';
+  return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos}};
+}
+// Tooltip/touch (sección 15): un solo listener sobre el SVG, funciona con
+// mouse y dedo (Pointer Events). Solo se usa en el 1D.
+function pfWireChartTooltip(container,grafico,opts){
+  if(!grafico.meta)return;
+  const svgEl=container.querySelector('svg');
+  if(!svgEl)return;
+  svgEl.style.touchAction='none';
+  const tipG=svgEl.querySelector('#pfIntraTip'),tipLine=svgEl.querySelector('#pfIntraTipLine'),tipDot=svgEl.querySelector('#pfIntraTipDot');
+  let label=container.querySelector('.pf-intraday-tooltip');
+  if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
+  label.style.display='none';
+  const {puntos,VB_W}=grafico.meta;
+  function puntoDesdeEvento(evt){
+    const rect=svgEl.getBoundingClientRect();
+    const fracX=(evt.clientX-rect.left)/rect.width;
+    const vbX=Math.min(Math.max(fracX,0),1)*VB_W;
+    let mejor=puntos[0],mejorDist=Infinity;
+    puntos.forEach(p=>{const d=Math.abs(grafico.x(p.t)-vbX);if(d<mejorDist){mejorDist=d;mejor=p;}});
+    return mejor;
+  }
+  function mostrar(evt){
+    const p=puntoDesdeEvento(evt),xPix=grafico.x(p.t),yPix=grafico.y(p.valor);
+    tipLine.setAttribute('x1',xPix);tipLine.setAttribute('x2',xPix);
+    tipDot.setAttribute('cx',xPix);tipDot.setAttribute('cy',yPix);
+    tipG.style.display='';
+    const hora=new Date(p.t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    label.innerHTML=`<strong>${esc(hora)}</strong><span>${esc(opts.fmtValor?opts.fmtValor(p):String(p.valor))}</span><span>${esc(opts.fmtPct?opts.fmtPct(p):'')}</span>`;
+    label.style.display='flex';
+    label.style.left=Math.min(Math.max((xPix/VB_W)*100,14),86)+'%';
+  }
+  function ocultar(){tipG.style.display='none';label.style.display='none';}
+  svgEl.addEventListener('pointerdown',mostrar);
+  svgEl.addEventListener('pointermove',evt=>{if(evt.buttons||evt.pointerType==='touch')mostrar(evt);});
+  svgEl.addEventListener('pointerup',ocultar);
+  svgEl.addEventListener('pointercancel',ocultar);
+  svgEl.addEventListener('pointerleave',ocultar);
 }
 function renderPfChart1D(area,titulo,hint,res){
   const s=construirSerieIntradia();
   if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';return;}
   const cambio=s.actual-s.base,pct=(s.actual/s.base-1)*100;
+  const colorLinea=cambio>=0?'var(--green)':'var(--red)';
   titulo.textContent='Hoy';
   if(pfVista==='rendimiento'){
-    area.innerHTML=construirLineChartSVG(s.serie,{escala:'detail',fmt:v=>v.toFixed(1)+'%'});
+    const grafico=construirGraficoIntradia(s.serie,{zeroLine:true,color:colorLinea,fmt:v=>v.toFixed(2)+'%'});
+    area.innerHTML=grafico.svg;
+    pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(s.base*(1+p.valor/100),s.moneda),fmtPct:p=>pfSignedPct(p.valor)});
     const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
     res.innerHTML='<div class="pf-rend-big">Rendimiento del día<strong style="color:'+pfColor(pct)+'">'+esc(pfSignedPct(pct))+'</strong></div>'+cifras;
   }else{
-    area.innerHTML=construirLineChartSVG(s.serie,{escala:'detail'});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea});
+    area.innerHTML=grafico.svg;
+    pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(p.valor,s.moneda),fmtPct:p=>pfSignedPct((p.valor/s.base-1)*100)});
   }
-  hint.textContent=s.notaFallback||'Cierre oficial anterior y estimación Yahoo en vivo. Se actualiza mientras tengas la pestaña abierta.';
+  // Sección 21: sin párrafo técnico en la vista principal — el detalle
+  // (fuente, cobertura, fallback, puntos usados) vive en Diagnóstico.
+  hint.textContent=s.notaFallback||'';
+  renderPfDiagnostico1D(s);
   renderPfBenchmark(null);
 }
 
@@ -5007,7 +5253,12 @@ function guardarPreferencias(){
 }
 function pfChartDomain(values,scale='overview'){
  const min=Math.min(...values),max=Math.max(...values);
- const margin=Math.max((max-min)*.12,Math.max(Math.abs(min),Math.abs(max))*.02,1);
+ // Menos padding (sección 11): la serie debe ocupar la mayor parte de la
+ // altura útil. El piso de .01 es solo para evitar división por cero en una
+ // serie perfectamente plana — ya no hay un mínimo grande (antes era "1",
+ // que en vistas de rendimiento (puntos porcentuales) dominaba casi siempre
+ // y aplanaba visualmente movimientos reales de menos de 1pp).
+ const margin=Math.max((max-min)*.07,Math.max(Math.abs(min),Math.abs(max))*.02,.01);
  return scale==='detail'?[min-margin,max+margin]:[Math.min(0,min-margin),Math.max(0,max+margin)];
 }
 aplicarPreferencias();
@@ -5034,8 +5285,27 @@ construirLineChartSVG=function(puntos,opts={}){
  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="`+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
  for(let i=0;i<4;i++){const yy=PAD_T+innerH*(i/3);svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
  if(opts.ganancia){const y0=y({valor:0});svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="${PAD_L-8}" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;}
- else svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${colorLinea}" opacity=".08"/><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;
- [pts[0],pts.at(-1)].forEach((p,i)=>svg+=`<text x="${i?VB_W-PAD_R:PAD_L}" y="${baseline+24}" text-anchor="${i?'end':'start'}" font-size="10">${esc(p.etiqueta||fmtDateShort(parseDateOnly(p.fecha)))}</text>`);
+ else{
+   svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${colorLinea}" opacity=".08"/><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;
+   // Línea de 0% (sección 12): SOLO si 0 cae dentro del rango ya calculado —
+   // nunca se fuerza el dominio a incluirlo (eso volvería a aplanar la
+   // gráfica cuando el período entero es claramente positivo o negativo).
+   if(opts.zeroLine&&lo<=0&&0<=hi){const y0=y({valor:0});svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3"/>`;}
+ }
+ // Varias marcas de hora/fecha (sección 13), no solo los dos extremos — como
+ // Yahoo Finance. Se ubican por posición X real (proporcional al tiempo, no
+ // por índice), y se de-duplican índices para series cortas (ej. 1D con 3
+ // puntos). Nunca se repite la misma etiqueta dos veces seguidas.
+ const numEtiquetas=Math.min(5,pts.length);
+ const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(pts.length-1)/(numEtiquetas-1||1))))];
+ let etiquetaAnterior=null;
+ idxs.forEach(i=>{
+   const p=pts[i],texto=p.etiqueta||fmtDateShort(parseDateOnly(p.fecha));
+   if(texto===etiquetaAnterior)return;
+   etiquetaAnterior=texto;
+   const anchor=i===0?'start':i===pts.length-1?'end':'middle';
+   svg+=`<text x="${x(p).toFixed(2)}" y="${baseline+24}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;
+ });
  return svg+'</svg>';
 };
 // Capa Yahoo separada: nunca muta posiciones ni históricos IBKR.
@@ -5043,7 +5313,7 @@ construirLineChartSVG=function(puntos,opts={}){
 // "valor actual estimado" — los calcula renderPfYahoo() y los leen sin
 // recalcular pintarValorPrincipal(), pintarPfHeroHoy() y construirSerieIntradia().
 const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',valorEnVivo:null,pnlEstimado:null,completo:false,momento:null};
-const PF_YAHOO_INTERVAL=20*60*1000;
+const PF_YAHOO_INTERVAL=10*60*1000;
 function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
 function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&getSession()!==null;}
 function pfQuoteKey(p){return String(p.cuenta_ibkr)+'|'+String(p.contract_id);}
@@ -5062,10 +5332,20 @@ function pfMarketEstimate(p,q,now=Date.now()){
   if(!q||q.status!=='ok'||q.account!==p.cuenta_ibkr||String(q.contract_id)!==String(p.contract_id)||q.ibkr_symbol!==p.simbolo||q.currency!==p.moneda)return null;
   const price=pfNumber(q.price),qty=pfNumber(p.cantidad),mult=pfNumber(p.multiplicador),cost=pfNumber(p.costo_promedio);
   const time=Date.parse(q.price_at),age=(now-time)/60000;
-  if(price===null||price<=0||qty===null||mult!==1||p.tipo_activo!=='STK'||!Number.isFinite(time)||age< -1||age>60||pfLondonDay(new Date(time))<p.fecha_datos)return null;
+  // CAUSA RAÍZ encontrada al diagnosticar por qué Yahoo nunca ganaba: fuera
+  // de sesión (mercado cerrado, p.ej. LSE cerrado durante la tarde/noche en
+  // Perú) el último cierre de Yahoo puede tener horas de "edad" sin dejar de
+  // ser el precio VIGENTE — un mercado cerrado no tiene precio más nuevo que
+  // ese. Rechazarlo por edad>60min hacía complete=false casi todo el día. El
+  // límite de 60 min ahora solo aplica con el mercado ABIERTO (ahí sí
+  // indicaría un fallo real de actualización); fuera de sesión se usa un
+  // techo de cordura amplio (5 días) para no aceptar datos realmente rotos.
+  const sesionAbierta=!!(q.session_start&&q.session_end&&now>=Date.parse(q.session_start)&&now<Date.parse(q.session_end));
+  const vencido=sesionAbierta?age>60:age>7200;
+  if(price===null||price<=0||qty===null||mult!==1||p.tipo_activo!=='STK'||!Number.isFinite(time)||age< -1||vencido||pfLondonDay(new Date(time))<p.fecha_datos)return null;
   const fx=p.moneda===p.moneda_base?1:pfNumber(p.fx_rate_a_base);
   const value=price*qty*mult,pnl=cost===null?null:(price-cost)*qty*mult;
-  return {price,value,pnl,baseValue:fx!==null&&fx>0?value*fx:null,basePnl:fx!==null&&fx>0&&pnl!==null?pnl*fx:null,age,time,usesClosingFx:p.moneda!==p.moneda_base};
+  return {price,value,pnl,baseValue:fx!==null&&fx>0?value*fx:null,basePnl:fx!==null&&fx>0&&pnl!==null?pnl*fx:null,age,time,usesClosingFx:p.moneda!==p.moneda_base,sesionAbierta};
 }
 function pfYahooSessionOpen(now=Date.now()){
   // No deducir festivos: usar la sesión concreta informada por Yahoo.
@@ -5106,36 +5386,16 @@ async function refreshPfYahoo(){
 function renderPfYahoo(){
   if(!pfHistoricoCache.length)return;
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
-  let covered=0,delta=0;
-  const official=pfCierreAnterior();
-  let complete=!!official&&pfNumber(official.valor_total)!==null&&pfPosicionesCache.length>0;
-  pfPosicionesCache.forEach(p=>{
-    const estimate=pfMarketEstimate(p,qByKey.get(pfQuoteKey(p)));
-    if(estimate)covered++;
-    const old=pfNumber(p.valor_mercado_base);
-    if(!estimate||estimate.baseValue===null||old===null||p.cuenta_ibkr!==official?.cuenta_ibkr||p.moneda_base!==official?.moneda_base||p.fecha_datos!==official?.fecha_valoracion){complete=false;return;}
-    delta+=estimate.baseValue-old;
-  });
-  // P&L estimado de las posiciones (solo si todas tienen cotización comparable).
-  const est=document.getElementById('pfPnlEst');
-  let pnlEstimado=null;
-  if(complete){
-    const rp=pfResumenPosiciones(official||{},pfPosicionesCache);
-    if(rp.ok&&rp.costo>0)pnlEstimado=rp.pnl+delta;
-  }
-  if(est)est.textContent=(complete&&pnlEstimado!==null)?'Estimado · Yahoo: '+pfSigned(pnlEstimado,official.moneda_base)+' · '+pfSignedPct(pnlEstimado/pfResumenPosiciones(official,pfPosicionesCache).costo*100):'';
-  // Única fuente de verdad del "valor actual estimado" (sección 19): de acá
-  // en adelante nadie más recalcula complete/delta, solo leen pfYahoo.*.
-  pfYahoo.completo=complete;
-  pfYahoo.valorEnVivo=complete?Number(official.valor_total)+delta:null;
-  pfYahoo.pnlEstimado=pnlEstimado;
-  pfYahoo.momento=Date.now();
-  pfYahoo.covered=covered;
-  pfYahoo.statusMsg=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
+  // Todo el cálculo vive en obtenerValorActualPortafolio() — acá solo se
+  // guarda lo que hace falta para el diagnóstico y se dispara el pintado.
+  const v=obtenerValorActualPortafolio();
+  pfYahoo.cobertura=v.cobertura;
+  pfYahoo.statusMsg=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 10 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
 
   pintarValorPrincipal();
-  if(complete)guardarSnapshotCalculado(official,pfYahoo.valorEnVivo,pnlEstimado);
-  if(pfPeriodo==='1D')renderPfChart();
+  if(v.fuente==='YAHOO')guardarSnapshotCalculado(v.valor,v.pnlEstimado);
+  renderPfChart();
+  renderPfDiagnosticoYahoo();
 
   document.querySelectorAll('#pfPosicionesLista .pf-position').forEach(button=>{
     const p=pfPosicionesCache.find(p=>pfQuoteKey(p)===button.dataset.positionKey);if(!p)return;
@@ -5158,8 +5418,10 @@ function renderPfYahoo(){
 // de 60s de startPfYahoo cuando Yahoo no ha cambiado). Nunca toca
 // portafolio_historial ni el histórico oficial de IBKR.
 let pfUltimoSnapshotIntento=0;
-async function guardarSnapshotCalculado(official,valorCalculado,pnlEstimado){
+async function guardarSnapshotCalculado(valorCalculado,pnlEstimado){
   if(Date.now()-pfUltimoSnapshotIntento<10*60*1000)return;
+  const official=pfCierreAnterior();
+  if(!official)return;
   pfUltimoSnapshotIntento=Date.now();
   try{
     const r=await sbFetch('rpc/guardar_snapshot_portafolio',{method:'POST',body:JSON.stringify({
@@ -5172,7 +5434,9 @@ async function guardarSnapshotCalculado(official,valorCalculado,pnlEstimado){
     })});
     const resultado=Array.isArray(r)?r[0]:r;
     if(resultado&&resultado.estado==='ok'){
-      // Alimenta el 1D en vivo sin volver a pedirlo a Supabase.
+      // Alimenta el 1D en vivo sin volver a pedirlo a Supabase. Esto es
+      // SOLO la curva intradía calculada (sección 15): nunca se toca
+      // portafolio_historial, que sigue siendo 100% el cierre oficial IBKR.
       pfSnapshotsHoyCache.push({capturado_en:new Date().toISOString(),valor_calculado:valorCalculado,fuente_precio:'YAHOO'});
       if(pfPeriodo==='1D')renderPfChart();
     }
@@ -5207,7 +5471,8 @@ function renderPfDiagnostico(recon,ledger){
     ['Diferencia', fmtMoneda(recon.diferencia_absoluta,moneda)+(recon.diferencia_pct!==null?' · '+recon.diferencia_pct.toFixed(3)+'%':'')],
     ['Operaciones en el ledger', ledger.length+' · última: '+esc(ultimaOp)],
   );
-  campos.push(['Cobertura Yahoo', pfYahoo.covered!==undefined?(pfYahoo.covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable'):'sin consultar todavía']);
+  // La cobertura Yahoo detallada (por símbolo, con motivo) vive aparte en
+  // renderPfDiagnosticoYahoo() → #pfDiagYahoo, no acá.
   resumen.innerHTML=campos.map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(String(v))}</strong></div>`).join('');
 
   if(!recon){tabla.innerHTML='';return;}
@@ -5221,6 +5486,55 @@ function renderPfDiagnostico(recon,ledger){
     '<thead><tr><th style="text-align:left">Símbolo</th><th>Cant. app</th><th>Cant. IBKR</th><th>Valor app</th><th>Valor IBKR</th></tr></thead><tbody>'+
     filasDiff.map(f=>`<tr><td>${esc(f.simbolo||'—')}</td><td style="text-align:right">${f.cantidad_app??'—'}</td><td style="text-align:right">${f.cantidad_ibkr??'—'}</td><td style="text-align:right">${f.valor_app!==null&&f.valor_app!==undefined?fmtMoneda(f.valor_app,moneda):'—'}</td><td style="text-align:right">${f.valor_ibkr!==null&&f.valor_ibkr!==undefined?fmtMoneda(f.valor_ibkr,moneda):'—'}</td></tr>`).join('')+
     '</tbody></table>';
+}
+
+// Diagnóstico Serie 1D (sección 25 del pedido de 1D): fuente real usada,
+// cobertura por posición, cuántos puntos trajo Yahoo vs. cuántos se
+// pudieron usar, y que el último punto coincida con el hero (debe dar
+// diferencia $0.00 porque ambos salen de obtenerValorActualPortafolio()).
+function renderPfDiagnostico1D(s){
+  const el=document.getElementById('pfDiag1D');
+  if(!el)return;
+  const tl=pfUltimoDiag1D;
+  const v=obtenerValorActualPortafolio();
+  const heroValor=v.fuente==='YAHOO'?v.valor:v.cierreIbkr;
+  const fuenteTxt={YAHOO:'Yahoo intradía',YAHOO_PARCIAL:'Yahoo intradía (parcial)',SNAPSHOTS:'portfolio_snapshots',MINIMO:'cierre anterior + valor actual',SIN_DATOS:'sin datos'}[s.fuente]||s.fuente;
+  const primero=s.serie[0],ultimo=s.serie[s.serie.length-1];
+  const hora=t=>t?new Date(t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}):'—';
+  const filas=[['Fuente',fuenteTxt],['Intervalo','5 min']];
+  if(tl)filas.push(
+    ['Puntos recibidos',String(tl.recibidos)],
+    ['Puntos usados',String(tl.usados||s.serie.length)],
+    ['Cobertura',tl.cobertura.filter(c=>c.ok).length+' / '+tl.cobertura.length+' posiciones'],
+  );
+  filas.push(
+    ['Primer dato',hora(primero&&primero.t)],
+    ['Último dato',hora(ultimo&&ultimo.t)],
+    ['Valor último',fmtMoneda(s.actual,s.moneda)],
+    ['Hero',fmtMoneda(heroValor,s.moneda)],
+    ['Diferencia',fmtMoneda(Math.abs(s.actual-heroValor),s.moneda)],
+    ['Fallback',s.notaFallback||'ninguno'],
+  );
+  el.innerHTML='<div class="s-sub" style="font-weight:700;margin-bottom:8px">Serie 1D</div>'+
+    filas.map(([k,val])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(val)}</strong></div>`).join('');
+}
+// Diagnóstico Yahoo (sección 6 del pedido de corrección): por qué
+// pfYahoo no está "ganando" — nunca en la tarjeta principal, solo acá, para
+// poder ver el motivo exacto en vez de seguir ajustando a ciegas.
+function renderPfDiagnosticoYahoo(){
+  const el=document.getElementById('pfDiagYahoo');
+  if(!el||!pfPosicionesCache.length)return;
+  const v=obtenerValorActualPortafolio();
+  const filas=v.cobertura.map(c=>
+    `<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(c.simbolo)}</span><strong style="color:${c.ok?'var(--green)':'var(--red)'}">${c.ok?'✓':'✗'}</strong></div>`+
+    (c.ok?'':`<div class="hint" style="margin:-2px 0 4px">${esc(c.motivo||'')}</div>`)
+  ).join('');
+  const okCount=v.cobertura.filter(c=>c.ok).length;
+  const motivo=v.cobertura.find(c=>!c.ok);
+  el.innerHTML='<div class="s-sub" style="font-weight:700;margin-bottom:8px">Yahoo</div>'+filas+
+    `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px"><span>Cobertura</span><strong>${okCount} / ${v.cobertura.length}</strong></div>`+
+    `<div style="display:flex;justify-content:space-between;gap:12px"><span>Valor en vivo</span><strong>${v.fuente==='YAHOO'?fmtMoneda(v.valor,'USD'):'No disponible'}</strong></div>`+
+    (v.fuente!=='YAHOO'&&motivo?`<p class="hint" style="margin-top:6px">Motivo: ${esc(motivo.motivo||'')} (${esc(motivo.simbolo)})</p>`:'');
 }
 
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPfYahoo();else startPfYahoo();});
