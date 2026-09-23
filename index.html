@@ -566,10 +566,17 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 
 /* Portafolio: superficies neutras y color solo para identificar activos. */
 .pf-source-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);grid-column:1/-1;margin-bottom:6px}.pf-source-badge{padding:8px 12px;border:1px solid var(--border);border-radius:20px;color:var(--text);font-weight:600;background:var(--card)}
-#anPanelPortafolio .chart-card{padding:22px;border:1px solid var(--border)}#pfResumenCard .metric-grid{grid-template-columns:repeat(3,1fr)}#pfResumenCard .metric.pf-main{grid-column:1/-1}#pfResumenCard .metric.full{grid-column:auto}#pfResumenCard .metric{background:transparent;padding:12px 0}#pfValorTotal{font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}#pfUltimaSync{padding-top:12px;border-top:1px solid var(--border);line-height:1.5}#pfEstado:empty{display:none}#pfChartCard .hint,#pfDistCard .hint{margin-top:16px;font-size:11px;line-height:1.6}#pfPeriodoTabs{flex-wrap:wrap}
+#anPanelPortafolio .chart-card{padding:22px;border:1px solid var(--border)}#pfResumenCard .metric-grid{grid-template-columns:repeat(3,1fr)}#pfResumenCard .metric.pf-main{grid-column:1/-1}#pfResumenCard .metric.full{grid-column:auto}#pfResumenCard .metric{background:transparent;padding:12px 0}#pfValorTotal{font-size:clamp(25px,4vw,38px);letter-spacing:-.04em}#pfUltimaSync{padding-top:12px;border-top:1px solid var(--border);line-height:1.5}#pfEstado:empty{display:none}#pfChartCard .hint,#pfDistCard .hint{margin-top:16px;font-size:11px;line-height:1.6}
+/* Cabecera tipo Yahoo Finance: valor grande + cambio de hoy, y períodos en
+   una sola fila con scroll horizontal en vez de partirse en dos líneas. */
+.pf-hero-valor{font-size:clamp(30px,7vw,44px);font-weight:800;letter-spacing:-.04em;margin-top:8px}
+.pf-hero-hoy{font-size:.85rem;font-weight:700;min-height:1.2em}
+#pfPeriodoTabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#pfPeriodoTabs::-webkit-scrollbar{display:none}
+#pfPeriodoTabs .antb{flex:none;white-space:nowrap}
 /* Una descripción larga (transferencias, ajustes) no debe ensanchar la fila ni la página:
    la columna central puede encogerse y el texto pasa a dos líneas. */
-.tx>div:nth-child(2){min-width:0}.tdesc{white-space:normal;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}.tamt-pill{white-space:nowrap;flex-shrink:0;max-width:44vw}#pfResumenCard .m-val.pf-mid{font-size:clamp(16px,2.6vw,20px)}#pfGanancia{font-size:clamp(21px,3.4vw,28px);letter-spacing:-.03em}.pf-chart-title{font-size:11px;color:var(--dim);letter-spacing:.02em;margin:12px 0 4px}.pf-desde{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:var(--card2);font-size:12px;color:var(--dim)}.pf-desde input{margin-left:6px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font:inherit}.pf-desde-info{flex-basis:100%;font-size:11px;line-height:1.5}.pf-rend-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.pf-rend-row>div{font-size:11px;color:var(--dim)}.pf-rend-row strong{display:block;margin-top:3px;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}.pf-bench{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}.pf-rend-big{margin-top:12px;font-size:12px;color:var(--dim)}.pf-rend-big strong{display:block;font-size:22px;letter-spacing:-.02em;margin-top:2px}.pf-pos-top{display:block}.pf-pos-perf{display:block;margin:10px 0 2px}.pf-pos-perf strong{display:block;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.pf-pos-perf small{display:block;margin-top:2px;font-size:11px;color:var(--dim)}.pf-pos-sub{display:block;margin-top:8px;font-size:12px;color:var(--dim);line-height:1.5}.pf-est-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:#7aa2ff22;color:#7aa2ff;font-size:10px;letter-spacing:.04em;text-transform:uppercase}.pf-position-perf{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px;padding:10px 12px;border-radius:12px;background:var(--card2)}.pf-position-perf span{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}.pf-position-perf strong{display:block;margin-top:3px;font-size:14px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
+.tx>div:nth-child(2){min-width:0}.tdesc{white-space:normal;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}.tamt-pill{white-space:nowrap;flex-shrink:0;max-width:44vw}#pfResumenCard .m-val.pf-mid{font-size:clamp(16px,2.6vw,20px)}#pfGanancia{font-size:clamp(21px,3.4vw,28px);letter-spacing:-.03em}.pf-chart-title{font-size:11px;color:var(--dim);letter-spacing:.02em;margin:12px 0 4px}.pf-desde{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 2px;padding:10px 12px;border-radius:12px;background:var(--card2);font-size:12px;color:var(--dim)}.pf-desde[hidden]{display:none}.pf-desde input{margin-left:6px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font:inherit}.pf-desde-info{flex-basis:100%;font-size:11px;line-height:1.5}.pf-rend-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.pf-rend-row>div{font-size:11px;color:var(--dim)}.pf-rend-row strong{display:block;margin-top:3px;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}.pf-bench{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}.pf-rend-big{margin-top:12px;font-size:12px;color:var(--dim)}.pf-rend-big strong{display:block;font-size:22px;letter-spacing:-.02em;margin-top:2px}.pf-pos-top{display:block}.pf-pos-perf{display:block;margin:10px 0 2px}.pf-pos-perf strong{display:block;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.pf-pos-perf small{display:block;margin-top:2px;font-size:11px;color:var(--dim)}.pf-pos-sub{display:block;margin-top:8px;font-size:12px;color:var(--dim);line-height:1.5}.pf-est-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:6px;background:#7aa2ff22;color:#7aa2ff;font-size:10px;letter-spacing:.04em;text-transform:uppercase}.pf-position-perf{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px;padding:10px 12px;border-radius:12px;background:var(--card2)}.pf-position-perf span{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}.pf-position-perf strong{display:block;margin-top:3px;font-size:14px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums}
 #pfDistArea{position:relative;max-width:250px;margin:4px auto 16px;min-height:100px}.pf-donut{display:block;width:100%;height:auto}.pf-donut circle[role=button]{cursor:pointer;transition:opacity .15s}.pf-donut circle[role=button]:focus{outline:none;stroke-width:35}.pf-donut-caption{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:7px}.pf-donut-caption span{max-width:145px;font-size:10px;color:var(--dim);text-align:center}.pf-donut-caption strong{font-size:17px;letter-spacing:-.03em;color:var(--text)}#pfDistLegend{display:flex;flex-direction:column;gap:4px}.pf-allocation-row{display:grid;grid-template-columns:9px minmax(0,1fr) auto 48px;align-items:center;gap:10px;padding:11px 8px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--text);width:100%;text-align:left;cursor:pointer;font-size:12px}.pf-allocation-row[aria-pressed=true]{background:var(--card2);border-color:var(--border)}.pf-allocation-row:disabled{opacity:1;cursor:default}.pf-allocation-name{overflow-wrap:anywhere}.pf-allocation-value{font-size:11px;color:var(--dim)}.pf-allocation-row strong{text-align:right;font-size:11px}.pf-color-dot{display:inline-block;width:8px;height:8px;flex-shrink:0;border-radius:50%}.pf-data-note{font-size:11px;color:var(--yellow);line-height:1.6;padding:10px 0}
 .pf-position-tools{display:flex;gap:12px;margin-bottom:12px}.pf-position-tools input{min-width:0;flex:1}.pf-position-tools select{width:auto;max-width:150px}#pfPositionCount{margin-bottom:14px}#pfPosicionesLista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pf-position{display:block;width:100%;text-align:left;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;cursor:pointer}.pf-position:hover{background:var(--card2);border-color:#44444c}.pf-position-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.pf-position-head>strong{font-size:16px;font-variant-numeric:tabular-nums}.pf-position-symbol{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:700}.pf-position-name{display:block;font-size:11px;color:var(--dim);line-height:1.5;margin:7px 0 18px;min-height:32px}.pf-position-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.pf-position-details>span{font-size:10px;color:var(--dim)}.pf-position-details strong{display:block;font-size:12px;font-weight:500;color:var(--text);margin-top:6px}.pf-position-foot{display:flex;justify-content:space-between;gap:8px;font-size:10px;line-height:1.5;color:var(--dim);padding-top:14px;margin-top:16px;border-top:1px solid var(--border)}
 @media(max-width:600px){#pfResumenCard .metric-grid{grid-template-columns:1fr 1fr}#pfResumenCard .metric.pf-gain{grid-column:1/-1}#pfPosicionesLista{grid-template-columns:1fr}#anPanelPortafolio .chart-card{padding:18px}#pfPositionSort{max-width:135px}.pf-position-tools{gap:8px}.pf-position{padding:16px}}
@@ -684,53 +691,35 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   </div>
 </div>
 
-<!-- ANALISIS -->
+<!-- PORTAFOLIO -->
 <div class="page" id="p-ana">
   <div class="container">
-    <header class="header"><div class="page-title">Análisis</div></header>
-
-    <div class="detail-tabs page-tabs" id="anTopTabs">
-      <button class="detail-tab active" onclick="setAnTopTab('portafolio',this)">Mi Portafolio</button>
-      <button class="detail-tab" onclick="setAnTopTab('finanzas',this)">Finanzas</button>
-    </div>
-
     <!-- MI PORTAFOLIO (IBKR) -->
     <div id="anPanelPortafolio">
       <div class="pf-source-strip"><span class="pf-source-badge">IBKR · Cierre oficial</span><span>Posiciones e histórico sincronizados con Flex</span></div>
       <div id="pfEstado" role="status"></div>
 
-      <div class="chart-card" id="pfResumenCard" style="display:none">
-        <div class="s-head" style="margin-bottom:10px">
-          <div class="s-title">Tu portafolio</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="s-sub" id="pfFechaEfectiva">—</div>
-            <button class="icon-btn" id="pfRefreshBtn" onclick="solicitarSyncManual(this)" aria-label="Sincronizar posiciones y cierre oficial con IBKR" title="Sincronizar IBKR" style="width:42px;height:42px">
-              <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="metric-grid" id="pfMetricGrid">
-          <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
-          <div class="metric pf-gain"><div class="m-lbl">P&amp;L no realizado · tus posiciones</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">sobre el costo de tus posiciones</div><div class="m-sub" id="pfPnlEst" style="color:var(--dim)"></div></div>
-          <div class="metric"><div class="m-lbl">Ganancia total · vs. aportes</div><div class="m-val pf-mid" id="pfGanancia">—</div><div class="m-sub" id="pfGananciaPct">—</div></div>
-          <div class="metric"><div class="m-lbl">Aportes netos</div><div class="m-val pf-mid" id="pfAportes">—</div><div class="m-sub" id="pfAportesSub">lo que has puesto</div></div>
-        </div>
-        <p class="hint" id="pfGananciaNota" style="margin-top:6px"></p>
-        <div class="s-sub" id="pfUltimaSync" style="margin-top:8px">—</div>
-        <div class="s-sub" id="pfFrescura" style="margin-top:2px;color:var(--dim)"></div>
-      </div>
-
       <div class="chart-card" id="pfChartCard" style="display:none">
-        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Rendimiento</div></div>
-        <div class="an-tabs" id="pfVistaTabs" role="group" aria-label="Qué muestra el gráfico" style="margin-bottom:8px">
-          <button class="antb active" data-v="valor" aria-pressed="true" onclick="setPfVista('valor',this)">Valor</button>
-          <button class="antb" data-v="rendimiento" aria-pressed="false" onclick="setPfVista('rendimiento',this)">Rendimiento</button>
+        <div class="s-head" style="margin-bottom:2px">
+          <div class="s-title">Mi Portafolio</div>
+          <button class="icon-btn" id="pfRefreshBtn" onclick="solicitarSyncManual(this)" aria-label="Sincronizar posiciones y cierre oficial con IBKR" title="Sincronizar IBKR" style="width:36px;height:36px">
+            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>
         </div>
-        <div class="an-tabs" id="pfPeriodoTabs">
-          <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1M</button>
-          <button class="antb" data-p="3M" onclick="setPfPeriodo('3M',this)">3M</button>
-          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6M</button>
-          <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">Año actual</button>
+        <div class="pf-hero-valor" id="pfHeroValor">—</div>
+        <div class="pf-hero-hoy" id="pfHeroHoy"></div>
+        <div class="s-sub" id="pfFrescura" style="margin-top:4px;margin-bottom:10px;color:var(--dim)"></div>
+        <div class="an-tabs" id="pfVistaTabs" role="group" aria-label="Qué muestra el gráfico" style="margin-bottom:8px">
+          <button class="antb active" data-v="rendimiento" aria-pressed="true" onclick="setPfVista('rendimiento',this)">Rendimiento</button>
+          <button class="antb" data-v="valor" aria-pressed="false" onclick="setPfVista('valor',this)">Valor</button>
+        </div>
+        <div class="an-tabs pf-periodo-tabs" id="pfPeriodoTabs">
+          <button class="antb" data-p="1D" onclick="setPfPeriodo('1D',this)">1 d</button>
+          <button class="antb" data-p="1S" onclick="setPfPeriodo('1S',this)">1 sem</button>
+          <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1 m</button>
+          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6 m</button>
+          <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">AIF</button>
+          <button class="antb" data-p="1A" onclick="setPfPeriodo('1A',this)">1 a</button>
           <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
           <button class="antb" data-p="DESDE" onclick="setPfPeriodo('DESDE',this)">Desde…</button>
         </div>
@@ -746,12 +735,25 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div id="pfBenchmark"></div>
       </div>
 
-      <div class="chart-card" id="pfMarketCard" style="display:none">
-        <div class="s-head"><div class="s-title">Estimación de mercado</div><span class="pf-source-badge">Yahoo Finance</span></div>
-        <div id="pfMarketTotal" class="pf-market-total">—</div>
-        <p class="pf-market-disclaimer">Precio de mercado con retraso variable. Consultas cada 20 min; la hora del dato puede ser anterior. No modifica el cierre ni el histórico oficial de IBKR.</p>
-        <p id="pfMarketStatus" class="pf-data-note" role="status">Pendiente de consulta</p>
-        <p id="pfMarketDetail" class="hint"></p>
+      <div class="chart-card" id="pfResumenCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px">
+          <div class="s-title">Resumen</div>
+          <div class="s-sub" id="pfFechaEfectiva">—</div>
+        </div>
+        <div class="metric-grid" id="pfMetricGrid">
+          <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
+          <div class="metric pf-gain"><div class="m-lbl">P&amp;L no realizado · tus posiciones</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">sobre el costo de tus posiciones</div><div class="m-sub" id="pfPnlEst" style="color:var(--dim)"></div></div>
+          <div class="metric"><div class="m-lbl">Ganancia total · vs. aportes</div><div class="m-val pf-mid" id="pfGanancia">—</div><div class="m-sub" id="pfGananciaPct">—</div></div>
+          <div class="metric"><div class="m-lbl">Aportes netos</div><div class="m-val pf-mid" id="pfAportes">—</div><div class="m-sub" id="pfAportesSub">lo que has puesto</div></div>
+        </div>
+        <p class="hint" id="pfGananciaNota" style="margin-top:6px"></p>
+        <div class="s-sub" id="pfUltimaSync" style="margin-top:8px">—</div>
+      </div>
+
+      <div class="chart-card" id="pfPosicionesCard" style="display:none">
+        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Posiciones</div></div>
+        <div class="pf-position-tools"><input id="pfPositionSearch" type="search" class="search-inp" placeholder="Buscar activo…" aria-label="Buscar posiciones" oninput="renderPfPosiciones(pfPosicionesCache)"><select id="pfPositionSort" class="sel" aria-label="Ordenar posiciones" onchange="renderPfPosiciones(pfPosicionesCache)"><option value="value">Mayor valor</option><option value="name">Símbolo A–Z</option></select></div><div id="pfPositionCount" class="s-sub" aria-live="polite"></div>
+        <div id="pfPosicionesLista"></div>
       </div>
 
       <div class="chart-card" id="pfDistCard" style="display:none">
@@ -760,10 +762,12 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div class="legend" id="pfDistLegend"></div><p class="hint">Selecciona un activo para ver su peso. Importes en la moneda base de la cuenta.</p>
       </div>
 
-      <div class="chart-card" id="pfPosicionesCard" style="display:none">
-        <div class="s-head" style="margin-bottom:10px"><div class="s-title">Posiciones</div></div>
-        <div class="pf-position-tools"><input id="pfPositionSearch" type="search" class="search-inp" placeholder="Buscar activo…" aria-label="Buscar posiciones" oninput="renderPfPosiciones(pfPosicionesCache)"><select id="pfPositionSort" class="sel" aria-label="Ordenar posiciones" onchange="renderPfPosiciones(pfPosicionesCache)"><option value="value">Mayor valor</option><option value="name">Símbolo A–Z</option></select></div><div id="pfPositionCount" class="s-sub" aria-live="polite"></div>
-        <div id="pfPosicionesLista"></div>
+      <div class="chart-card" id="pfMarketCard" style="display:none">
+        <div class="s-head"><div class="s-title">Estimación de mercado</div><span class="pf-source-badge">Yahoo Finance</span></div>
+        <div id="pfMarketTotal" class="pf-market-total">—</div>
+        <p class="pf-market-disclaimer">Precio de mercado con retraso variable. Consultas cada 20 min; la hora del dato puede ser anterior. No modifica el cierre ni el histórico oficial de IBKR.</p>
+        <p id="pfMarketStatus" class="pf-data-note" role="status">Pendiente de consulta</p>
+        <p id="pfMarketDetail" class="hint"></p>
       </div>
 
       <div class="chart-card" id="pfDiagCard" style="display:none">
@@ -775,44 +779,6 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
           <div id="pfDiagResumen" class="s-sub" style="line-height:1.7"></div>
           <div id="pfDiagTabla" style="margin-top:10px"></div>
         </div>
-      </div>
-    </div>
-
-    <!-- FINANZAS (contenido original de Análisis, sin cambios) -->
-    <div id="anPanelFinanzas" style="display:none">
-      <div class="an-tabs">
-        <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
-        <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
-      </div>
-
-      <div class="metric-grid">
-        <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
-        <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
-        <div class="metric full"><div class="m-lbl">Gasto del período</div><div class="m-val" id="mGastoNeto">S/ 0</div><div class="m-sub" id="mGastoSub">—</div></div>
-        <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
-        <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
-        <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
-      </div>
-
-      <div class="chart-card">
-        <div class="s-head" style="margin-bottom:10px"><div><div class="s-title">Saldos por cuenta</div><div class="s-sub">Según tus movimientos registrados, cada cuenta en su moneda</div></div><button type="button" class="pay-small-btn" id="btnConciliar" aria-pressed="false" onclick="toggleConciliar()">Comparar con banco</button></div>
-        <div id="saldoCuentas" class="card-stat-grid"></div>
-      </div>
-
-      <div class="chart-card">
-        <div class="s-head" style="margin-bottom:14px"><div class="s-title">Gastos por categoría</div></div>
-        <div class="an-tabs" style="margin-bottom:12px">
-          <button class="antb active" onclick="setChart('bar',this)">Barras</button>
-          <button class="antb" onclick="setChart('donut',this)">Circular</button>
-          <button class="antb" onclick="setChart('trend',this)">Tendencia</button>
-        </div>
-        <div id="chartArea"></div>
-        <div class="legend" id="chartLegend"></div>
-      </div>
-
-      <div class="chart-card" id="yearCard" style="display:none">
-        <div class="s-head" style="margin-bottom:14px"><div class="s-title">Vista anual</div></div>
-        <div class="year-mini" id="yearMini"></div>
       </div>
     </div>
   </div>
@@ -848,11 +814,45 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   </div>
 </div>
 
-<!-- METAS -->
+<!-- ESTADÍSTICAS (contenido que antes vivía en Análisis → Finanzas) -->
 <div class="page" id="p-bud">
   <div class="container">
-    <header class="header"><div class="page-title">Metas</div></header>
-    <div id="buds"></div>
+    <header class="header"><div class="page-title">Estadísticas</div></header>
+
+    <div class="an-tabs">
+      <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
+      <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric"><div class="m-lbl">Tasa de ahorro</div><div class="m-val" id="mAhorro">0%</div><div class="m-sub" id="mAhorroSub">—</div></div>
+      <div class="metric"><div class="m-lbl">Promedio diario</div><div class="m-val" id="mProm">S/ 0</div><div class="m-sub" id="mPromSub">de gastos</div></div>
+      <div class="metric full"><div class="m-lbl">Gasto del período</div><div class="m-val" id="mGastoNeto">S/ 0</div><div class="m-sub" id="mGastoSub">—</div></div>
+      <div class="metric full"><div class="m-lbl">Proyección fin de período</div><div class="m-val" id="mProy">S/ 0</div><div class="m-sub" id="mProySub">—</div></div>
+      <div class="metric full"><div class="m-lbl">Categoría más cara</div><div class="m-val" id="mTop">—</div><div class="m-sub" id="mTopSub">—</div></div>
+      <div class="metric full"><div class="m-lbl">vs período anterior</div><div class="m-val" id="mCmp">—</div><div class="cmp-row"><span id="mCmpDet">—</span></div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="s-head" style="margin-bottom:10px"><div><div class="s-title">Saldos por cuenta</div><div class="s-sub">Según tus movimientos registrados, cada cuenta en su moneda</div></div><button type="button" class="pay-small-btn" id="btnConciliar" aria-pressed="false" onclick="toggleConciliar()">Comparar con banco</button></div>
+      <div id="saldoCuentas" class="card-stat-grid"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="s-head" style="margin-bottom:14px"><div class="s-title">Gastos por categoría</div></div>
+      <div class="an-tabs" style="margin-bottom:12px">
+        <button class="antb active" onclick="setChart('bar',this)">Barras</button>
+        <button class="antb" onclick="setChart('donut',this)">Circular</button>
+        <button class="antb" onclick="setChart('trend',this)">Tendencia</button>
+      </div>
+      <div id="chartArea"></div>
+      <div class="legend" id="chartLegend"></div>
+    </div>
+
+    <div class="chart-card" id="yearCard" style="display:none">
+      <div class="s-head" style="margin-bottom:14px"><div class="s-title">Vista anual</div></div>
+      <div class="year-mini" id="yearMini"></div>
+    </div>
   </div>
 </div>
 
@@ -1180,15 +1180,15 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   </button>
   <button class="nt" onclick="setPg('ana',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-    ANÁLISIS
+    PORTAFOLIO
   </button>
   <button class="nt" onclick="setPg('card',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
     TARJETAS
   </button>
   <button class="nt" onclick="setPg('bud',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    METAS
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+    ESTADÍSTICAS
   </button>
   <button class="nt" onclick="setPg('deb',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
@@ -1422,7 +1422,6 @@ function render(){
   renderBal();
   renderCat();
   renderTx();
-  renderBud();
   renderCardsPage();
   renderDeb();
   llenarSel();
@@ -1708,21 +1707,6 @@ function renderTx(){
   }).join('');
 }
 
-function renderBud(){
-  const l=document.getElementById('buds');
-  if(!datos.presupuestos||datos.presupuestos.length===0){l.innerHTML='<div class="empty">Sin presupuestos<br><span style="font-size:0.7rem">Añádelos en la pestaña Presupuestos del Sheet</span></div>';return;}
-  const tx=vista==='mes'?datos.transacciones.filter(t=>{const f=pf(t[0]);const ma=getMesActivo();return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();}):datos.transacciones;
-  const gc={};
-  tx.forEach(t=>{if(gastoNeto(t)!==0){const k=cleanName(t[2]);gc[k]=(gc[k]||0)+gastoNeto(t);}});
-  l.innerHTML=datos.presupuestos.map(p=>{
-    const c=cleanName(p[0]),lim=parseFloat(p[1])||0,gas=gc[c]||0;
-    const pct=lim>0?Math.max(0,Math.min((gas/lim)*100,100)):0;
-    const cls=pct>=100?'over':pct>=80?'warn':'ok';
-    const em=getEmoji(c);
-    return `<div class="bitem"><div class="bhead"><div class="bcat">${em.e} ${c}</div><div class="bamt"><span class="sp">${fmtC(gas)}</span> / ${fmtC(lim)}</div></div><div class="bbar"><div class="bfill ${cls}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% USADO</div></div>`;
-  }).join('');
-}
-
 function renderRec(){
   const l=document.getElementById('recs');
   if(!datos.recurrentes||datos.recurrentes.length===0){l.innerHTML='<div class="empty">Sin recurrentes<br><span style="font-size:0.7rem">Añádelas en la pestaña Recurrentes del Sheet</span></div>';return;}
@@ -1954,12 +1938,9 @@ function setPg(p,b){
   document.getElementById('p-'+p).classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
-  if(p==='ana'){
-    renderAnalisis();
-    setAnTopTab('portafolio', document.querySelector('#anTopTabs .detail-tab'));
-  }
+  if(p==='ana')renderPortafolio();
   if(p==='card')renderCardsPage();
-  if(p==='bud')renderBud();
+  if(p==='bud')renderAnalisis();
   if(p!=='ana')stopPfYahoo();
 }
 
@@ -2507,7 +2488,7 @@ document.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTouchEn
 
 function setAnPeriodo(p,b){
   anPeriodo=p;
-  document.querySelectorAll('#p-ana .an-tabs').forEach((tabs,idx)=>{if(idx===0){tabs.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));}});
+  document.querySelectorAll('#p-bud .an-tabs').forEach((tabs,idx)=>{if(idx===0){tabs.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));}});
   b.classList.add('active');
   document.getElementById('yearCard').style.display=p==='anio'?'block':'none';
   renderAnalisis();
@@ -2516,7 +2497,7 @@ function setAnPeriodo(p,b){
 function setChart(t,b){
   chartTipo=t;
   // segundas tabs
-  const tabs=document.querySelectorAll('#p-ana .an-tabs')[1];
+  const tabs=document.querySelectorAll('#p-bud .an-tabs')[1];
   if(tabs){tabs.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));}
   b.classList.add('active');
   renderChart();
@@ -2990,7 +2971,6 @@ function actualizarEquivalente(){
 }
 
 // ============ MI PORTAFOLIO (IBKR) ============
-let anTopTab='portafolio';
 let pfPeriodo='6M';
 let pfHistoricoCache=[];
 let pfPosicionesCache=[];
@@ -3022,22 +3002,13 @@ function fmtPct(n){return n===null||n===undefined||!isFinite(n)?'—':Number(n).
 function hoyLocal(){const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
 function diasEntre(a,b){return Math.round((a-b)/86400000);}
 
-function setAnTopTab(tab,btn){
-  anTopTab=tab;
-  document.querySelectorAll('#anTopTabs .detail-tab').forEach(x=>x.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  document.getElementById('anPanelPortafolio').style.display=tab==='portafolio'?'':'none';
-  document.getElementById('anPanelFinanzas').style.display=tab==='finanzas'?'':'none';
-  if(tab==='portafolio')renderPortafolio();else stopPfYahoo();
-}
-
 function filtrarPorPeriodo(rows,periodo,campoFecha){
   if(periodo==='ALL')return rows;
   const hoy=hoyLocal();
   let desde;
   if(periodo==='YTD')desde=new Date(hoy.getFullYear(),0,1);
   else{
-    const dias={'1M':30,'3M':90,'6M':180}[periodo]||180;
+    const dias={'1D':1,'1S':7,'1M':30,'3M':90,'6M':180,'1A':365}[periodo]||180;
     desde=new Date(hoy);desde.setDate(desde.getDate()-dias);
   }
   return rows.filter(r=>{const f=parseDateOnly(r[campoFecha]);return f&&f>=desde;});
@@ -3140,6 +3111,7 @@ async function renderPortafolio(){
   document.getElementById('pfResumenCard').style.display='';
 
   document.getElementById('pfChartCard').style.display='';
+  renderPfHero();
   renderPfChart();
 
   document.getElementById('pfDistCard').style.display='';
@@ -3150,6 +3122,32 @@ async function renderPortafolio(){
 
   renderPfDiagnostico((reconciliacion&&reconciliacion[0])||null, ledger||[]);
   startPfYahoo();
+}
+
+// Cabecera tipo Yahoo Finance: valor grande + "Hoy". El valor arranca en el
+// cierre oficial de IBKR (mismo dato que pfValorTotal) y renderPfYahoo lo
+// sobreescribe con el estimado en vivo cuando hay uno completo y comparable
+// — reutiliza exactamente el mismo cálculo que ya hace para pfMarketTotal,
+// no se duplica la lógica de resolución de precio.
+function renderPfHero(){
+  const el=document.getElementById('pfHeroValor');
+  if(!el||!pfHistoricoCache.length){if(el)el.textContent='—';return;}
+  const official=pfHistoricoCache.at(-1);
+  el.textContent=fmtMoneda(official.valor_total,official.moneda_base);
+  pintarPfHeroHoy(null);
+}
+function pintarPfHeroHoy(valorEnVivo){
+  const hoyEl=document.getElementById('pfHeroHoy');
+  if(!hoyEl)return;
+  const filas=pfHistoricoCache.filter(r=>Number(r.valor_total)>0);
+  if(filas.length<2){hoyEl.textContent='';return;}
+  const anterior=Number(filas[filas.length-2].valor_total);
+  const oficial=filas[filas.length-1];
+  const actual=valorEnVivo!==null&&valorEnVivo!==undefined?valorEnVivo:Number(oficial.valor_total);
+  if(!(anterior>0)){hoyEl.textContent='';return;}
+  const cambio=actual-anterior,pct=(actual/anterior-1)*100;
+  hoyEl.textContent=pfSigned(cambio,oficial.moneda_base)+' ('+pfSignedPct(pct)+') Hoy';
+  hoyEl.style.color=pfColor(cambio);
 }
 
 function renderPfResumen(row,ultimaSync){
@@ -3222,7 +3220,7 @@ function setPfPeriodo(p,btn){
 // aislando el efecto de cada flujo fechado (pfFlujos). Solo se bloquea si
 // algún flujo del período no tiene dólares confirmados (pendientesFechas):
 // ahí no hay forma de aislar su efecto y se prefiere el aviso al porcentaje.
-let pfVista='valor',pfDesde='';
+let pfVista='rendimiento',pfDesde='';
 function pfIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function pfSigned(n,moneda){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+fmtMoneda(Math.abs(n),moneda);}
 function pfSignedPct(n){return n===null||n===undefined||!isFinite(n)?'—':(n>0.004?'+':n<-0.004?'−':'')+Math.abs(n).toFixed(2)+'%';}
@@ -4981,7 +4979,7 @@ construirLineChartSVG=function(puntos,opts={}){
 const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:''};
 const PF_YAHOO_INTERVAL=20*60*1000;
 function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
-function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&anTopTab==='portafolio'&&getSession()!==null;}
+function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&getSession()!==null;}
 function pfQuoteKey(p){return String(p.cuenta_ibkr)+'|'+String(p.contract_id);}
 // Cadena de prioridad de precio de mercado (sección 3): por ahora solo Yahoo
 // y el cierre cacheado de IBKR están implementados — IBKR realtime/delayed
@@ -5068,6 +5066,12 @@ function renderPfYahoo(){
   // cierre oficial de IBKR que ya puso renderPfResumen.
   const frescura=document.getElementById('pfFrescura');
   if(frescura&&complete)frescura.textContent='● Live · Yahoo actualizado '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  if(complete){
+    const valorEnVivo=Number(official.valor_total)+delta;
+    const heroEl=document.getElementById('pfHeroValor');
+    if(heroEl)heroEl.textContent=fmtMoneda(valorEnVivo,official.moneda_base);
+    pintarPfHeroHoy(valorEnVivo);
+  }
   if(complete)guardarSnapshotCalculado(official,Number(official.valor_total)+delta,pnlEstimado);
   status.textContent=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
   detail.textContent=covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable. '+(complete?'Estimación con efectivo, ajustes y tipos de cambio del cierre IBKR.':'Se muestra un total estimado solo cuando todas las posiciones tienen precios comparables de hasta 60 min de antigüedad.');
