@@ -3561,25 +3561,36 @@ function renderPfChart(){
 // timestamp de la serie 5m de Yahoo en vez de solo al precio en vivo. Nunca
 // toca cantidades/costo/efectivo/histórico IBKR: Yahoo solo aporta precio.
 function pfLondonDayDe(t){return pfLondonDay(new Date(t));}
-// Timeline común: unión de los timestamps de HOY (día de Londres, mismo
-// criterio que pfMarketEstimate) de cada posición con datos intradía. En
-// cada punto de la timeline, cada posición aporta su precio más reciente
-// <= t (forward-fill SOLO dentro de hoy); si una posición todavía no tiene
-// ningún precio a esa altura del día, ese timestamp no es utilizable para
-// ella (nunca se inventa un precio, ni se arrastra el cierre de ayer).
+// Timeline común: unión de los timestamps de la SESIÓN DE MERCADO MÁS
+// RECIENTE (día de Londres) presente en los datos de cada posición — no del
+// "día de hoy" por reloj. Fuera del horario de Londres (p.ej. de madrugada,
+// antes de que abra la sesión del día en curso) el reloj ya marca un día
+// nuevo pero Yahoo todavía no tiene ningún punto de ese día: exigir que
+// coincidiera con "hoy" descartaba la última sesión real completa (llena de
+// horas de mercado abierto) y cada posición caía a "sin datos", lo que
+// terminaba mostrando el fallback de snapshots — una curva plana repitiendo
+// el último precio en horas donde ningún mercado estaba abierto. En cada
+// punto de la timeline, cada posición aporta su precio más reciente <= t
+// (forward-fill SOLO dentro de esa sesión); si una posición todavía no tiene
+// ningún precio a esa altura, ese timestamp no es utilizable para ella
+// (nunca se inventa un precio, ni se arrastra el cierre de la sesión previa).
 function construirTimelineIntradia(){
   const anterior=pfCierreAnterior();
-  const r={ok:false,puntos:[],cobertura:[],recibidos:0,usados:0,fuente:null,notaFallback:''};
+  const r={ok:false,puntos:[],cobertura:[],recibidos:0,usados:0,fuente:null,notaFallback:'',sesion:null};
   if(!anterior||!(Number(anterior.valor_total)>0)||!pfPosicionesCache.length)return r;
-  const base=Number(anterior.valor_total),hoy=pfLondonDay();
+  const base=Number(anterior.valor_total);
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
-  const series=pfPosicionesCache.map(p=>{
+  const crudosPorPosicion=pfPosicionesCache.map(p=>{
     const q=qByKey.get(pfQuoteKey(p));
     const crudos=(q&&q.status==='ok'&&q.intraday&&Array.isArray(q.intraday.points))?q.intraday.points:[];
     r.recibidos+=crudos.length;
-    const deHoy=crudos.filter(pt=>pfLondonDayDe(pt.t)===hoy).sort((a,b)=>a.t-b.t);
-    return{p,puntos:deHoy};
+    return{p,crudos};
   });
+  let sesion=null;
+  crudosPorPosicion.forEach(({crudos})=>crudos.forEach(pt=>{const d=pfLondonDayDe(pt.t);if(!sesion||d>sesion)sesion=d;}));
+  if(!sesion)return r;
+  r.sesion=sesion;
+  const series=crudosPorPosicion.map(({p,crudos})=>({p,puntos:crudos.filter(pt=>pfLondonDayDe(pt.t)===sesion).sort((a,b)=>a.t-b.t)}));
   r.cobertura=series.map(s=>({simbolo:s.p.simbolo,ok:s.puntos.length>0,puntos:s.puntos.length}));
   const conDatos=series.filter(s=>s.puntos.length>0),faltantes=series.filter(s=>!s.puntos.length);
   if(!conDatos.length)return r;
@@ -3605,7 +3616,7 @@ function construirTimelineIntradia(){
   r.puntos=puntos;
   r.ok=puntos.length>0;
   r.fuente=faltantes.length?'YAHOO_PARCIAL':'YAHOO';
-  if(faltantes.length)r.notaFallback='Serie incompleta: '+faltantes.map(f=>f.p.simbolo).join(', ')+' sin datos intradía hoy.';
+  if(faltantes.length)r.notaFallback='Serie incompleta: '+faltantes.map(f=>f.p.simbolo).join(', ')+' sin datos de esa sesión.';
   return r;
 }
 // Orquesta la cascada de fallback (A→D) y reconcilia el último punto con
@@ -3621,7 +3632,13 @@ function construirSerieIntradia(){
   pfUltimoDiag1D=tl;
   let puntos=[],fuente='SIN_DATOS',notaFallback='';
 
-  if(tl.ok){puntos=tl.puntos.map(p=>({t:p.t,valor:p.valor}));fuente=tl.fuente;notaFallback=tl.notaFallback;}
+  if(tl.ok){
+    puntos=tl.puntos.map(p=>({t:p.t,valor:p.valor}));fuente=tl.fuente;notaFallback=tl.notaFallback;
+    // Si la sesión más reciente con datos no es la de hoy (el mercado todavía
+    // no abrió su sesión del día en curso), se avisa igual que el resto de
+    // fallbacks — sin ocultar que es la sesión anterior, no "ahora mismo".
+    if(tl.sesion&&tl.sesion!==pfLondonDay())notaFallback=(notaFallback?notaFallback+' ':'')+'Mostrando la última sesión de mercado ('+pfFechaCorta(tl.sesion)+'): hoy todavía no abre.';
+  }
   else if(pfSnapshotsHoyCache.length){
     // C) fallback: portfolio_snapshots (curva calculada guardada durante la sesión).
     puntos=pfSnapshotsHoyCache
@@ -3631,7 +3648,14 @@ function construirSerieIntradia(){
     notaFallback='Sin serie intradía de Yahoo todavía — usando estimaciones guardadas durante la sesión.';
   }
 
-  if(v.fuente==='YAHOO'){
+  // Solo se estira la curva hasta "ahora" mientras el mercado está REALMENTE
+  // abierto en este momento (pfYahooSessionOpen, con los session_start/end
+  // que informa Yahoo). v.fuente==='YAHOO' por sí solo no basta: ese estimado
+  // sigue siendo válido varias horas después del cierre (ver pfMarketEstimate),
+  // así que si el mercado ya cerró y se agregara un punto en Date.now(), la
+  // curva terminaría con una cola plana hasta la hora actual aunque no haya
+  // pasado nada nuevo — exactamente el aplanado que se quiere evitar.
+  if(v.fuente==='YAHOO'&&pfYahooSessionOpen()){
     const ultimo=puntos[puntos.length-1];
     const yaEsIgual=ultimo&&Math.abs(ultimo.valor-v.valor)<0.005&&(Date.now()-ultimo.t)<5*60*1000;
     if(!yaEsIgual)puntos.push({t:Date.now(),valor:v.valor});
@@ -3650,25 +3674,26 @@ function construirSerieIntradia(){
   puntos.sort((a,b)=>a.t-b.t);
   const actual=puntos[puntos.length-1].valor;
   const serie=puntos.map(p=>({t:p.t,valor:pfVista==='rendimiento'?(p.valor/base-1)*100:p.valor}));
-  return{ok:true,serie,moneda,base,actual,notaFallback,fuente};
+  return{ok:true,serie,moneda,base,actual,notaFallback,fuente,sesion:tl.sesion};
 }
 
 // Renderer propio del 1D (no toca construirLineChartSVG, que sigue sirviendo
 // a 1S/1M/6M/AIF/1A/Todo/Desde y al modal de posición): eje X por hora real,
 // escala más ajustada y devuelve el mapeo x(t)/y(valor) para el tooltip.
-// Segmenta una serie en tramos contiguos del mismo signo (>=0 / <0),
-// insertando un punto sintético (solo para dibujar, nunca se toca `validos`)
-// en el cruce exacto por 0, interpolado linealmente entre los dos puntos
-// reales que lo rodean. El punto de cruce cierra un tramo y abre el
+// Segmenta una serie en tramos contiguos por encima/debajo de una
+// referencia (por defecto 0 — la vista de valor absoluto pasa el primer
+// punto), insertando un punto sintético (solo para dibujar, nunca se toca
+// `validos`) en el cruce exacto, interpolado linealmente entre los dos
+// puntos reales que lo rodean. El punto de cruce cierra un tramo y abre el
 // siguiente (extremo compartido) para que la línea no tenga huecos.
-function pfSegmentarPorSigno(validos){
+function pfSegmentarPorSigno(validos,ref=0){
   if(validos.length<2)return[validos];
   const conCruces=[validos[0]];
   for(let i=1;i<validos.length;i++){
     const a=validos[i-1],b=validos[i];
-    if((a.valor>=0)!==(b.valor>=0)){
-      const fa=Math.abs(a.valor),fb=Math.abs(b.valor),frac=(fa+fb)>0?fa/(fa+fb):0.5;
-      conCruces.push({t:a.t+(b.t-a.t)*frac,valor:0,cruce:true});
+    if((a.valor>=ref)!==(b.valor>=ref)){
+      const fa=Math.abs(a.valor-ref),fb=Math.abs(b.valor-ref),frac=(fa+fb)>0?fa/(fa+fb):0.5;
+      conCruces.push({t:a.t+(b.t-a.t)*frac,valor:ref,cruce:true});
     }
     conCruces.push(b);
   }
@@ -3681,9 +3706,9 @@ function pfSegmentarPorSigno(validos){
   tramos.push(actual);
   return tramos;
 }
-function pfColorTramo(tramo,fallback){
-  const p=tramo.find(p=>p.valor!==0);
-  return p?(p.valor>=0?'var(--green)':'var(--red)'):fallback;
+function pfColorTramo(tramo,fallback,ref=0){
+  const p=tramo.find(p=>p.valor!==ref);
+  return p?(p.valor>=ref?'var(--green)':'var(--red)'):fallback;
 }
 function construirGraficoIntradia(puntos,opts={}){
   const validos=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t));
@@ -3703,31 +3728,29 @@ function construirGraficoIntradia(puntos,opts={}){
   let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="Rendimiento intradía del portafolio">`;
   for(let i=0;i<=3;i++){const yy=PAD_T+innerH*(i/3);const val=yMax-(yMax-yMin)*(i/3);
     svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5" opacity=".6"/><text x="0" y="${yy+4}" font-size="9" fill="var(--dim)">${esc(opts.fmt?opts.fmt(val):fmtCompacto(val))}</text>`;}
-  if(opts.zeroLine){
-    // Coloreado por signo (sección 3 del pedido visual): cada tramo usa el
-    // color de su propio signo respecto a 0%, no el color del día completo.
-    // El relleno de cada tramo va desde la curva hasta 0% (recortado a los
-    // bordes del gráfico cuando 0% cae fuera del rango visible).
-    const tramos=pfSegmentarPorSigno(validos);
-    const y0clamp=Math.min(baseline,Math.max(PAD_T,y(0)));
-    tramos.forEach(tramo=>{
-      if(tramo.length<2)return;
-      const c=pfColorTramo(tramo,color);
-      const d=tramo.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
-      svg+=`<path d="${d} L ${x(tramo[tramo.length-1].t).toFixed(2)} ${y0clamp.toFixed(2)} L ${x(tramo[0].t).toFixed(2)} ${y0clamp.toFixed(2)} Z" fill="${c}" opacity=".08"/>`;
-    });
-    tramos.forEach(tramo=>{
-      if(tramo.length<2)return;
-      const c=pfColorTramo(tramo,color);
-      const d=tramo.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
-      svg+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    });
-  }else{
-    const path=validos.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
-    svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${color}" opacity=".1"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-  }
-  // Línea de 0% (sección 13): solo si cae dentro del rango ya calculado.
-  if(opts.zeroLine&&yMin<=0&&0<=yMax){const y0=y(0);svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" opacity=".7"/>`;}
+  // Referencia (dónde estaba el valor al ARRANCAR el gráfico): 0% en la
+  // vista de rendimiento, o el primer punto en la vista de valor absoluto
+  // (opts.referencia). Cada tramo se pinta del color de su propio signo
+  // respecto a esa referencia — verde arriba, rojo abajo — y la línea
+  // punteada que la marca SIEMPRE se dibuja: si el período entero quedó de
+  // un solo lado, se recorta al borde del gráfico (mismo clamp que ya usaba
+  // el relleno) en vez de desaparecer por caer fuera del rango visible.
+  const ref=opts.referencia??0;
+  const tramos=pfSegmentarPorSigno(validos,ref);
+  const yRefClamp=Math.min(baseline,Math.max(PAD_T,y(ref)));
+  tramos.forEach(tramo=>{
+    if(tramo.length<2)return;
+    const c=pfColorTramo(tramo,color,ref);
+    const d=tramo.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
+    svg+=`<path d="${d} L ${x(tramo[tramo.length-1].t).toFixed(2)} ${yRefClamp.toFixed(2)} L ${x(tramo[0].t).toFixed(2)} ${yRefClamp.toFixed(2)} Z" fill="${c}" opacity=".08"/>`;
+  });
+  tramos.forEach(tramo=>{
+    if(tramo.length<2)return;
+    const c=pfColorTramo(tramo,color,ref);
+    const d=tramo.map((p,i)=>(i?'L':'M')+x(p.t).toFixed(2)+' '+y(p.valor).toFixed(2)).join(' ');
+    svg+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  svg+=`<line x1="${PAD_L}" y1="${yRefClamp.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yRefClamp.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>`;
   const numEtiquetas=Math.min(5,validos.length);
   const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
   idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle';
@@ -3783,15 +3806,20 @@ function renderPfChart1D(area,titulo,hint,res){
   if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';return;}
   const cambio=s.actual-s.base,pct=(s.actual/s.base-1)*100;
   const colorLinea=cambio>=0?'var(--green)':'var(--red)';
-  titulo.textContent='Hoy';
+  titulo.textContent=(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión':'Hoy';
   if(pfVista==='rendimiento'){
-    const grafico=construirGraficoIntradia(s.serie,{zeroLine:true,color:colorLinea,fmt:v=>v.toFixed(2)+'%'});
+    // Referencia 0% = "dónde estaba el rendimiento al inicio" (siempre 0,
+    // por definición). El coloreado por tramos y la línea punteada viven en
+    // construirGraficoIntradia (referencia por defecto).
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,fmt:v=>v.toFixed(2)+'%'});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(s.base*(1+p.valor/100),s.moneda),fmtPct:p=>pfSignedPct(p.valor),pctValor:p=>p.valor});
     const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
     res.innerHTML='<div class="pf-rend-big">Rendimiento del día<strong style="color:'+pfColor(pct)+'">'+esc(pfSignedPct(pct))+'</strong></div>'+cifras;
   }else{
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea});
+    // En valor absoluto la referencia es el primer punto mostrado (el valor
+    // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.serie[0]?.valor});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{fmtValor:p=>fmtMoneda(p.valor,s.moneda),fmtPct:p=>pfSignedPct((p.valor/s.base-1)*100),pctValor:p=>(p.valor/s.base-1)*100});
   }
