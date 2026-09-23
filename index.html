@@ -571,6 +571,11 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
    una sola fila con scroll horizontal en vez de partirse en dos líneas. */
 .pf-hero-valor{font-size:clamp(30px,7vw,44px);font-weight:800;letter-spacing:-.04em;margin-top:8px}
 .pf-hero-hoy{font-size:.85rem;font-weight:700;min-height:1.2em}
+.pf-hero-titulo{color:var(--dim)}
+.pf-view-icon[aria-pressed="true"]{border-color:var(--accent);background:var(--card2)}
+.pf-view-icon[aria-pressed="true"] svg{stroke:var(--accent)}
+.pf-desde-toggle{display:block;margin:10px 0 2px;padding:0;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;text-align:left}
+.pf-desde-toggle:hover{color:var(--text)}
 #pfPeriodoTabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 #pfPeriodoTabs::-webkit-scrollbar{display:none}
 #pfPeriodoTabs .antb{flex:none;white-space:nowrap}
@@ -582,7 +587,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 @media(max-width:600px){#pfResumenCard .metric-grid{grid-template-columns:1fr 1fr}#pfResumenCard .metric.pf-gain{grid-column:1/-1}#pfPosicionesLista{grid-template-columns:1fr}#anPanelPortafolio .chart-card{padding:18px}#pfPositionSort{max-width:135px}.pf-position-tools{gap:8px}.pf-position{padding:16px}}
 
 
-#pfMarketCard{grid-column:1/-1} .pf-market-total{font-size:clamp(25px,4vw,34px);font-weight:700;letter-spacing:-.03em;margin:12px 0}.pf-market-disclaimer{font-size:12px;line-height:1.6;color:var(--dim)}.pf-market-position{display:flex;flex-direction:column;gap:6px;padding-top:13px;margin-top:13px;border-top:1px dashed var(--border);font-size:10px;line-height:1.5;color:var(--dim)}.pf-market-position>strong{font-size:16px;color:var(--text)}.pf-market-label{font-size:9px;letter-spacing:.08em;color:var(--blue)}
+.pf-market-position{display:flex;flex-direction:column;gap:6px;padding-top:13px;margin-top:13px;border-top:1px dashed var(--border);font-size:10px;line-height:1.5;color:var(--dim)}.pf-market-position>strong{font-size:16px;color:var(--text)}.pf-market-label{font-size:9px;letter-spacing:.08em;color:var(--blue)}
 
 /* Preferencias y portafolio adaptable */
 :root{--accent:#00d68f}
@@ -591,7 +596,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
 #anPanelPortafolio{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
 #anPanelPortafolio>*{min-width:0}.pf-source-strip{grid-column:1/-1}
 #pfChartCard{grid-column:1/-1}#pfChartArea,#pfModalChartArea{width:100%;min-width:0}
-#pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:280px;aspect-ratio:560/205}
+#pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:340px;aspect-ratio:4/3}
+#p-ana .container{padding-top:14px}
 #pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
 .pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}
 .pf-position-head{flex-wrap:wrap}#settingsModal .sel{width:100%;margin-top:10px}
@@ -696,42 +702,45 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
   <div class="container">
     <!-- MI PORTAFOLIO (IBKR) -->
     <div id="anPanelPortafolio">
-      <div class="pf-source-strip"><span class="pf-source-badge">IBKR · Cierre oficial</span><span>Posiciones e histórico sincronizados con Flex</span></div>
       <div id="pfEstado" role="status"></div>
 
       <div class="chart-card" id="pfChartCard" style="display:none">
         <div class="s-head" style="margin-bottom:2px">
-          <div class="s-title">Mi Portafolio</div>
-          <button class="icon-btn" id="pfRefreshBtn" onclick="solicitarSyncManual(this)" aria-label="Sincronizar posiciones y cierre oficial con IBKR" title="Sincronizar IBKR" style="width:36px;height:36px">
-            <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
-          </button>
+          <div class="s-title pf-hero-titulo" id="pfHeroTitulo">Rendimiento de Portafolio</div>
+          <div style="display:flex;gap:6px">
+            <button class="icon-btn pf-view-icon" id="pfViewRend" aria-pressed="true" aria-label="Ver rendimiento" title="Rendimiento" onclick="setPfVista('rendimiento')">
+              <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            </button>
+            <button class="icon-btn pf-view-icon" id="pfViewValor" aria-pressed="false" aria-label="Ver valor" title="Valor" onclick="setPfVista('valor')">
+              <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2Z"/><path d="M18 13h.01"/></svg>
+            </button>
+            <button class="icon-btn" id="pfRefreshBtn" onclick="solicitarSyncManual(this)" aria-label="Sincronizar posiciones y cierre oficial con IBKR" title="Sincronizar IBKR">
+              <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+          </div>
         </div>
         <div class="pf-hero-valor" id="pfHeroValor">—</div>
         <div class="pf-hero-hoy" id="pfHeroHoy"></div>
         <div class="s-sub" id="pfFrescura" style="margin-top:4px;margin-bottom:10px;color:var(--dim)"></div>
-        <div class="an-tabs" id="pfVistaTabs" role="group" aria-label="Qué muestra el gráfico" style="margin-bottom:8px">
-          <button class="antb active" data-v="rendimiento" aria-pressed="true" onclick="setPfVista('rendimiento',this)">Rendimiento</button>
-          <button class="antb" data-v="valor" aria-pressed="false" onclick="setPfVista('valor',this)">Valor</button>
-        </div>
         <div class="an-tabs pf-periodo-tabs" id="pfPeriodoTabs">
-          <button class="antb" data-p="1D" onclick="setPfPeriodo('1D',this)">1 d</button>
+          <button class="antb active" data-p="1D" onclick="setPfPeriodo('1D',this)">1 d</button>
           <button class="antb" data-p="1S" onclick="setPfPeriodo('1S',this)">1 sem</button>
           <button class="antb" data-p="1M" onclick="setPfPeriodo('1M',this)">1 m</button>
-          <button class="antb active" data-p="6M" onclick="setPfPeriodo('6M',this)">6 m</button>
+          <button class="antb" data-p="6M" onclick="setPfPeriodo('6M',this)">6 m</button>
           <button class="antb" data-p="YTD" onclick="setPfPeriodo('YTD',this)">AIF</button>
           <button class="antb" data-p="1A" onclick="setPfPeriodo('1A',this)">1 a</button>
           <button class="antb" data-p="ALL" onclick="setPfPeriodo('ALL',this)">Todo</button>
-          <button class="antb" data-p="DESDE" onclick="setPfPeriodo('DESDE',this)">Desde…</button>
-        </div>
-        <div class="pf-desde" id="pfDesdePanel" hidden>
-          <label>Desde <input type="date" id="pfDesdeInput" onchange="setPfDesde(this.value)"></label>
-          <span class="pf-desde-hasta">Hasta: hoy</span>
-          <div class="pf-desde-info" id="pfDesdeInfo" role="status"></div>
         </div>
         <div class="pf-chart-title" id="pfChartTitulo"></div>
         <div id="pfChartArea"></div>
         <div id="pfRendResumen"></div>
         <p class="hint" id="pfChartHint"></p>
+        <button class="pf-desde-toggle" id="pfDesdeToggle" onclick="setPfPeriodo('DESDE',null)">Ver desde una fecha →</button>
+        <div class="pf-desde" id="pfDesdePanel" hidden>
+          <label>Desde <input type="date" id="pfDesdeInput" onchange="setPfDesde(this.value)"></label>
+          <span class="pf-desde-hasta">Hasta: hoy</span>
+          <div class="pf-desde-info" id="pfDesdeInfo" role="status"></div>
+        </div>
         <div id="pfBenchmark"></div>
       </div>
 
@@ -741,7 +750,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
           <div class="s-sub" id="pfFechaEfectiva">—</div>
         </div>
         <div class="metric-grid" id="pfMetricGrid">
-          <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div></div>
+          <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div><div class="m-sub" id="pfValorRef" style="color:var(--dim)"></div></div>
           <div class="metric pf-gain"><div class="m-lbl">P&amp;L no realizado · tus posiciones</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">sobre el costo de tus posiciones</div><div class="m-sub" id="pfPnlEst" style="color:var(--dim)"></div></div>
           <div class="metric"><div class="m-lbl">Ganancia total · vs. aportes</div><div class="m-val pf-mid" id="pfGanancia">—</div><div class="m-sub" id="pfGananciaPct">—</div></div>
           <div class="metric"><div class="m-lbl">Aportes netos</div><div class="m-val pf-mid" id="pfAportes">—</div><div class="m-sub" id="pfAportesSub">lo que has puesto</div></div>
@@ -760,14 +769,6 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <div class="s-head" style="margin-bottom:10px"><div class="s-title">Distribución por activo</div><span class="s-sub">Cierre IBKR</span></div>
         <div id="pfDistArea"></div>
         <div class="legend" id="pfDistLegend"></div><p class="hint">Selecciona un activo para ver su peso. Importes en la moneda base de la cuenta.</p>
-      </div>
-
-      <div class="chart-card" id="pfMarketCard" style="display:none">
-        <div class="s-head"><div class="s-title">Estimación de mercado</div><span class="pf-source-badge">Yahoo Finance</span></div>
-        <div id="pfMarketTotal" class="pf-market-total">—</div>
-        <p class="pf-market-disclaimer">Precio de mercado con retraso variable. Consultas cada 20 min; la hora del dato puede ser anterior. No modifica el cierre ni el histórico oficial de IBKR.</p>
-        <p id="pfMarketStatus" class="pf-data-note" role="status">Pendiente de consulta</p>
-        <p id="pfMarketDetail" class="hint"></p>
       </div>
 
       <div class="chart-card" id="pfDiagCard" style="display:none">
@@ -2971,9 +2972,10 @@ function actualizarEquivalente(){
 }
 
 // ============ MI PORTAFOLIO (IBKR) ============
-let pfPeriodo='6M';
+let pfPeriodo='1D';
 let pfHistoricoCache=[];
 let pfPosicionesCache=[];
+let pfSnapshotsHoyCache=[];
 let pfModalPeriodo='6M';
 let pfModalDesde='';
 let pfModalHistoricoCache=[];
@@ -3014,54 +3016,21 @@ function filtrarPorPeriodo(rows,periodo,campoFecha){
   return rows.filter(r=>{const f=parseDateOnly(r[campoFecha]);return f&&f>=desde;});
 }
 
-function construirLineChartSVG(puntos){
-  const validos=puntos.filter(p=>p.valor!==null&&p.valor!==undefined&&isFinite(p.valor));
-  if(validos.length<2){
-    if(validos.length===1)return `<div class="empty">Histórico insuficiente para graficar — disponible desde ${esc(fmtDateShort(parseDateOnly(validos[0].fecha)))}</div>`;
-    return '<div class="empty">Histórico insuficiente para graficar</div>';
-  }
-  const w=320,h=180,padL=44,padR=10,padT=10,padB=22;
-  const vals=validos.map(p=>p.valor);
-  const max=Math.max(...vals),min=Math.min(...vals);
-  const rango=(max-min)||Math.max(Math.abs(max),1);
-  const innerW=w-padL-padR,innerH=h-padT-padB;
-  const step=innerW/(validos.length-1);
-  let path='',area='';
-  validos.forEach((p,i)=>{
-    const x=padL+i*step;
-    const y=padT+innerH-((p.valor-min)/rango)*innerH;
-    path+=(i===0?'M':'L')+x+' '+y+' ';
-    if(i===0)area='M '+x+' '+(padT+innerH)+' L '+x+' '+y+' ';
-    else area+='L '+x+' '+y+' ';
-    if(i===validos.length-1)area+='L '+x+' '+(padT+innerH)+' Z';
-  });
-  let svg=`<svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet">`;
-  for(let i=0;i<=3;i++){
-    const yy=padT+innerH*(i/3);
-    const val=max-(max-min)*(i/3);
-    svg+=`<line x1="${padL}" y1="${yy}" x2="${w-padR}" y2="${yy}" stroke="#1f1f23" stroke-width="1"/>`;
-    svg+=`<text x="0" y="${yy+3}" fill="#52525b" font-size="8">${fmtCompacto(val)}</text>`;
-  }
-  svg+=`<path d="${area}" fill="var(--green)" opacity="0.12"/>`;
-  svg+=`<path d="${path}" fill="none" stroke="var(--green)" stroke-width="2"/>`;
-  [0,Math.floor((validos.length-1)/2),validos.length-1].forEach(i=>{
-    const x=padL+i*step;
-    svg+=`<text x="${x}" y="${h-4}" text-anchor="middle" fill="#52525b" font-size="8">${esc(fmtDateShort(parseDateOnly(validos[i].fecha)))}</text>`;
-  });
-  svg+='</svg>';
-  return svg;
-}
+// NOTA: la implementación real de construirLineChartSVG se define más abajo
+// (busca "Mejora el eje temporal"), como una asignación que SOBREESCRIBE
+// cualquier función con este nombre declarada antes en el script. Ese es el
+// único código que realmente corre — no declarar una segunda versión acá.
 
 let pfLoadSequence=0;
 async function renderPortafolio(){
   const sequence=++pfLoadSequence;
   const estadoEl=document.getElementById('pfEstado');
-  if(!pfHistoricoCache.length)['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard','pfMarketCard'].forEach(id=>document.getElementById(id).style.display='none');
+  if(!pfHistoricoCache.length)['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
   estadoEl.innerHTML='<div class="empty">Cargando portafolio…</div>';
 
-  let config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger;
+  let config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy;
   try{
-    [config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger]=await Promise.all([
+    [config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy]=await Promise.all([
       sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
       sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
       sbFetch('portafolio_historial?select=*&order=fecha_valoracion.asc'),
@@ -3074,6 +3043,9 @@ async function renderPortafolio(){
       // tamaño del ledger. Si falla, el diagnóstico simplemente no se muestra.
       sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
       sbFetch('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc').catch(()=>[]),
+      // 1D: snapshots calculados de hoy (ver construirSerieIntradia). Si falla,
+      // el 1D cae al mensaje de "sin cotizaciones todavía", no rompe el resto.
+      sbFetch('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc').catch(()=>[]),
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
@@ -3085,11 +3057,12 @@ async function renderPortafolio(){
   pfHistoricoCache=historial||[];
   pfPosicionesCache=posiciones||[];
   pfBenchCache=bench||[];
+  pfSnapshotsHoyCache=snapshotsHoy||[];
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
   const ultimaSync=(sync&&sync[0])||null;
 
   if(!ultimoHistorial){
-    ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard','pfMarketCard'].forEach(id=>document.getElementById(id).style.display='none');
+    ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
     estadoEl.innerHTML=(config&&config[0])
       ? '<div class="empty">Todavía no hay ninguna sincronización exitosa con IBKR.<br>Se mostrará aquí en cuanto corra la primera.</div>'
       : '<div class="empty">La sincronización con IBKR aún no está configurada.</div>';
@@ -3111,7 +3084,7 @@ async function renderPortafolio(){
   document.getElementById('pfResumenCard').style.display='';
 
   document.getElementById('pfChartCard').style.display='';
-  renderPfHero();
+  pintarValorPrincipal();
   renderPfChart();
 
   document.getElementById('pfDistCard').style.display='';
@@ -3124,35 +3097,63 @@ async function renderPortafolio(){
   startPfYahoo();
 }
 
-// Cabecera tipo Yahoo Finance: valor grande + "Hoy". El valor arranca en el
-// cierre oficial de IBKR (mismo dato que pfValorTotal) y renderPfYahoo lo
-// sobreescribe con el estimado en vivo cuando hay uno completo y comparable
-// — reutiliza exactamente el mismo cálculo que ya hace para pfMarketTotal,
-// no se duplica la lógica de resolución de precio.
-function renderPfHero(){
-  const el=document.getElementById('pfHeroValor');
-  if(!el||!pfHistoricoCache.length){if(el)el.textContent='—';return;}
-  const official=pfHistoricoCache.at(-1);
-  el.textContent=fmtMoneda(official.valor_total,official.moneda_base);
-  pintarPfHeroHoy(null);
+// El cierre oficial más reciente: línea base de "hoy" y del 1D intradía.
+// Cuando el cron ya corrió, esta fila ES el cierre de ayer (última sesión
+// cerrada) — la referencia correcta para medir el movimiento de hoy.
+function pfCierreAnterior(){
+  const filas=pfHistoricoCache.filter(r=>Number(r.valor_total)>0);
+  return filas.length?filas[filas.length-1]:null;
 }
-function pintarPfHeroHoy(valorEnVivo){
+// Cabecera tipo Yahoo Finance + Resumen + frescura: única fuente de verdad
+// del "valor actual estimado" (pfYahoo.valorEnVivo/completo, que solo calcula
+// renderPfYahoo). Se llama al cargar (con pfYahoo.completo=false, o sea el
+// cierre IBKR) y de nuevo cada vez que renderPfYahoo tiene una estimación
+// nueva — nunca se recalcula el precio acá, solo se pinta.
+function pintarValorPrincipal(){
+  const official=pfCierreAnterior();
+  const heroEl=document.getElementById('pfHeroValor'),totalEl=document.getElementById('pfValorTotal'),
+        refEl=document.getElementById('pfValorRef'),frescura=document.getElementById('pfFrescura');
+  if(!official){if(heroEl)heroEl.textContent='—';return;}
+  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
+  const valor=usaVivo?pfYahoo.valorEnVivo:Number(official.valor_total);
+  const texto=fmtMoneda(valor,official.moneda_base);
+  if(heroEl)heroEl.textContent=texto;
+  if(totalEl)totalEl.textContent=texto;
+  if(refEl)refEl.textContent=usaVivo?'Cierre IBKR: '+fmtMoneda(official.valor_total,official.moneda_base):'';
+  if(frescura)frescura.textContent=usaVivo
+    ?'● Yahoo · actualizado '+new Date(pfYahoo.momento||Date.now()).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
+    :'IBKR cierre oficial · '+fmtDateShort(parseDateOnly(official.fecha_valoracion));
+  pintarPfHeroHoy();
+}
+function pintarPfHeroHoy(){
   const hoyEl=document.getElementById('pfHeroHoy');
   if(!hoyEl)return;
   const filas=pfHistoricoCache.filter(r=>Number(r.valor_total)>0);
-  if(filas.length<2){hoyEl.textContent='';return;}
-  const anterior=Number(filas[filas.length-2].valor_total);
-  const oficial=filas[filas.length-1];
-  const actual=valorEnVivo!==null&&valorEnVivo!==undefined?valorEnVivo:Number(oficial.valor_total);
+  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
+  let anterior,actual,moneda;
+  if(usaVivo&&filas.length>=1){
+    // Con Yahoo: "hoy" = valor en vivo vs. el cierre oficial más reciente
+    // (el que ya representa el día anterior completo).
+    anterior=Number(filas[filas.length-1].valor_total);
+    actual=pfYahoo.valorEnVivo;
+    moneda=filas[filas.length-1].moneda_base;
+  }else if(filas.length>=2){
+    // Sin Yahoo: mejor disponible es el día-contra-día de los dos últimos cierres.
+    anterior=Number(filas[filas.length-2].valor_total);
+    actual=Number(filas[filas.length-1].valor_total);
+    moneda=filas[filas.length-1].moneda_base;
+  }else{hoyEl.textContent='';return;}
   if(!(anterior>0)){hoyEl.textContent='';return;}
   const cambio=actual-anterior,pct=(actual/anterior-1)*100;
-  hoyEl.textContent=pfSigned(cambio,oficial.moneda_base)+' ('+pfSignedPct(pct)+') Hoy';
+  hoyEl.textContent=pfSigned(cambio,moneda)+' ('+pfSignedPct(pct)+') Hoy';
   hoyEl.style.color=pfColor(cambio);
 }
 
 function renderPfResumen(row,ultimaSync){
   const moneda=row.moneda_base;
-  document.getElementById('pfValorTotal').textContent=fmtMoneda(row.valor_total,moneda);
+  // pfValorTotal/pfValorRef/pfFrescura los pinta pintarValorPrincipal() (fuente
+  // única del "valor actual estimado" con prioridad Yahoo) — acá solo lo que
+  // depende exclusivamente del cierre oficial de IBKR.
   document.getElementById('pfMonedaBase').textContent='Efectivo en IBKR '+fmtMoneda(row.efectivo,moneda)+' · moneda base '+(moneda||'—');
   // Rentabilidad de las posiciones: P&L ÷ costo de las posiciones abiertas. El
   // efectivo está en el valor total pero NO en este cálculo.
@@ -3187,11 +3188,6 @@ function renderPfResumen(row,ultimaSync){
     ? `Última sincronización exitosa: ${fmtDateLong(new Date(ultimaSync.finalizado_en||ultimaSync.iniciado_en))}`
     : 'Fecha de la última sincronización exitosa no disponible';
   document.getElementById('pfUltimaSync').textContent=ultOkTxt;
-  // Línea de frescura discreta (sección 10): arranca en el cierre oficial de
-  // IBKR; renderPfYahoo la actualiza a "Live" en cuanto tiene una estimación
-  // completa y comparable.
-  const frescura=document.getElementById('pfFrescura');
-  if(frescura)frescura.textContent='IBKR cierre oficial · '+fmtDateShort(fecha);
 }
 
 function setPfPeriodo(p,btn){
@@ -3408,11 +3404,27 @@ function pfRendimientoActivo(filas){
 // ── Vista del gráfico ───────────────────────────────────────────────────────
 function setPfVista(v){
   pfVista=v;
-  document.querySelectorAll('#pfVistaTabs .antb').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);x.setAttribute('aria-pressed',String(on));});
+  const rend=document.getElementById('pfViewRend'),val=document.getElementById('pfViewValor'),titulo=document.getElementById('pfHeroTitulo');
+  if(rend)rend.setAttribute('aria-pressed',String(v==='rendimiento'));
+  if(val)val.setAttribute('aria-pressed',String(v==='valor'));
+  if(titulo)titulo.textContent=v==='rendimiento'?'Rendimiento de Portafolio':'Valor de Portafolio';
   renderPfChart();
 }
 function setPfDesde(iso){pfDesde=iso||'';renderPfChart();}
+
+// Etiqueta del período para el número grande debajo del gráfico (sección 8):
+// "Hoy" del hero NUNCA cambia con el período — eso lo pinta pintarPfHeroHoy().
+const PF_PERIODO_LABEL={'1D':'Rendimiento del día','1S':'Rendimiento 1 semana','1M':'Rendimiento 1 mes','6M':'Rendimiento 6 meses',YTD:'Rendimiento AIF','1A':'Rendimiento 1 año',ALL:'Rendimiento total'};
+function pfEtiquetaPeriodo(desde){return PF_PERIODO_LABEL[pfPeriodo]||('Rendimiento desde '+pfFechaCorta(desde));}
+
 function renderPfChart(){
+  const toggle=document.getElementById('pfDesdeToggle');
+  if(toggle)toggle.style.display=pfPeriodo==='DESDE'?'none':'';
+  const area=document.getElementById('pfChartArea'),titulo=document.getElementById('pfChartTitulo'),hint=document.getElementById('pfChartHint'),res=document.getElementById('pfRendResumen');
+  res.innerHTML='';renderPfBenchmark(null);
+
+  if(pfPeriodo==='1D'){renderPfChart1D(area,titulo,hint,res);return;}
+
   const panel=document.getElementById('pfDesdePanel'),info=document.getElementById('pfDesdeInfo');
   const per=pfResolverPeriodo(pfHistoricoCache,pfPeriodo,pfDesde);
   if(panel){
@@ -3423,13 +3435,11 @@ function renderPfChart(){
       info.textContent=pfTextoDesde(per,pfHistoricoCache);
     }
   }
-  const area=document.getElementById('pfChartArea'),titulo=document.getElementById('pfChartTitulo'),hint=document.getElementById('pfChartHint'),res=document.getElementById('pfRendResumen');
-  res.innerHTML='';renderPfBenchmark(null);
   if(!per.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
   const filas=per.filas;
   if(pfVista==='rendimiento'){
     const r=pfRendimientoPortafolio(filas,pfFlujos());
-    titulo.textContent=r.ok?'Rendimiento desde '+pfFechaLarga(r.desde):'Rendimiento';
+    titulo.textContent=r.ok?(pfFechaCorta(r.desde)+' – '+pfFechaCorta(r.hasta)):'';
     if(!r.ok){area.innerHTML='<div class="pf-data-note">'+esc(r.mensaje)+'</div>';hint.textContent='';return;}
     const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(r.inicial,r.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(r.actual,r.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(r.cambio)+'">'+esc(pfSigned(r.cambio,r.moneda))+'</strong></div></div>';
     if(r.conFlujos&&r.pct===undefined){
@@ -3437,18 +3447,58 @@ function renderPfChart(){
       res.innerHTML=cifras;
       hint.textContent='Hay un aporte o retiro sin dólares confirmados en este período: sin ese dato no se puede aislar su efecto para calcular la rentabilidad. Confírmalo en la transferencia, o prueba un período sin ese movimiento.';
     }else{
-      area.innerHTML=construirLineChartSVG(r.serie,{ganancia:true,fmt:v=>v.toFixed(1)+'%'});
-      res.innerHTML='<div class="pf-rend-big">Rendimiento del período<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
+      area.innerHTML=construirLineChartSVG(r.serie,{escala:'detail',fmt:v=>v.toFixed(1)+'%'});
+      res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
       hint.textContent=r.metodo==='twr'
         ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
         :'Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.';
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
-    area.innerHTML=construirLineChartSVG(filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total})));
+    area.innerHTML=construirLineChartSVG(filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total})),{escala:'detail'});
     hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.';
   }
   renderPfBenchmark(filas);
+}
+
+// ── 1D: intradía real a partir de portafolio_snapshots + valor en vivo ──────
+// Punto inicial = cierre oficial anterior (pfCierreAnterior, misma fila que
+// usa pintarPfHeroHoy); luego los snapshots de hoy (pfSnapshotsHoyCache, los
+// guarda guardarSnapshotCalculado); último punto = valor en vivo de Yahoo
+// (pfYahoo.valorEnVivo) si hay uno completo ahora mismo. Nunca inventa
+// puntos: si no hay nada de hoy, repite el cierre anterior + una nota.
+function construirSerieIntradia(){
+  const anterior=pfCierreAnterior();
+  if(!anterior||!(Number(anterior.valor_total)>0))return{ok:false,mensaje:'Todavía no hay un cierre oficial de referencia para calcular el día.'};
+  const base=Number(anterior.valor_total),moneda=anterior.moneda_base;
+  const puntos=[{t:(parseDateOnly(anterior.fecha_valoracion)||new Date()).getTime(),etiqueta:'Cierre ant.',valor:base}];
+  pfSnapshotsHoyCache.forEach(sn=>{
+    const v=Number(sn.valor_calculado),t=Date.parse(sn.capturado_en);
+    if(v>0&&Number.isFinite(t))puntos.push({t,etiqueta:new Date(t).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),valor:v});
+  });
+  const usaVivo=pfYahoo.completo&&pfYahoo.valorEnVivo!==null&&pfYahoo.valorEnVivo!==undefined;
+  if(usaVivo)puntos.push({t:pfYahoo.momento||Date.now(),etiqueta:'Ahora',valor:pfYahoo.valorEnVivo});
+  puntos.sort((a,b)=>a.t-b.t);
+  let notaFallback='';
+  if(puntos.length<2){puntos.push({...puntos[0],etiqueta:'Ahora'});notaFallback='Sin cotizaciones de hoy todavía. Mostrando el último cierre disponible.';}
+  const actual=puntos[puntos.length-1].valor;
+  const serie=puntos.map(p=>({t:p.t,fecha:anterior.fecha_valoracion,etiqueta:p.etiqueta,valor:pfVista==='rendimiento'?(p.valor/base-1)*100:p.valor}));
+  return{ok:true,serie,moneda,base,actual,notaFallback};
+}
+function renderPfChart1D(area,titulo,hint,res){
+  const s=construirSerieIntradia();
+  if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';return;}
+  const cambio=s.actual-s.base,pct=(s.actual/s.base-1)*100;
+  titulo.textContent='Hoy';
+  if(pfVista==='rendimiento'){
+    area.innerHTML=construirLineChartSVG(s.serie,{escala:'detail',fmt:v=>v.toFixed(1)+'%'});
+    const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(s.base,s.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(s.actual,s.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(cambio)+'">'+esc(pfSigned(cambio,s.moneda))+'</strong></div></div>';
+    res.innerHTML='<div class="pf-rend-big">Rendimiento del día<strong style="color:'+pfColor(pct)+'">'+esc(pfSignedPct(pct))+'</strong></div>'+cifras;
+  }else{
+    area.innerHTML=construirLineChartSVG(s.serie,{escala:'detail'});
+  }
+  hint.textContent=s.notaFallback||'Cierre oficial anterior y estimación Yahoo en vivo. Se actualiza mientras tengas la pestaña abierta.';
+  renderPfBenchmark(null);
 }
 
 // La distribución usa exclusivamente las valoraciones oficiales de IBKR.
@@ -4961,22 +5011,38 @@ function pfChartDomain(values,scale='overview'){
  return scale==='detail'?[min-margin,max+margin]:[Math.min(0,min-margin),Math.max(0,max+margin)];
 }
 aplicarPreferencias();
+// pfChartX: posición temporal de un punto. Los puntos normales (uno por día)
+// se ubican por su `fecha`; el 1D intradía (construirSerieIntradia) manda
+// varios puntos con la MISMA fecha pero distinta hora, así que traen su
+// propio `t` (epoch ms) — sin esto todos caerían en el mismo x.
+function pfChartX(p){return p.t!=null?p.t:+parseDateOnly(p.fecha);}
 // Mejora el eje temporal y el rango de series constantes.
 construirLineChartSVG=function(puntos,opts={}){
- const pts=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(+parseDateOnly(p.fecha))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
- if(pts.length<2)return '<div class="empty">'+(pts.length?'Histórico disponible desde '+esc(pts[0].fecha)+'. Se necesitan al menos dos fechas.':'No hay datos para este período.')+'</div>';
+ const pts=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(pfChartX(p))).sort((a,b)=>pfChartX(a)-pfChartX(b));
+ if(pts.length<2)return '<div class="empty">'+(pts.length?'Histórico disponible desde '+esc(pts[0].etiqueta||pts[0].fecha)+'. Se necesitan al menos dos puntos.':'No hay datos para este período.')+'</div>';
+ // Gráfico más protagonista (sección 13): viewBox 4:3 en vez de ~2.7:1 — el
+ // CSS (.chart-svg{aspect-ratio:4/3}) tiene que combinar con esto.
+ const VB_W=560,VB_H=420,PAD_L=52,PAD_R=20,PAD_T=22,PAD_B=33;
+ const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
  const vals=pts.map(p=>Number(p.valor));let [lo,hi]=pfChartDomain(vals,opts.escala||appPreferences.chartScale);if(opts.ganancia){lo=Math.min(lo,0);hi=Math.max(hi,0);if(hi===lo)hi=lo+1;}
- const t0=+parseDateOnly(pts[0].fecha),tn=+parseDateOnly(pts.at(-1).fecha),x=p=>52+(+parseDateOnly(p.fecha)-t0)/(tn-t0||1)*488,y=p=>172-(Number(p.valor)-lo)/(hi-lo)*150;
+ const t0=pfChartX(pts[0]),tn=pfChartX(pts.at(-1)),x=p=>PAD_L+(pfChartX(p)-t0)/(tn-t0||1)*innerW,y=p=>baseline-(Number(p.valor)-lo)/(hi-lo)*innerH;
  const path=pts.map((p,i)=>(i?'L':'M')+x(p).toFixed(2)+' '+y(p).toFixed(2)).join(' ');
- let svg='<svg viewBox="0 0 560 205" class="chart-svg" role="img" aria-label="'+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
- for(let i=0;i<4;i++){const yy=22+i*50;svg+=`<line x1="52" y1="${yy}" x2="540" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
- if(opts.ganancia){const y0=y({valor:0}),c=vals.at(-1)>=0?'var(--green)':'var(--red)';svg+=`<line x1="52" y1="${y0.toFixed(2)}" x2="540" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="44" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${c}" stroke-width="2.5"/>`;}
- else svg+=`<path d="${path} L 540 172 L 52 172 Z" fill="var(--green)" opacity=".08"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
- [pts[0],pts.at(-1)].forEach((p,i)=>svg+=`<text x="${i?540:52}" y="198" text-anchor="${i?'end':'start'}" font-size="10">${esc(fmtDateShort(parseDateOnly(p.fecha)))}</text>`);
+ // Color según tendencia (sección 14): verde si sube, rojo si baja — igual
+ // que el resto de la app (pfColor), salvo en "ganancia" donde ya se decide
+ // por el signo del último valor frente a cero.
+ const colorLinea=opts.color||(opts.ganancia?(vals.at(-1)>=0?'var(--green)':'var(--red)'):(vals.at(-1)>=vals[0]?'var(--green)':'var(--red)'));
+ let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="`+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
+ for(let i=0;i<4;i++){const yy=PAD_T+innerH*(i/3);svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
+ if(opts.ganancia){const y0=y({valor:0});svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="${PAD_L-8}" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;}
+ else svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${colorLinea}" opacity=".08"/><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;
+ [pts[0],pts.at(-1)].forEach((p,i)=>svg+=`<text x="${i?VB_W-PAD_R:PAD_L}" y="${baseline+24}" text-anchor="${i?'end':'start'}" font-size="10">${esc(p.etiqueta||fmtDateShort(parseDateOnly(p.fecha)))}</text>`);
  return svg+'</svg>';
 };
 // Capa Yahoo separada: nunca muta posiciones ni históricos IBKR.
-const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:''};
+// valorEnVivo/pnlEstimado/completo/momento: única fuente de verdad del
+// "valor actual estimado" — los calcula renderPfYahoo() y los leen sin
+// recalcular pintarValorPrincipal(), pintarPfHeroHoy() y construirSerieIntradia().
+const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',valorEnVivo:null,pnlEstimado:null,completo:false,momento:null};
 const PF_YAHOO_INTERVAL=20*60*1000;
 function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
 function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&getSession()!==null;}
@@ -5038,12 +5104,10 @@ async function refreshPfYahoo(){
   finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;renderPfYahoo();}}
 }
 function renderPfYahoo(){
-  const panel=document.getElementById('pfMarketCard');if(!panel)return;
-  panel.style.display=pfHistoricoCache.length?'':'none';
-  const status=document.getElementById('pfMarketStatus'),value=document.getElementById('pfMarketTotal'),detail=document.getElementById('pfMarketDetail');
+  if(!pfHistoricoCache.length)return;
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
   let covered=0,delta=0;
-  const official=pfHistoricoCache.at(-1);
+  const official=pfCierreAnterior();
   let complete=!!official&&pfNumber(official.valor_total)!==null&&pfPosicionesCache.length>0;
   pfPosicionesCache.forEach(p=>{
     const estimate=pfMarketEstimate(p,qByKey.get(pfQuoteKey(p)));
@@ -5052,29 +5116,27 @@ function renderPfYahoo(){
     if(!estimate||estimate.baseValue===null||old===null||p.cuenta_ibkr!==official?.cuenta_ibkr||p.moneda_base!==official?.moneda_base||p.fecha_datos!==official?.fecha_valoracion){complete=false;return;}
     delta+=estimate.baseValue-old;
   });
-  value.textContent=complete?fmtMoneda(Number(official.valor_total)+delta,official.moneda_base):'—';
   // P&L estimado de las posiciones (solo si todas tienen cotización comparable).
   const est=document.getElementById('pfPnlEst');
   let pnlEstimado=null;
-  if(est){
-    const rp=pfResumenPosiciones(official||{},pfPosicionesCache);
-    if(complete&&rp.ok&&rp.costo>0){pnlEstimado=rp.pnl+delta;est.textContent='Estimado · Yahoo: '+pfSigned(pnlEstimado,official.moneda_base)+' · '+pfSignedPct(pnlEstimado/rp.costo*100);}
-    else est.textContent='';
-  }
-  // Línea de frescura discreta (sección 10): "Live" solo cuando el estimado
-  // Yahoo es completo y comparable con el cierre; si no, se queda con el
-  // cierre oficial de IBKR que ya puso renderPfResumen.
-  const frescura=document.getElementById('pfFrescura');
-  if(frescura&&complete)frescura.textContent='● Live · Yahoo actualizado '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
   if(complete){
-    const valorEnVivo=Number(official.valor_total)+delta;
-    const heroEl=document.getElementById('pfHeroValor');
-    if(heroEl)heroEl.textContent=fmtMoneda(valorEnVivo,official.moneda_base);
-    pintarPfHeroHoy(valorEnVivo);
+    const rp=pfResumenPosiciones(official||{},pfPosicionesCache);
+    if(rp.ok&&rp.costo>0)pnlEstimado=rp.pnl+delta;
   }
-  if(complete)guardarSnapshotCalculado(official,Number(official.valor_total)+delta,pnlEstimado);
-  status.textContent=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
-  detail.textContent=covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable. '+(complete?'Estimación con efectivo, ajustes y tipos de cambio del cierre IBKR.':'Se muestra un total estimado solo cuando todas las posiciones tienen precios comparables de hasta 60 min de antigüedad.');
+  if(est)est.textContent=(complete&&pnlEstimado!==null)?'Estimado · Yahoo: '+pfSigned(pnlEstimado,official.moneda_base)+' · '+pfSignedPct(pnlEstimado/pfResumenPosiciones(official,pfPosicionesCache).costo*100):'';
+  // Única fuente de verdad del "valor actual estimado" (sección 19): de acá
+  // en adelante nadie más recalcula complete/delta, solo leen pfYahoo.*.
+  pfYahoo.completo=complete;
+  pfYahoo.valorEnVivo=complete?Number(official.valor_total)+delta:null;
+  pfYahoo.pnlEstimado=pnlEstimado;
+  pfYahoo.momento=Date.now();
+  pfYahoo.covered=covered;
+  pfYahoo.statusMsg=pfYahoo.message||(pfYahooSessionOpen()?'Sesión de mercado informada por Yahoo · actualización cada 20 min':'Fuera de la sesión informada por Yahoo · sin actualización periódica');
+
+  pintarValorPrincipal();
+  if(complete)guardarSnapshotCalculado(official,pfYahoo.valorEnVivo,pnlEstimado);
+  if(pfPeriodo==='1D')renderPfChart();
+
   document.querySelectorAll('#pfPosicionesLista .pf-position').forEach(button=>{
     const p=pfPosicionesCache.find(p=>pfQuoteKey(p)===button.dataset.positionKey);if(!p)return;
     let block=button.querySelector('.pf-market-position');if(!block){block=document.createElement('span');block.className='pf-market-position';button.append(block);}
@@ -5100,7 +5162,7 @@ async function guardarSnapshotCalculado(official,valorCalculado,pnlEstimado){
   if(Date.now()-pfUltimoSnapshotIntento<10*60*1000)return;
   pfUltimoSnapshotIntento=Date.now();
   try{
-    await sbFetch('rpc/guardar_snapshot_portafolio',{method:'POST',body:JSON.stringify({
+    const r=await sbFetch('rpc/guardar_snapshot_portafolio',{method:'POST',body:JSON.stringify({
       p_cuenta_ibkr:official.cuenta_ibkr,
       p_valor_calculado:valorCalculado,
       p_efectivo:pfNumber(official.efectivo),
@@ -5108,6 +5170,12 @@ async function guardarSnapshotCalculado(official,valorCalculado,pnlEstimado){
       p_pnl:pnlEstimado,
       p_fuente_precio:'YAHOO',
     })});
+    const resultado=Array.isArray(r)?r[0]:r;
+    if(resultado&&resultado.estado==='ok'){
+      // Alimenta el 1D en vivo sin volver a pedirlo a Supabase.
+      pfSnapshotsHoyCache.push({capturado_en:new Date().toISOString(),valor_calculado:valorCalculado,fuente_precio:'YAHOO'});
+      if(pfPeriodo==='1D')renderPfChart();
+    }
   }catch(e){/* silencioso: es una curva auxiliar, nunca debe interrumpir la UI */}
 }
 
@@ -5123,29 +5191,35 @@ function togglePfDiag(){
 }
 function renderPfDiagnostico(recon,ledger){
   const card=document.getElementById('pfDiagCard');
-  if(!recon){card.style.display='none';return;}
+  if(!pfHistoricoCache.length){card.style.display='none';return;}
   card.style.display='';
-  const resumen=document.getElementById('pfDiagResumen'),moneda='USD';
+  const resumen=document.getElementById('pfDiagResumen'),tabla=document.getElementById('pfDiagTabla'),moneda='USD';
   const ultimaOp=ledger.length?fmtDateLong(new Date(ledger[0].fecha_hora)):'sin operaciones importadas';
-  resumen.innerHTML=[
-    ['Estado', recon.estado==='cuadrado'?'✓ Cuadrado':'⚠️ Diferencia'],
+  // Fuente de posiciones/histórico y cobertura Yahoo (secciones 2 y 16 del
+  // pedido): esto vivía antes en una franja arriba de todo y en la card
+  // "Estimación de mercado" — se movió acá, información técnica secundaria.
+  const campos=[['Fuente de posiciones e histórico','IBKR · Cierre oficial (Flex)']];
+  if(recon)campos.push(
+    ['Estado reconciliación', recon.estado==='cuadrado'?'✓ Cuadrado':'⚠️ Diferencia'],
     ['Fecha reconciliada', pfFechaCorta(recon.fecha)],
     ['Portafolio calculado (ledger)', fmtMoneda(recon.valor_calculado,moneda)],
     ['IBKR (oficial)', fmtMoneda(recon.valor_ibkr,moneda)],
     ['Diferencia', fmtMoneda(recon.diferencia_absoluta,moneda)+(recon.diferencia_pct!==null?' · '+recon.diferencia_pct.toFixed(3)+'%':'')],
     ['Operaciones en el ledger', ledger.length+' · última: '+esc(ultimaOp)],
-  ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(String(v))}</strong></div>`).join('');
+  );
+  campos.push(['Cobertura Yahoo', pfYahoo.covered!==undefined?(pfYahoo.covered+' de '+pfPosicionesCache.length+' posiciones con precio utilizable'):'sin consultar todavía']);
+  resumen.innerHTML=campos.map(([k,v])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(String(v))}</strong></div>`).join('');
 
-  const tabla=document.getElementById('pfDiagTabla');
-  const filas=(recon.detalle||[]).filter(f=>{
+  if(!recon){tabla.innerHTML='';return;}
+  const filasDiff=(recon.detalle||[]).filter(f=>{
     const va=pfNumber(f.valor_app),vi=pfNumber(f.valor_ibkr);
     return va===null||vi===null||Math.abs(va-vi)>=0.10;
   });
-  if(recon.estado==='cuadrado'||!filas.length){tabla.innerHTML='';return;}
+  if(recon.estado==='cuadrado'||!filasDiff.length){tabla.innerHTML='';return;}
   tabla.innerHTML='<p class="hint" style="margin-bottom:6px">Posiciones con diferencia ≥ $0.10 entre lo calculado desde el ledger y el cierre oficial de IBKR:</p>'+
     '<table style="width:100%;font-size:12px;border-collapse:collapse">'+
     '<thead><tr><th style="text-align:left">Símbolo</th><th>Cant. app</th><th>Cant. IBKR</th><th>Valor app</th><th>Valor IBKR</th></tr></thead><tbody>'+
-    filas.map(f=>`<tr><td>${esc(f.simbolo||'—')}</td><td style="text-align:right">${f.cantidad_app??'—'}</td><td style="text-align:right">${f.cantidad_ibkr??'—'}</td><td style="text-align:right">${f.valor_app!==null&&f.valor_app!==undefined?fmtMoneda(f.valor_app,moneda):'—'}</td><td style="text-align:right">${f.valor_ibkr!==null&&f.valor_ibkr!==undefined?fmtMoneda(f.valor_ibkr,moneda):'—'}</td></tr>`).join('')+
+    filasDiff.map(f=>`<tr><td>${esc(f.simbolo||'—')}</td><td style="text-align:right">${f.cantidad_app??'—'}</td><td style="text-align:right">${f.cantidad_ibkr??'—'}</td><td style="text-align:right">${f.valor_app!==null&&f.valor_app!==undefined?fmtMoneda(f.valor_app,moneda):'—'}</td><td style="text-align:right">${f.valor_ibkr!==null&&f.valor_ibkr!==undefined?fmtMoneda(f.valor_ibkr,moneda):'—'}</td></tr>`).join('')+
     '</tbody></table>';
 }
 
