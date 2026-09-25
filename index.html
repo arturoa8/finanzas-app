@@ -1712,11 +1712,12 @@ function renderCat(){
 function filtrarPorCat(k){filtroCategoria=norm(filtroCategoria)===norm(k)?null:k;render();}
 
 // Una fila de reembolso, anidada debajo de su gasto original. Su click no
-// debe abrir el gasto: edita o elimina solo esta devolución.
+// debe abrir el gasto: edita o elimina solo esta devolución. La cuenta
+// receptora no se nombra aquí (queda guardada en el reembolso y se ve al
+// editarlo, en el selector de cuenta del formulario).
 function filaReembolsoAnidada(r){
   const rowId=getTxRow(r);
-  const verbo=reembolsoEsTarjeta(r)?'acreditado en':'recibido en';
-  return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso ${verbo} ${escHtml(r[5]||'—')}: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
+  return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
 }
 function filaTxPrincipal(t){
   const c=cleanName(t[2]);
@@ -2000,7 +2001,14 @@ function setPg(p,b){
   document.getElementById('p-'+p).classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
-  if(p==='ana')renderPortafolio();
+  if(p==='ana'){
+    // Las páginas comparten el scroll del documento: si Portafolio quedó
+    // desplazado de una visita anterior, entrar de nuevo debe verse arriba,
+    // no donde se quedó. Se reafirma tras la carga async para que el cambio
+    // de alto del contenido (spinner → datos) no la vuelva a mover.
+    window.scrollTo(0,0);
+    renderPortafolio().then(()=>window.scrollTo(0,0)).catch(()=>{});
+  }
   if(p==='card')renderCardsPage();
   if(p==='bud')renderAnalisis();
   if(p!=='ana')stopPfYahoo();
@@ -2640,7 +2648,11 @@ function llenarGastosReembolso(selected=''){
 function seleccionarGastoReembolso(){
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
  document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(pendienteReembolso(original,editando)):'Selecciona un gasto para vincular la devolución.';
- if(original)llenarCuentas(original[5]||'');
+ // Solo propone la cuenta del gasto como punto de partida si todavía no hay
+ // ninguna elegida: nunca pisa una cuenta receptora que el usuario ya marcó
+ // (p. ej. Yape, para un gasto pagado con otra tarjeta).
+ const cue=document.getElementById('iCue');
+ if(original&&cue&&!cue.value)llenarCuentas(original[5]||'');
 }
 function validarReembolso(id,monto,cuenta,fecha,excluir=null){
  const original=datos.transacciones.find(t=>String(t[6])===String(id)&&t[3]==='Gasto');
