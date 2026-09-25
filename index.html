@@ -154,6 +154,11 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .tamt-pill .pdot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
 .tamt-pill.in{color:var(--green);}.tamt-pill.in .pdot{background:var(--green);}
 .tamt-pill.out .pdot{background:var(--red);}
+.tx-refund-sub{font-size:0.72rem;color:var(--muted);font-weight:500;margin-top:2px;}
+.tx-refund-sub.tx-refund-net{color:var(--dim);font-weight:700;}
+.tx-refund-line{font-size:0.78rem;color:var(--green);font-weight:600;padding:6px 6px 6px 60px;margin:-2px 0 4px;cursor:pointer;border-radius:8px;}
+.tx-refund-line:active{background:var(--card2);}
+.tx-refund-line .tx-refund-date{color:var(--muted);font-weight:500;}
 
 .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:0.85rem;}
 
@@ -982,7 +987,8 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <label for="iGastoOrigen">Gasto que te devolvieron</label>
       <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso()"></select>
       <p class="transfer-note" id="refundAvailable"></p>
-      <p class="transfer-note">La devolución reduce el gasto de su categoría en la fecha en que la recibes. No cuenta como ingreso. Si vuelve a una tarjeta, reduce su deuda.</p>
+      <p class="transfer-note">La cuenta que elijas abajo es donde realmente llegó el dinero. Si te pagaron por Yape, selecciona Yape. Si el comercio devolvió el dinero a la tarjeta, selecciona la misma tarjeta.</p>
+      <p class="transfer-note">El reembolso reduce el gasto efectivo de su categoría en la fecha del gasto original, no cuenta como ingreso, y solo reduce la deuda de una tarjeta si esa es la cuenta que lo recibe.</p>
     </div>
     <div id="transferFields" hidden>
       <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><select class="sel" id="iDestino" onchange="cambiarCuentaSelect(this)"></select></div>
@@ -1682,7 +1688,10 @@ function renderCat(){
   const tx=vista==='mes'?datos.transacciones.filter(t=>{const f=pf(t[0]);const ma=getMesActivo();return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();}):datos.transacciones;
   const g=document.getElementById('cats');
   const t={},c={};
-  tx.filter(x=>x[3]!=='Transferencia').forEach(x=>{const k=cleanName(x[2]);const m=parseFloat(x[4])||0;const s=x[3]==='Ingreso'||x[3]==='Reembolso'?1:-1;t[k]=(t[k]||0)+(m*s);c[k]=(c[k]||0)+1;});
+  // Los reembolsos no se cuentan aparte: su efecto ya está plegado en el
+  // gasto original vía gastoNeto, así que la compra sigue siendo un solo
+  // movimiento (no dos) y su categoría refleja el gasto efectivo.
+  tx.filter(x=>x[3]!=='Transferencia'&&x[3]!=='Reembolso').forEach(x=>{const k=cleanName(x[2]);const m=x[3]==='Gasto'?-gastoNeto(x):(parseFloat(x[4])||0);t[k]=(t[k]||0)+m;c[k]=(c[k]||0)+1;});
   // Transferencias aparte: se muestran para poder filtrarlas, pero no entran
   // en ningún total ni llevan signo o color de ingreso o gasto.
   const tr={},trc={};
@@ -1702,8 +1711,41 @@ function renderCat(){
 
 function filtrarPorCat(k){filtroCategoria=norm(filtroCategoria)===norm(k)?null:k;render();}
 
+// Una fila de reembolso, anidada debajo de su gasto original. Su click no
+// debe abrir el gasto: edita o elimina solo esta devolución.
+function filaReembolsoAnidada(r){
+  const rowId=getTxRow(r);
+  const verbo=reembolsoEsTarjeta(r)?'acreditado en':'recibido en';
+  return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso ${verbo} ${escHtml(r[5]||'—')}: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
+}
+function filaTxPrincipal(t){
+  const c=cleanName(t[2]);
+  const em=getEmoji(c);
+  const i=t[3]==='Ingreso',transfer=t[3]==='Transferencia';
+  const m=parseFloat(t[4])||0;
+  // En divisa el importe que se ve primero es el que pagaste; el
+  // equivalente en soles y el tipo de cambio van en la segunda línea.
+  const enDivisa=t[9]==='USD'&&Number(t[10])>0;
+  const cambio=transfer&&Number(t[14])>0
+    ? `${fmt(m)} → ${fmtMoneda(Number(t[14]),t[13]||'USD')}`
+    : enDivisa?`${fmt(m)} · TC ${Number(t[11]).toFixed(6)}`:'';
+  const base=transfer?`${t[5]} → ${t[7]||'Sin destino'}${t[1]?' · '+t[1]:''}`:t[1]||'?';
+  const d=cambio?`${base} · ${cambio}`:base;
+  // Un gasto con reembolsos vinculados muestra además lo pagado, el gasto
+  // efectivo y cada devolución debajo, en vez de aparecer como filas sueltas.
+  const reembolsos=t[3]==='Gasto'?reembolsosDe(t[6]):[];
+  const extra=reembolsos.length>0
+    ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div><div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`
+    : '';
+  const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(reembolsos.length>0?gastoNeto(t):m);
+  const row=getTxRow(t);
+  const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
+  return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div></div>${nested}`;
+}
 function renderTx(){
-  const tx=filtrar();const l=document.getElementById('txs');
+  // Los reembolsos no se listan como filas propias: aparecen anidados bajo
+  // su gasto original (filaTxPrincipal), dondequiera que ese gasto caiga.
+  const tx=filtrar().filter(t=>t[3]!=='Reembolso');const l=document.getElementById('txs');
   if(tx.length===0){l.innerHTML='<div class="empty">Sin transacciones</div>';return;}
   const o=[...tx].sort((a,b)=>pf(b[0])-pf(a[0]));
   // Agrupar por día
@@ -1722,23 +1764,7 @@ function renderTx(){
     const net=g.in-g.out;
     const totalCls=net>=0?'in':'out';
     const totalSign=net>=0?'+':'−';
-    const items=g.items.map(t=>{
-      const c=cleanName(t[2]);
-      const em=getEmoji(c);
-      const i=t[3]==='Ingreso'||t[3]==='Reembolso',transfer=t[3]==='Transferencia';
-      const m=parseFloat(t[4])||0;
-      // En divisa el importe que se ve primero es el que pagaste; el
-      // equivalente en soles y el tipo de cambio van en la segunda línea.
-      const enDivisa=t[9]==='USD'&&Number(t[10])>0;
-      const cambio=transfer&&Number(t[14])>0
-        ? `${fmt(m)} → ${fmtMoneda(Number(t[14]),t[13]||'USD')}`
-        : enDivisa?`${fmt(m)} · TC ${Number(t[11]).toFixed(6)}`:'';
-      const base=transfer?`${t[5]} → ${t[7]||'Sin destino'}${t[1]?' · '+t[1]:''}`:t[1]||'?';
-      const d=cambio?`${base} · ${cambio}`:base;
-      const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m);
-      const row=getTxRow(t);
-      return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(t[3]==='Reembolso'?'Reembolso · '+c:c||'—')}</div><div class="tdesc">${escHtml(d)}</div></div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div></div>`;
-    }).join('');
+    const items=g.items.map(filaTxPrincipal).join('');
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
   }).join('');
 }
@@ -2559,18 +2585,61 @@ function getTxPrev(){
   return datos.transacciones.filter(t=>pf(t[0]).getFullYear()===yr);
 }
 
-function gastoNeto(t){return t[3]==='Gasto'?Number(t[4])||0:t[3]==='Reembolso'?-(Number(t[4])||0):0;}
-function efectoResultado(t){return t[3]==='Ingreso'?(Number(t[4])||0):-gastoNeto(t);}
-function reembolsado(id,excluir=null){return datos.transacciones.filter(t=>t[3]==='Reembolso'&&String(t[8])===String(id)&&String(t[6])!==String(excluir)).reduce((sum,t)=>sum+Math.round(Number(t[4])*100),0)/100;}
+// Gasto efectivo: para un Gasto, el importe original menos todos sus
+// reembolsos vinculados (sin importar en qué fecha llegaron). Un Reembolso no
+// suma ni resta nada por sí mismo: su efecto ya está plegado en el gasto
+// original, así que nunca aparece como un "gasto negativo" independiente en
+// el período en que se recibió el dinero.
+function gastoNeto(t){
+  if(t[3]!=='Gasto')return 0;
+  const monto=Number(t[4])||0;
+  const reemb=datos.transacciones.filter(x=>x[3]==='Reembolso'&&String(x[8])===String(t[6])).reduce((sum,x)=>sum+Math.round(Number(x[4])*100),0)/100;
+  return Math.round((monto-reemb)*100)/100;
+}
+// Movimiento de caja real: a diferencia de gastoNeto (que pliega el
+// reembolso en el gasto original para estadísticas), esto es lo que
+// efectivamente entra o sale de una cuenta, en su propia fecha.
+function efectoResultado(t){
+  if(t[3]==='Ingreso'||t[3]==='Reembolso')return Number(t[4])||0;
+  if(t[3]==='Gasto')return -(Number(t[4])||0);
+  return 0;
+}
+// Reembolsos vinculados a un gasto (excluyendo opcionalmente uno, típicamente
+// el que se está editando, para no contarlo dos veces).
+function reembolsosDe(id,excluir=null){return datos.transacciones.filter(t=>t[3]==='Reembolso'&&String(t[8])===String(id)&&String(t[6])!==String(excluir));}
+// Total reembolsado de un gasto.
+function reembolsado(id,excluir=null){return reembolsosDe(id,excluir).reduce((sum,t)=>sum+Math.round(Number(t[4])*100),0)/100;}
+// Importe pendiente de devolver de un gasto.
+function pendienteReembolso(t,excluir=null){return Math.max(0,Math.round((Number(t[4])-reembolsado(t[6],excluir))*100)/100);}
+// Gasto efectivo de un gasto (alias legible de gastoNeto para este caso).
+function gastoEfectivo(t){return gastoNeto(t);}
+// Si el reembolso se acreditó a una tarjeta (reduce deuda) o llegó a una
+// cuenta de efectivo/banco (aumenta saldo disponible).
+function reembolsoEsTarjeta(t){return t[3]==='Reembolso'&&CREDIT_CARDS.some(c=>sameAccount(c.cuenta,t[5]));}
 function llenarGastosReembolso(selected=''){
  const select=document.getElementById('iGastoOrigen');
- select.innerHTML='<option value="">Selecciona el gasto original…</option>'+datos.transacciones.filter(t=>t[3]==='Gasto'&&String(t[6])!==String(editando)).map(t=>`<option value="${escAttr(t[6])}">${escHtml(fmtDateShort(pf(t[0]))+' · '+t[1]+' · '+fmt(t[4])+' · '+t[5])}</option>`).join('');
+ let candidatos=datos.transacciones.filter(t=>t[3]==='Gasto'&&String(t[6])!==String(editando));
+ if(vista==='mes'){
+   const ma=getMesActivo();
+   candidatos=candidatos.filter(t=>{const f=pf(t[0]);return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();});
+ }
+ candidatos=candidatos.filter(t=>pendienteReembolso(t,editando)>0.004||String(t[6])===String(selected));
+ // Al editar, el gasto vinculado se ve aunque esté fuera del período o ya
+ // haya quedado completamente reembolsado.
+ if(selected&&!candidatos.some(t=>String(t[6])===String(selected))){
+   const vinculado=datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(selected));
+   if(vinculado)candidatos=[vinculado,...candidatos];
+ }
+ candidatos.sort((a,b)=>pf(b[0])-pf(a[0]));
+ select.innerHTML=candidatos.length===0
+   ? '<option value="">No hay gastos pendientes de reembolso en este período.</option>'
+   : '<option value="">Selecciona el gasto original…</option>'+candidatos.map(t=>`<option value="${escAttr(t[6])}">${escHtml(fmtDateShort(pf(t[0]))+' · '+t[1]+' · '+fmt(t[4])+' · pendiente '+fmt(pendienteReembolso(t,editando))+' · '+t[5])}</option>`).join('');
  select.value=selected; select.disabled=!!selected&&!!editando&&datos.transacciones.some(t=>String(t[6])===String(editando)&&t[3]==='Reembolso');
  seleccionarGastoReembolso();
 }
 function seleccionarGastoReembolso(){
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
- document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(Math.max(0,Number(original[4])-reembolsado(original[6],editando))):'Selecciona un gasto para vincular la devolución.';
+ document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(pendienteReembolso(original,editando)):'Selecciona un gasto para vincular la devolución.';
  if(original)llenarCuentas(original[5]||'');
 }
 function validarReembolso(id,monto,cuenta,fecha,excluir=null){
@@ -2579,8 +2648,6 @@ function validarReembolso(id,monto,cuenta,fecha,excluir=null){
  if(Math.round(monto*100)+Math.round(reembolsado(id,excluir)*100)>Math.round(Number(original[4])*100))throw new Error('La devolución supera el importe pendiente del gasto');
  if(!cuenta.trim())throw new Error('Indica la cuenta que recibió la devolución');
  if(pf(fecha)<new Date(pf(original[0]).getFullYear(),pf(original[0]).getMonth(),pf(original[0]).getDate()))throw new Error('La devolución no puede ser anterior al gasto');
- const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,original[5])||sameAccount(c.cuenta,cuenta));
- if(card&&!sameAccount(original[5],cuenta))throw new Error('Una devolución de tarjeta debe registrarse en la misma tarjeta');
  return original;
 }
 function totales(tx){
@@ -3015,6 +3082,7 @@ let pfModalPeriodo='6M';
 let pfModalDesde='';
 let pfModalHistoricoCache=[];
 let pfModalContractId=null;
+let pfLedgerCache=[];
 
 function esc(s){
   return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -3108,9 +3176,34 @@ async function renderPortafolio(){
   pfPosicionesCache=posiciones||[];
   pfBenchCache=bench||[];
   pfSnapshotsHoyCache=snapshotsHoy||[];
+  pfLedgerCache=ledger||[];
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
   const ultimaSync=(sync&&sync[0])||null;
   pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
+
+  // Coherencia de caché Yahoo/IBKR: invalidar ANTES del primer pintado del
+  // día si el día de mercado, el snapshot IBKR base o el scope de posiciones
+  // cambiaron desde el último fetch — nunca mezclar generaciones distintas.
+  pfValidarCacheYahoo();
+  // DIAGNÓSTICO TEMPORAL — ayuda a confirmar de un vistazo si hubo una
+  // mezcla de generaciones IBKR/Yahoo al entrar a Portafolio. Quitar cuando
+  // ya no haga falta rastrear este tipo de incidente.
+  {
+    const officialDiag=pfCierreAnterior();
+    const diag=obtenerValorActualPortafolio();
+    console.group('[Portafolio] Diagnóstico de coherencia de caché');
+    console.log('Día frontend:',pfLondonDay());
+    console.log('pfYahoo.day:',pfYahoo.day||'(vacío)');
+    console.log('IBKR cierre (fecha_valoracion):',officialDiag?officialDiag.fecha_valoracion:'—');
+    console.log('Posiciones fecha_datos:',pfPosicionesCache[0]?pfPosicionesCache[0].fecha_datos:'—');
+    console.log('Yahoo fetchedAt:',pfYahoo.fetchedAt?new Date(pfYahoo.fetchedAt).toISOString():'—');
+    console.log('scope actual:',pfComputeScope());
+    console.log('scope Yahoo:',pfYahoo.scope);
+    console.log('baseId actual:',pfComputeBaseId());
+    console.log('baseId Yahoo:',pfYahoo.baseId);
+    console.log('fuente elegida:',diag.fuente);
+    console.groupEnd();
+  }
 
   if(!ultimoHistorial){
     ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
@@ -3186,6 +3279,25 @@ function obtenerValorActualPortafolio(){
   r.valor=r.cierreIbkr;
   r.timestamp=official.fecha_valoracion;
   if(!pfPosicionesCache.length){r.diferenciaVsIbkr=0;return r;}
+
+  // Gate de coherencia (regla final, sección 12 del pedido de corrección):
+  // Yahoo solo se evalúa por posición si el caché completo pertenece al
+  // mismo snapshot IBKR base y scope que se está pintando AHORA, y no hay
+  // operaciones del ledger más nuevas que las posiciones cargadas. Si algo
+  // no calza, se cae a IBKR de inmediato — nunca se mezcla IBKR nuevo con
+  // Yahoo viejo (o viceversa).
+  const baseIdActual=pfComputeBaseId();
+  const cacheCoherente=pfYahoo.quotes.length>0&&baseIdActual!==null
+    &&pfYahoo.scope===pfComputeScope()&&pfYahoo.baseId===baseIdActual;
+  const operacionesPendientes=pfOperacionesSinSincronizar();
+  if(!cacheCoherente||operacionesPendientes){
+    const motivo=operacionesPendientes
+      ?'hay operaciones nuevas en el ledger que IBKR todavía no reflejó en las posiciones'
+      :'las cotizaciones Yahoo en caché no corresponden al día/snapshot/scope actual';
+    r.diferenciaVsIbkr=0;
+    r.cobertura=pfPosicionesCache.map(p=>({simbolo:p.simbolo,ok:false,motivo,precioIbkr:pfNumber(p.precio_mercado),precioYahoo:null,valorIbkr:pfNumber(p.valor_mercado_base),valorYahoo:null}));
+    return r;
+  }
 
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
   let delta=0,completo=true,ultimoPrecioEn=null;
@@ -4435,8 +4547,11 @@ function renderAnalisis(){
 
   // Desglose del gasto del período (antes estaba en el inicio). gastoNeto()
   // sigue siendo la única fuente del neto; aquí solo se separan sus partes.
+  // "reembolsos" son los aplicados a compras de este período (aunque el
+  // dinero haya llegado en otro), no lo recibido en este período: así
+  // bruto − reembolsos siempre da el mismo neto que ya se muestra.
   const gBruto=tx.filter(t=>t[3]==='Gasto').reduce((s,t)=>s+(Number(t[4])||0),0);
-  const gReembolsos=tx.filter(t=>t[3]==='Reembolso').reduce((s,t)=>s+(Number(t[4])||0),0);
+  const gReembolsos=tx.filter(t=>t[3]==='Gasto').reduce((s,t)=>s+reembolsado(t[6]),0);
   document.getElementById('mGastoNeto').textContent=fmt(tot.g);
   document.getElementById('mGastoSub').textContent='bruto '+fmt(gBruto)+' · reembolsos '+fmt(gReembolsos)+' · neto';
 
@@ -5771,11 +5886,43 @@ construirLineChartSVG=function(puntos,opts={}){
 // valorEnVivo/pnlEstimado/completo/momento: única fuente de verdad del
 // "valor actual estimado" — los calcula renderPfYahoo() y los leen sin
 // recalcular pintarValorPrincipal(), pintarPfHeroHoy() y construirSerieIntradia().
-const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',valorEnVivo:null,pnlEstimado:null,completo:false,momento:null};
+const pfYahoo = {quotes:[],timer:null,controller:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',valorEnVivo:null,pnlEstimado:null,completo:false,momento:null,baseId:null,fetchedAt:null};
 const PF_YAHOO_INTERVAL=10*60*1000;
 function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
 function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&getSession()!==null;}
 function pfQuoteKey(p){return String(p.cuenta_ibkr)+'|'+String(p.contract_id);}
+function pfComputeScope(){return pfPosicionesCache.map(p=>pfQuoteKey(p)+'|'+p.simbolo+'|'+p.moneda).sort().join(';');}
+function pfSimpleHash(str){let h=0;for(let i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))|0;}return (h>>>0).toString(36);}
+// Identificador del snapshot IBKR base (versionado de datos, sección 2 y 5
+// del pedido de corrección): cuenta + fecha del cierre oficial + fecha de
+// datos de las posiciones + hash de contract_id:cantidad. Cambia si IBKR
+// trae un cierre nuevo O si cambian las cantidades, aunque los símbolos
+// sigan siendo los mismos — el `scope` (solo símbolos) no detectaba esto.
+function pfComputeBaseId(){
+  const official=pfCierreAnterior();
+  if(!official)return null;
+  const posDeCuenta=pfPosicionesCache.filter(p=>p.cuenta_ibkr===official.cuenta_ibkr);
+  if(!posDeCuenta.length)return null;
+  const fechaDatos=[...new Set(posDeCuenta.map(p=>p.fecha_datos))].sort().at(-1)||'';
+  const detalle=posDeCuenta.map(p=>pfQuoteKey(p)+':'+p.cantidad).sort().join(';');
+  return official.cuenta_ibkr+'|'+official.fecha_valoracion+'|'+fechaDatos+'|'+pfSimpleHash(detalle);
+}
+// Operaciones del ledger posteriores al snapshot de posiciones vigente
+// (sección 8 del pedido): si existen, las cantidades en pfPosicionesCache
+// pueden estar desactualizadas (compra/venta de hoy que IBKR aún no
+// reflejó). No se reconstruyen cantidades desde el ledger acá — eso ya lo
+// hace calcular_posiciones_desde_ledger()/reconciliar_portafolio() por
+// separado — esto solo marca la valoración Yahoo como no confiable hasta
+// que la próxima sync IBKR absorba esas operaciones.
+function pfOperacionesSinSincronizar(){
+  const official=pfCierreAnterior();
+  if(!official)return false;
+  const posDeCuenta=pfPosicionesCache.filter(p=>p.cuenta_ibkr===official.cuenta_ibkr);
+  if(!posDeCuenta.length)return false;
+  const fechaDatos=[...new Set(posDeCuenta.map(p=>p.fecha_datos))].sort().at(-1);
+  if(!fechaDatos)return false;
+  return pfLedgerCache.some(op=>op.cuenta_ibkr===official.cuenta_ibkr&&new Date(op.fecha_hora).toISOString().slice(0,10)>fechaDatos);
+}
 // Cadena de prioridad de precio de mercado (sección 3): por ahora solo Yahoo
 // y el cierre cacheado de IBKR están implementados — IBKR realtime/delayed
 // necesitaría un proceso propio siempre encendido (IB Gateway/TWS o Client
@@ -5828,10 +5975,26 @@ function stopPfYahoo(){
   if(pfYahoo.controller){pfYahoo.controller.abort();pfYahoo.controller=null;pfYahoo.lastAttempt=0;pfYahoo.status='idle';}
   pfYahoo.requestId++;
 }
+// Coherencia de caché Yahoo (corrección de fondo): una estimación Yahoo solo
+// es válida si sus quotes son del mismo día de mercado, del mismo scope de
+// posiciones y del mismo snapshot IBKR base que lo que se está por pintar.
+// Si algo cambió desde el último fetch, se descarta el caché ANTES de
+// pintar. Se llama desde renderPortafolio() antes del primer pintado del
+// día, y desde startPfYahoo() para el caso de pestaña reactivada.
+function pfValidarCacheYahoo(){
+  const scopeActual=pfComputeScope(),baseIdActual=pfComputeBaseId(),diaEsperado=pfLondonDay();
+  const coherente=pfYahoo.quotes.length>0&&baseIdActual!==null
+    &&pfYahoo.day===diaEsperado&&pfYahoo.scope===scopeActual&&pfYahoo.baseId===baseIdActual;
+  if(!coherente&&pfYahoo.quotes.length){
+    stopPfYahoo();
+    pfYahoo.quotes=[];pfYahoo.lastAttempt=0;pfYahoo.status='idle';pfYahoo.message='';
+  }
+  pfYahoo.scope=scopeActual;pfYahoo.baseId=baseIdActual;
+  return coherente;
+}
 function startPfYahoo(){
   if(!pfYahooVisible())return;
-  const scope=pfPosicionesCache.map(p=>pfQuoteKey(p)+'|'+p.simbolo+'|'+p.moneda).sort().join(';');
-  if(scope!==pfYahoo.scope){stopPfYahoo();pfYahoo.scope=scope;pfYahoo.quotes=[];pfYahoo.lastAttempt=0;}
+  pfValidarCacheYahoo();
   if(!pfYahoo.timer)pfYahoo.timer=setInterval(()=>{if(!pfYahooVisible()){stopPfYahoo();return;}renderPfYahoo();if(!pfYahoo.lastAttempt||pfYahooSessionOpen()||pfYahoo.day!==pfLondonDay()||pfYahoo.status==='error')refreshPfYahoo();},60000);
   renderPfYahoo();
   if(!pfYahoo.lastAttempt||pfYahooSessionOpen()||pfYahoo.day!==pfLondonDay()||pfYahoo.status==='error')refreshPfYahoo();
@@ -5856,7 +6019,7 @@ async function refreshPfYahoo(opts={}){
     // Solo asociar contratos existentes; ignorar cualquier símbolo extra del servidor.
     const known=new Map(pfPosicionesCache.map(p=>[pfQuoteKey(p),p]));
     pfYahoo.quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo;});
-    pfYahoo.status='ok';pfYahoo.message='';
+    pfYahoo.status='ok';pfYahoo.message='';pfYahoo.fetchedAt=Date.now();
   }catch(e){if(id===pfYahoo.requestId){pfYahoo.status='error';pfYahoo.message=controller.signal.aborted?'La consulta tardó demasiado. Se conserva el cierre IBKR.':e.message;}}
   finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;renderPfYahoo();}}
 }
@@ -6010,7 +6173,20 @@ function renderPfDiagnosticoYahoo(){
   ).join('');
   const okCount=v.cobertura.filter(c=>c.ok).length;
   const motivo=v.cobertura.find(c=>!c.ok);
-  el.innerHTML='<div class="s-sub" style="font-weight:700;margin-bottom:8px">Yahoo</div>'+filas+
+  // Coherencia de caché (sección 10 del pedido de corrección): permite ver
+  // de un vistazo si Yahoo está "ganando" con datos del mismo día/snapshot
+  // que las posiciones actuales, sin adivinar por qué no.
+  const coherencia=[
+    ['Día frontend',pfLondonDay()],
+    ['Día caché Yahoo',pfYahoo.day||'—'],
+    ['Base IBKR actual',pfComputeBaseId()||'—'],
+    ['Base IBKR caché Yahoo',pfYahoo.baseId||'—'],
+    ['Último fetch Yahoo',pfYahoo.fetchedAt?new Date(pfYahoo.fetchedAt).toLocaleString('es-PE',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}):'—'],
+  ];
+  const coherenciaHtml='<div class="s-sub" style="font-weight:700;margin-bottom:8px">Coherencia de caché</div>'+
+    coherencia.map(([k,val])=>`<div style="display:flex;justify-content:space-between;gap:12px"><span>${esc(k)}</span><strong>${esc(String(val))}</strong></div>`).join('')+
+    '<div style="margin-bottom:10px"></div>';
+  el.innerHTML=coherenciaHtml+'<div class="s-sub" style="font-weight:700;margin-bottom:8px">Yahoo</div>'+filas+
     `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:8px"><span>Cobertura</span><strong>${okCount} / ${v.cobertura.length}</strong></div>`+
     `<div style="display:flex;justify-content:space-between;gap:12px"><span>Valor en vivo</span><strong>${v.fuente==='YAHOO'?fmtMoneda(v.valor,'USD'):'No disponible'}</strong></div>`+
     (v.fuente!=='YAHOO'&&motivo?`<p class="hint" style="margin-top:6px">Motivo: ${esc(motivo.motivo||'')} (${esc(motivo.simbolo)})</p>`:'');
