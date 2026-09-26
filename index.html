@@ -1489,7 +1489,6 @@ function actualizarChips(){
     const ahora=new Date();
     let lbl;
     if(ma.getFullYear()===ahora.getFullYear()&&ma.getMonth()===ahora.getMonth())lbl='Este mes';
-    else if(mesOffset===-1&&ma.getFullYear()===ahora.getFullYear())lbl='Mes anterior';
     else lbl=meses[ma.getMonth()]+' '+ma.getFullYear();
     document.getElementById('chipPeriodoLbl').textContent=lbl;
   }else{
@@ -1713,11 +1712,11 @@ function filtrarPorCat(k){filtroCategoria=norm(filtroCategoria)===norm(k)?null:k
 
 // Una fila de reembolso, anidada debajo de su gasto original. Su click no
 // debe abrir el gasto: edita o elimina solo esta devolución. La cuenta
-// receptora no se nombra aquí (queda guardada en el reembolso y se ve al
-// editarlo, en el selector de cuenta del formulario).
+// receptora sí se nombra: "Reembolso a Yape" deja claro adónde llegó el
+// dinero sin abrir el gasto (que además puede estar en otra cuenta).
 function filaReembolsoAnidada(r){
   const rowId=getTxRow(r);
-  return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
+  return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso a ${escHtml(r[5]||'—')}: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
 }
 function filaTxPrincipal(t){
   const c=cleanName(t[2]);
@@ -1923,14 +1922,20 @@ function aportesNetosInversion(txs){
     return sum+(esCuentaInversion(t[7]||'')?m:0)-(esCuentaInversion(t[5]||'')?m:0);
   },0);
 }
-// Las cuentas del formulario son una lista cerrada. En Transferencia se
-// excluyen las tarjetas (tienen su propio flujo de pagos) y el destino no
-// puede repetir el origen. Al editar, una cuenta que ya no está disponible
-// (vacía o de una cuenta vieja) se agrega como opción para no perder el dato.
+// Las cuentas del formulario son una lista cerrada. En Transferencia e
+// Ingreso se excluyen las tarjetas: una tarjeta tiene su propio flujo de
+// pagos y nunca recibe dinero directo (un ingreso ahí quedaría invisible en
+// Saldos por cuenta y nunca reduciría la deuda). El destino de una
+// Transferencia tampoco puede repetir el origen. Al editar, una cuenta que
+// ya no está disponible (vacía o de una cuenta vieja) se agrega como opción
+// para no perder el dato — salvo que sea justo una tarjeta colada en un
+// Ingreso, que no se reinserta.
 function opcionesCuenta(valorActual){
   let lista=cuentasDisponibles();
-  if(tipoA==='Transferencia')lista=lista.filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
-  if(valorActual&&!lista.some(c=>sameAccount(c,valorActual)))lista=[valorActual,...lista];
+  const sinTarjetas=tipoA==='Transferencia'||tipoA==='Ingreso';
+  if(sinTarjetas)lista=lista.filter(c=>!CREDIT_CARDS.some(card=>sameAccount(card.cuenta,c)));
+  const esTarjeta=v=>CREDIT_CARDS.some(card=>sameAccount(card.cuenta,v));
+  if(valorActual&&!lista.some(c=>sameAccount(c,valorActual))&&!(sinTarjetas&&esTarjeta(valorActual)))lista=[valorActual,...lista];
   return lista;
 }
 function pintarCuentas(sel,lista,valor,excluir){
@@ -2726,12 +2731,30 @@ function movimientosSinCuenta(){
   });
   return{n,total};
 }
+// Efectivo total en soles: cada cuenta con su costo histórico ya guardado
+// (el mismo que muestra "costo" en las tarjetas de dólares), nunca con el
+// tipo de cambio de hoy. Igual que Acumulado, pero por cuentas en vez de por
+// movimientos, para poder verificar una cosa contra la otra.
+function totalEfectivoSoles(){
+  return cuentasSaldos().reduce((sum,c)=>sum+getCuentaBalance(c),0)+movimientosSinCuenta().total;
+}
+function totalPendienteTarjetasGlobal(){
+  return CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
+}
 function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
   const btn=document.getElementById('btnConciliar');
   if(btn){btn.classList.toggle('active-pill',conciliando);btn.setAttribute('aria-pressed',String(conciliando));btn.textContent=conciliando?'Ocultar comparación':'Comparar con banco';}
+  // Acumulado (en Inicio) = este total efectivo + lo pendiente de tarjetas,
+  // que no aparece como cuenta aquí abajo pero Acumulado sí lo suma de
+  // vuelta (gastado pero no pagado, todavía tuyo). Si esta suma no coincide
+  // con Acumulado, algún movimiento tiene la cuenta equivocada: un ingreso o
+  // gasto cargado a una tarjeta en vez de a Plin/Yape, o una transferencia
+  // con la cuenta destino cambiada.
+  const totalEfectivo=totalEfectivoSoles(),pendienteTarjetas=totalPendienteTarjetasGlobal();
+  const resumen=`<div class="card-stat full" style="border:1px solid var(--border)"><div class="card-stat-lbl">Total efectivo (S/)</div><div class="card-stat-val">${fmt(totalEfectivo)}</div><div class="card-stat-sub">+ ${fmt(pendienteTarjetas)} gastado en tarjetas y aún no pagado = ${fmt(totalEfectivo+pendienteTarjetas)}, debería ser el mismo número que "Acumulado" en Inicio. Sin convertir dólares al tipo de cambio de hoy: cada cuenta usa el costo con el que se registró.</div></div>`;
   const efectivo=cuentasSaldos();
-  let html=efectivo.map((c,i)=>{
+  let html=resumen+efectivo.map((c,i)=>{
     const {moneda,saldo}=getCuentaBalanceMoneda(c),av=avisosCuenta(c);
     // El costo en soles de los dólares es un dato secundario: el saldo de la
     // cuenta es el nominal en dólares.
