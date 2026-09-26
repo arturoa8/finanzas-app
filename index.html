@@ -1898,6 +1898,11 @@ const CUENTAS_BASE=[['Plin','billetera','PEN',false,null],['Yape','billetera','P
 function cuentasApp(){return (datos.cuentas&&datos.cuentas.length)?datos.cuentas:CUENTAS_BASE;}
 function cuentaPorNombre(nombre){return cuentasApp().find(c=>sameAccount(c[0],nombre))||null;}
 function esCuentaInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[1]==='inversion';}
+// Una cuenta en dólares que no es de inversión (p. ej. BCP Dólares): el
+// dinero que entra ahí sale del perímetro líquido en soles igual que a
+// inversión, para que Acumulado/Neto no mezclen conversión de moneda con
+// gasto real (el saldo de esa cuenta se ve aparte, en su propia moneda).
+function esCuentaUSDNoInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[2]==='USD'&&c[1]!=='inversion';}
 function cuentasDisponibles(){
   const cuentas=[...cuentasApp().filter(c=>!c[3]).map(c=>c[0]),...CREDIT_CARDS.map(c=>c.cuenta)];
   return cuentas.map(c=>String(c).trim()).filter((c,i,a)=>c&&a.findIndex(v=>sameAccount(v,c))===i);
@@ -1913,13 +1918,16 @@ function cuentasLegacy(){
   }));
   return legacy;
 }
-// Aporte neto a inversión: lo que entra a una cuenta de tipo inversión menos
-// lo que sale de ella. Sale del perímetro líquido sin ser gasto.
+// Aporte neto fuera del perímetro líquido en soles: lo que entra a una
+// cuenta de inversión O a una cuenta en dólares que no es de inversión
+// (comprar dólares) menos lo que sale de ellas. En ambos casos el dinero
+// sigue siendo tuyo, pero ya no es saldo disponible en soles sin convertir.
 function aportesNetosInversion(txs){
+  const fuera=n=>esCuentaInversion(n)||esCuentaUSDNoInversion(n);
   return (txs||[]).reduce((sum,t)=>{
     if(t[3]!=='Transferencia')return sum;
     const m=Number(t[4])||0;
-    return sum+(esCuentaInversion(t[7]||'')?m:0)-(esCuentaInversion(t[5]||'')?m:0);
+    return sum+(fuera(t[7]||'')?m:0)-(fuera(t[5]||'')?m:0);
   },0);
 }
 // Las cuentas del formulario son una lista cerrada. En Transferencia e
@@ -2731,12 +2739,13 @@ function movimientosSinCuenta(){
   });
   return{n,total};
 }
-// Efectivo total en soles: cada cuenta con su costo histórico ya guardado
-// (el mismo que muestra "costo" en las tarjetas de dólares), nunca con el
-// tipo de cambio de hoy. Igual que Acumulado, pero por cuentas en vez de por
-// movimientos, para poder verificar una cosa contra la otra.
+// Efectivo total en soles: solo cuentas en soles (Plin, Yape, etc.) más lo
+// sin cuenta. Las cuentas en dólares (BCP Dólares) quedan fuera, igual que
+// inversión: se ven aparte, en su propia moneda, sin mezclar tipo de cambio
+// — ni el de hoy ni el histórico — en este total. Es lo mismo que resta
+// aportesNetosInversion() en Acumulado, para que ambos cuadren.
 function totalEfectivoSoles(){
-  return cuentasSaldos().reduce((sum,c)=>sum+getCuentaBalance(c),0)+movimientosSinCuenta().total;
+  return cuentasSaldos().filter(c=>!esCuentaUSDNoInversion(c)).reduce((sum,c)=>sum+getCuentaBalance(c),0)+movimientosSinCuenta().total;
 }
 function totalPendienteTarjetasGlobal(){
   return CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
@@ -2752,7 +2761,7 @@ function renderSaldoCuentas(){
   // gasto cargado a una tarjeta en vez de a Plin/Yape, o una transferencia
   // con la cuenta destino cambiada.
   const totalEfectivo=totalEfectivoSoles(),pendienteTarjetas=totalPendienteTarjetasGlobal();
-  const resumen=`<div class="card-stat full" style="border:1px solid var(--border)"><div class="card-stat-lbl">Total efectivo (S/)</div><div class="card-stat-val">${fmt(totalEfectivo)}</div><div class="card-stat-sub">+ ${fmt(pendienteTarjetas)} gastado en tarjetas y aún no pagado = ${fmt(totalEfectivo+pendienteTarjetas)}, debería ser el mismo número que "Acumulado" en Inicio. Sin convertir dólares al tipo de cambio de hoy: cada cuenta usa el costo con el que se registró.</div></div>`;
+  const resumen=`<div class="card-stat full" style="border:1px solid var(--border)"><div class="card-stat-lbl">Total efectivo (S/)</div><div class="card-stat-val">${fmt(totalEfectivo)}</div><div class="card-stat-sub">+ ${fmt(pendienteTarjetas)} gastado en tarjetas y aún no pagado = ${fmt(totalEfectivo+pendienteTarjetas)}, debería ser el mismo número que "Acumulado" en Inicio. Solo cuentas en soles: las cuentas en dólares (como BCP Dólares) quedan fuera, sin convertir a ningún tipo de cambio — ni el de hoy ni el histórico.</div></div>`;
   const efectivo=cuentasSaldos();
   let html=resumen+efectivo.map((c,i)=>{
     const {moneda,saldo}=getCuentaBalanceMoneda(c),av=avisosCuenta(c);
