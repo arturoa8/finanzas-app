@@ -154,6 +154,8 @@ input,textarea{-webkit-user-select:text;user-select:text;}
 .tamt-pill .pdot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
 .tamt-pill.in{color:var(--green);}.tamt-pill.in .pdot{background:var(--green);}
 .tamt-pill.out .pdot{background:var(--red);}
+.tamt-pill.dual .leg-out{color:var(--red);}
+.tamt-pill.dual .leg-in{color:var(--green);margin-left:2px;}
 .tx-refund-sub{font-size:0.72rem;color:var(--muted);font-weight:500;margin-top:2px;}
 .tx-refund-sub.tx-refund-net{color:var(--dim);font-weight:700;}
 .tx-refund-line{font-size:0.78rem;color:var(--green);font-weight:600;padding:6px 6px 6px 60px;margin:-2px 0 4px;cursor:pointer;border-radius:8px;}
@@ -962,7 +964,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
         <span>
 📅
 </span>
-        <input type="date" id="iFec">
+        <input type="date" id="iFec" onchange="sincronizarCamposMoneda()">
       </label>
     </div>
 
@@ -972,7 +974,7 @@ button,input,select,textarea{font-family:inherit}button{touch-action:manipulatio
       <input type="number" class="big-input muto" id="iMon" placeholder="Monto" step="0.01" inputmode="decimal" oninput="actualizarEquivalente()">
     </div>
     <div id="divisaFields" hidden>
-      <div class="cuenta-row"><label class="cuenta-lbl" for="iTc">Tipo de cambio</label><input id="iTc" class="sel" type="number" step="0.000001" min="0" inputmode="decimal" placeholder="Ej. 3.766667" oninput="tcEditadoAMano()"></div>
+      <div class="cuenta-row" id="iTcRow"><label class="cuenta-lbl" for="iTc">Tipo de cambio</label><input id="iTc" class="sel" type="number" step="0.000001" min="0" inputmode="decimal" placeholder="Ej. 3.766667" oninput="tcEditadoAMano()"></div>
       <p class="transfer-note" id="divisaEquiv"></p>
     </div>
 
@@ -1359,6 +1361,7 @@ const getEmoji=cat=>{
   // la categoría histórica 'Inversiones' ni el resto de nombres.
   const n=norm(cat);
   if(n.startsWith('inversion ')||n.startsWith('retiro '))return EMOJIS['Inversiones'];
+  if(n==='compra dolares'||n==='venta de dolares')return EMOJIS['Transferencias'];
   return {e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
 };
 
@@ -1735,9 +1738,15 @@ function filaTxPrincipal(t){
   // En divisa el importe que se ve primero es el que pagaste; el
   // equivalente en soles y el tipo de cambio van en la segunda línea.
   const enDivisa=t[9]==='USD'&&Number(t[10])>0;
-  const cambio=transfer&&Number(t[14])>0
+  // Compra o venta de dólares (no un aporte/retiro de inversión): dos
+  // efectos reales de una sola operación, cada uno en su propia moneda. No
+  // hay un "tipo de cambio" que enseñar aparte, los dos importes ya son el
+  // hecho. Un aporte o retiro de inversión conserva su forma de siempre.
+  const dual=transfer&&Number(t[14])>0&&!esCuentaInversion(t[5]||'')&&!esCuentaInversion(t[7]||'')
+    &&monedaCuenta(t[5]||'')!==monedaCuenta(t[7]||'');
+  const cambio=!dual&&transfer&&Number(t[14])>0
     ? `${fmt(m)} → ${fmtMoneda(Number(t[14]),t[13]||'USD')}`
-    : enDivisa?`${fmt(m)} · TC ${Number(t[11]).toFixed(6)}`:'';
+    : !dual&&enDivisa?`${fmt(m)} · TC ${Number(t[11]).toFixed(6)}`:'';
   const base=transfer?`${t[5]} → ${t[7]||'Sin destino'}${t[1]?' · '+t[1]:''}`:t[1]||'?';
   const d=cambio?`${base} · ${cambio}`:base;
   // Un gasto con reembolsos vinculados muestra además lo pagado, el gasto
@@ -1749,7 +1758,10 @@ function filaTxPrincipal(t){
   const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(reembolsos.length>0?gastoNeto(t):m);
   const row=getTxRow(t);
   const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
-  return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div><div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div></div>${nested}`;
+  const pill=dual
+    ? `<div class="tamt-pill transfer dual"><span class="pdot"></span><span class="leg-out">− ${enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m)}</span><span class="leg-in">+ ${fmtMoneda(Number(t[14]),t[13]||monedaCuenta(t[7]||''))}</span></div>`
+    : `<div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div>`;
+  return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div>${pill}</div>${nested}`;
 }
 function renderTx(){
   // Los reembolsos no se listan como filas propias: aparecen anidados bajo
@@ -2435,6 +2447,12 @@ function categoriaTransferencia(origen,destino){
   const dst=cuentaPorNombre(destino),org=cuentaPorNombre(origen);
   if(dst&&dst[1]==='inversion')return 'Inversión '+dst[0];
   if(org&&org[1]==='inversion')return 'Retiro '+org[0];
+  // Cambiar de moneda entre dos cuentas que no son de inversión: compra o
+  // venta de dólares, no una transferencia genérica. Entre dos cuentas de la
+  // misma moneda (incluido USD → USD) no hay nada que nombrar aparte.
+  const mo=monedaCuenta(origen),md=monedaCuenta(destino);
+  if(mo==='PEN'&&md==='USD')return 'Compra Dólares';
+  if(mo==='USD'&&md==='PEN')return 'Venta de Dólares';
   return 'Transferencias';
 }
 
@@ -2839,7 +2857,11 @@ function cuentasUSDGastables(){
 // saldo se agota el pozo se reinicia solo, que es lo correcto: los dólares que
 // compres luego no deben arrastrar el costo de los que ya gastaste.
 // Devuelve null cuando no hay con qué calcularlo; nunca un número inventado.
-function costoPromedioUSD(){
+// hasta acota el recorrido a una fecha (para valorar un gasto histórico con
+// el costo que regía ese día, no con compras que todavía no existían).
+// excluirId saca una fila del recorrido: la que se está editando, para que no
+// se cuente a sí misma como si ya estuviera guardada.
+function costoPromedioUSD(hasta=null,excluirId=null){
   const cuentas=cuentasUSDGastables();
   if(!cuentas.length)return null;
   const esUSD=n=>cuentas.some(c=>sameAccount(c,n||''));
@@ -2853,8 +2875,11 @@ function costoPromedioUSD(){
     else if(usd<0){descuadre=true;}
   };
   // Pagar una tarjeta con dólares propios también los consume.
-  const pagosUSD=(datos.pagosTarjetas||[]).filter(p=>pagoEsUSD(p)&&esUSD(p[6])).map(p=>({pago:p,fecha:pf(p[4])}));
-  const eventos=[...(datos.transacciones||[]).map(t=>({t,fecha:pf(t[0])})),...pagosUSD].sort((a,b)=>a.fecha-b.fecha);
+  const pagosUSD=(datos.pagosTarjetas||[]).filter(p=>pagoEsUSD(p)&&esUSD(p[6])&&(!hasta||pf(p[4])<=hasta)).map(p=>({pago:p,fecha:pf(p[4])}));
+  const eventos=[...(datos.transacciones||[])
+      .filter(t=>String(t[6])!==String(excluirId)&&(!hasta||pf(t[0])<=hasta))
+      .map(t=>({t,fecha:pf(t[0])})),
+    ...pagosUSD].sort((a,b)=>a.fecha-b.fecha);
   eventos.forEach(ev=>{
     if(ev.pago){sale(Number(ev.pago[3])||0);return;}
     const t=ev.t,soles=Number(t[4])||0,orig=Number(t[10])||0;
@@ -2867,6 +2892,30 @@ function costoPromedioUSD(){
   });
   if(descuadre||usd<0.005||pen<=0)return null;
   return Math.round(pen/usd*1e6)/1e6;
+}
+
+// Valoración automática de un Gasto o Ingreso registrado directo en una
+// cuenta en dólares: nunca se pregunta el tipo de cambio, se calcula solo.
+// Un gasto usa el costo histórico de la cuenta a esa fecha (esos dólares ya
+// eran tuyos, comprados antes). Un ingreso externo (sueldo, un pago que te
+// hacen en USD) usa la cotización de mercado de ese día: no es dinero que
+// haya salido de tu pozo de dólares comprados, así que no debe cargarle el
+// costo de compras anteriores ni moverle el promedio.
+// Si falta con qué valorarlo no se inventa nada: tc queda null y el mensaje
+// explica por qué, para que la persona lo escriba a mano.
+function valoracionAutomaticaUSD(tipoMov,fechaISO,excluirId=null){
+  if(tipoMov==='Gasto'){
+    const hasta=fechaISO?endOfDay(pf(fechaISO)):null;
+    const tc=costoPromedioUSD(hasta,excluirId);
+    return tc
+      ? {tc,fuente:'costo_promedio',mensaje:'Costo promedio de tus dólares a esa fecha.'}
+      : {tc:null,fuente:null,mensaje:'No hay dólares comprados registrados a esta fecha: escribe el tipo de cambio.'};
+  }
+  // Ingreso. Sin una fuente de cotización histórica por fecha, solo se
+  // valora sin preguntar cuando es la de hoy (el mercado que ya se consultó).
+  if(fechaISO&&fechaISO===hoyISO()&&tcMercado>0)
+    return {tc:tcMercado,fuente:'mercado',mensaje:'Tipo de cambio de mercado de hoy.'};
+  return {tc:null,fuente:null,mensaje:'No hay una cotización de mercado guardada para esa fecha: escribe el tipo de cambio.'};
 }
 
 // Igual que movimientoCuenta pero en la moneda propia de la cuenta: una cuenta
@@ -3088,22 +3137,42 @@ function sincronizarCamposMoneda(){
   const enDivisa=monedaTx()==='USD';
   div.hidden=!enDivisa;
   const campo=document.getElementById('iTc'),nota=document.getElementById('divisaEquiv');
+  const filaTc=document.getElementById('iTcRow');
   if(enDivisa){
     const derivado=tcDerivadoTransferencia();
     if(derivado){
       // Con los dos importes el tipo de cambio es un hecho, no una estimación.
       if(campo){campo.value=derivado;campo.readOnly=true;}
       tcFuenteActual='transferencia';
+      if(filaTc)filaTc.hidden=false;
       if(nota)nota.dataset.nota='Sale de los dos importes de esta operación.';
+    }else if(!transferencia){
+      // Un Gasto o Ingreso registrado directo en una cuenta en dólares nunca
+      // pide el tipo de cambio: se valora solo (ver valoracionAutomaticaUSD).
+      // El campo solo reaparece cuando de verdad no hay con qué calcularlo,
+      // para no inventar una tasa.
+      const auto=valoracionAutomaticaUSD(tipoA,elv('iFec'),editando);
+      if(campo)campo.readOnly=true;
+      if(auto.tc){
+        if(campo)campo.value=auto.tc;
+        tcFuenteActual=auto.fuente;
+        if(filaTc)filaTc.hidden=true;
+      }else{
+        if(campo){campo.value='';campo.readOnly=false;}
+        tcFuenteActual='manual';
+        if(filaTc)filaTc.hidden=false;
+      }
+      if(nota)nota.dataset.nota=auto.mensaje;
     }else{
       if(campo)campo.readOnly=false;
+      if(filaTc)filaTc.hidden=false;
       const p=tcPropuesto(transferencia?elv('iCue'):elv('iCue'));
       if(campo&&!campo.value){if(p.tc)campo.value=p.tc;tcFuenteActual=p.tc?p.fuente:'manual';}
       if(nota)nota.dataset.nota=transferencia
         ? 'Valora en soles los dólares que salen, para el saldo disponible.'
         : p.nota;
     }
-  }else if(campo){campo.value='';campo.readOnly=false;}
+  }else if(campo){campo.value='';campo.readOnly=false;if(filaTc)filaTc.hidden=false;}
 
   const fila=document.getElementById('destinoMontoRow'),notaTr=document.getElementById('transferTc');
   const distinta=transferencia&&!!elv('iDestino')&&monedaCuenta(elv('iDestino'))!==monedaCuenta(elv('iCue'));
