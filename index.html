@@ -1621,6 +1621,10 @@ function renderBal(){
     // La diferencia de cambio de un pago desde dólares propios tampoco
     // salió de una cuenta en soles; sí permanece en Neto.
     if(acumuladoMode&&ajustesDePagosUSD.has(String(t[6])))return;
+    // Un Ingreso o Gasto ya registrado directo en IBKR o en una cuenta USD
+    // que no es de inversión vive fuera del perímetro en soles: contarlo acá
+    // duplicaría el ajuste que aportesNetosInversion hace para transferencias.
+    if(fueraDePerimetro(t[5]||''))return;
     const m = parseFloat(t[4]) || 0;
     if(t[3] === 'Ingreso') iBal += m;
     gBal += acumuladoMode?gastoNetoHasta(t,hoy):gastoNeto(t);
@@ -1628,6 +1632,7 @@ function renderBal(){
 
   let iPeriodo = 0, gPeriodo = 0;
   txPeriodo.forEach(t=>{
+    if(fueraDePerimetro(t[5]||''))return;
     const m = parseFloat(t[4]) || 0;
     if(t[3] === 'Ingreso') iPeriodo += m;
     gPeriodo += gastoNeto(t);
@@ -1907,6 +1912,10 @@ function esCuentaInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c
 // inversión. Neto ajusta esas transferencias; Acumulado suma directamente
 // las cuentas en soles (la cuenta USD se ve aparte, en su propia moneda).
 function esCuentaUSDNoInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[2]==='USD'&&c[1]!=='inversion';}
+// Fuera del perímetro líquido en soles: inversión o dólares que no son de
+// inversión. Un Ingreso/Gasto registrado directo ahí ya vive en otra moneda
+// o ya es capital invertido, así que no debe sumarse ni restarse en soles.
+function fueraDePerimetro(nombre){return esCuentaInversion(nombre)||esCuentaUSDNoInversion(nombre);}
 function cuentasDisponibles(){
   const cuentas=[...cuentasApp().filter(c=>!c[3]).map(c=>c[0]),...CREDIT_CARDS.map(c=>c.cuenta)];
   return cuentas.map(c=>String(c).trim()).filter((c,i,a)=>c&&a.findIndex(v=>sameAccount(v,c))===i);
@@ -1927,11 +1936,10 @@ function cuentasLegacy(){
 // (comprar dólares) menos lo que sale de ellas. En ambos casos el dinero
 // sigue siendo tuyo, pero ya no es saldo disponible en soles sin convertir.
 function aportesNetosInversion(txs){
-  const fuera=n=>esCuentaInversion(n)||esCuentaUSDNoInversion(n);
   return (txs||[]).reduce((sum,t)=>{
     if(t[3]!=='Transferencia')return sum;
     const m=Number(t[4])||0;
-    return sum+(fuera(t[7]||'')?m:0)-(fuera(t[5]||'')?m:0);
+    return sum+(fueraDePerimetro(t[7]||'')?m:0)-(fueraDePerimetro(t[5]||'')?m:0);
   },0);
 }
 // Las cuentas del formulario son una lista cerrada. En Transferencia e
