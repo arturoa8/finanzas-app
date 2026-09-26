@@ -1612,12 +1612,18 @@ function renderBal(){
     txBalance = filtrar();
   }
   const txPeriodo = filtrar();
+  const pagosDesdeUSD=acumuladoMode?(datos.pagosTarjetas||[]).filter(p=>
+    pagoEsUSD(p)&&esCuentaUSDNoInversion(p[6]||'')&&pf(p[4])<=hoy):[];
+  const ajustesDePagosUSD=new Set(pagosDesdeUSD.map(p=>String(p[11]||'')).filter(Boolean));
 
   let iBal = 0, gBal = 0;
   txBalance.forEach(t=>{
+    // La diferencia de cambio de un pago desde dólares propios tampoco
+    // salió de una cuenta en soles; sí permanece en Neto.
+    if(acumuladoMode&&ajustesDePagosUSD.has(String(t[6])))return;
     const m = parseFloat(t[4]) || 0;
     if(t[3] === 'Ingreso') iBal += m;
-    gBal += gastoNeto(t);
+    gBal += acumuladoMode?gastoNetoHasta(t,hoy):gastoNeto(t);
   });
 
   let iPeriodo = 0, gPeriodo = 0;
@@ -1629,18 +1635,16 @@ function renderBal(){
 
   let balance = iBal - gBal;
 
-  // Aportes netos a cuentas de inversión: el dinero sigue siendo tuyo, pero
-  // ya no es saldo disponible. En la vista de período no se tocan (una
-  // transferencia nunca fue ingreso ni gasto del mes).
+  // Las transferencias a IBKR o a cuentas USD sacan soles del perímetro.
   if(acumuladoMode||netaMode)balance-=aportesNetosInversion(txBalance);
 
-  // En modo Acumulado: sumar TODO lo consumido en tarjeta que aún no ha
-  // salido de la cuenta (gasto devengado sin pagar), incluyendo el ciclo que
-  // está corriendo ahora mismo y todavía no cierra — no solo el último ciclo
-  // ya cerrado. Así el Acumulado refleja flujo de caja libre real.
   if(acumuladoMode){
-    const totalPendienteTarjetas = CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
-    balance += totalPendienteTarjetas;
+    // Cancela el gasto devengado en tarjeta hasta que se pague en soles.
+    balance+=CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card,hoy),0);
+    // Si se pagó desde dólares ya comprados, no hubo otra salida de soles.
+    // El pago redujo la deuda anterior; se repone solo su equivalente
+    // reconocido. Su ajuste de cambio se excluyó arriba por la misma razón.
+    balance+=pagosDesdeUSD.reduce((sum,p)=>sum+pagoEnSoles(p),0);
   }
 
   // Patrimonio = Neto + valor del portafolio en soles. El valor_total de
@@ -1676,7 +1680,7 @@ function renderBal(){
     : modoBalance==='patrimonio'
     ? 'Patrimonio'
     : netaMode ? 'Total neto'
-    : acumuladoMode ? 'Saldo + tarjetas' : 'Total';
+    : acumuladoMode ? 'Efectivo hasta hoy' : 'Total';
 
   smoothSetText(document.getElementById('kpiOut'), '− ' + fmt(gPeriodo), gPeriodo);
   smoothSetText(document.getElementById('kpiIn'), '+ ' + fmt(iPeriodo), iPeriodo);
@@ -1900,8 +1904,8 @@ function cuentaPorNombre(nombre){return cuentasApp().find(c=>sameAccount(c[0],no
 function esCuentaInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[1]==='inversion';}
 // Una cuenta en dólares que no es de inversión (p. ej. BCP Dólares): el
 // dinero que entra ahí sale del perímetro líquido en soles igual que a
-// inversión, para que Acumulado/Neto no mezclen conversión de moneda con
-// gasto real (el saldo de esa cuenta se ve aparte, en su propia moneda).
+// inversión. Neto ajusta esas transferencias; Acumulado suma directamente
+// las cuentas en soles (la cuenta USD se ve aparte, en su propia moneda).
 function esCuentaUSDNoInversion(nombre){const c=cuentaPorNombre(nombre);return !!c&&c[2]==='USD'&&c[1]!=='inversion';}
 function cuentasDisponibles(){
   const cuentas=[...cuentasApp().filter(c=>!c[3]).map(c=>c[0]),...CREDIT_CARDS.map(c=>c.cuenta)];
@@ -2617,6 +2621,12 @@ function gastoNeto(t){
   const reemb=datos.transacciones.filter(x=>x[3]==='Reembolso'&&String(x[8])===String(t[6])).reduce((sum,x)=>sum+Math.round(Number(x[4])*100),0)/100;
   return Math.round((monto-reemb)*100)/100;
 }
+function gastoNetoHasta(t,hasta){
+  if(t[3]!=='Gasto')return 0;
+  const reemb=datos.transacciones.filter(x=>x[3]==='Reembolso'&&String(x[8])===String(t[6])&&pf(x[0])<=hasta)
+    .reduce((sum,x)=>sum+Math.round(Number(x[4])*100),0)/100;
+  return Math.round(((Number(t[4])||0)-reemb)*100)/100;
+}
 // Movimiento de caja real: a diferencia de gastoNeto (que pliega el
 // reembolso en el gasto original para estadísticas), esto es lo que
 // efectivamente entra o sale de una cuenta, en su propia fecha.
@@ -2716,7 +2726,7 @@ function actualizarDiferenciaBanco(i,valor){
   const c=cuentasSaldos()[i];if(!c)return;
   conciliacion[c]=valor;
   const el=document.getElementById('difBanco'+i);if(!el)return;
-  const {moneda,saldo}=getCuentaBalanceMoneda(c),banco=parseFloat(String(valor).replace(',','.'));
+  const {moneda,saldo}=getCuentaBalanceMoneda(c,endOfDay(new Date())),banco=parseFloat(String(valor).replace(',','.'));
   if(!isFinite(banco)||String(valor).trim()===''){el.textContent='';el.className='card-stat-sub';return;}
   const dif=Math.round((banco-saldo)*100)/100;
   if(Math.abs(dif)<0.005){el.textContent='✓ Cuadra con el banco';el.className='card-stat-sub stat-delta-pos';return;}
@@ -2739,13 +2749,13 @@ function movimientosSinCuenta(){
   });
   return{n,total};
 }
-// Efectivo total en soles: solo cuentas en soles (Plin, Yape, etc.) más lo
-// sin cuenta. Las cuentas en dólares (BCP Dólares) quedan fuera, igual que
-// inversión: se ven aparte, en su propia moneda, sin mezclar tipo de cambio
-// — ni el de hoy ni el histórico — en este total. Es lo mismo que resta
-// aportesNetosInversion() en Acumulado, para que ambos cuadren.
-function totalEfectivoSoles(){
-  return cuentasSaldos().filter(c=>!esCuentaUSDNoInversion(c)).reduce((sum,c)=>sum+getCuentaBalance(c),0)+movimientosSinCuenta().total;
+// Desglose informativo de cuentas activas en soles. Los nombres históricos
+// sin moneda configurada no se pueden clasificar de forma fiable.
+function cuentasEfectivoSoles(){
+  return cuentasApp().filter(c=>!c[3]&&c[2]==='PEN'&&(c[1]==='banco'||c[1]==='billetera'));
+}
+function totalEfectivoSoles(hasta=endOfDay(new Date())){
+  return cuentasEfectivoSoles().reduce((sum,c)=>sum+getCuentaBalanceMoneda(c[0],hasta).saldo,0);
 }
 function totalPendienteTarjetasGlobal(){
   return CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
@@ -2754,24 +2764,22 @@ function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
   const btn=document.getElementById('btnConciliar');
   if(btn){btn.classList.toggle('active-pill',conciliando);btn.setAttribute('aria-pressed',String(conciliando));btn.textContent=conciliando?'Ocultar comparación':'Comparar con banco';}
-  // Acumulado (en Inicio) = este total efectivo + lo pendiente de tarjetas,
-  // que no aparece como cuenta aquí abajo pero Acumulado sí lo suma de
-  // vuelta (gastado pero no pagado, todavía tuyo). Si esta suma no coincide
-  // con Acumulado, algún movimiento tiene la cuenta equivocada: un ingreso o
-  // gasto cargado a una tarjeta en vez de a Plin/Yape, o una transferencia
-  // con la cuenta destino cambiada.
-  const totalEfectivo=totalEfectivoSoles(),pendienteTarjetas=totalPendienteTarjetasGlobal();
-  const resumen=`<div class="card-stat full" style="border:1px solid var(--border)"><div class="card-stat-lbl">Total efectivo (S/)</div><div class="card-stat-val">${fmt(totalEfectivo)}</div><div class="card-stat-sub">+ ${fmt(pendienteTarjetas)} gastado en tarjetas y aún no pagado = ${fmt(totalEfectivo+pendienteTarjetas)}, debería ser el mismo número que "Acumulado" en Inicio. Solo cuentas en soles: las cuentas en dólares (como BCP Dólares) quedan fuera, sin convertir a ningún tipo de cambio — ni el de hoy ni el histórico.</div></div>`;
+  // Desglose por cuentas, independiente del cálculo histórico de Acumulado.
+  const hasta=endOfDay(new Date()),totalEfectivo=totalEfectivoSoles(hasta),pendienteTarjetas=totalPendienteTarjetasGlobal();
+  const incluidas=cuentasEfectivoSoles().map(c=>escHtml(c[0])+' '+fmt(getCuentaBalanceMoneda(c[0],hasta).saldo)).join(' + ');
+  const resumen=`<div class="card-stat full" style="border:1px solid var(--border)"><div class="card-stat-lbl">Saldos registrados en cuentas en soles</div><div class="card-stat-val">${fmt(totalEfectivo)}</div><div class="card-stat-sub">${incluidas||'Sin cuentas activas en soles'}. Esta suma de cuentas es independiente de "Acumulado" en Inicio. Deuda pendiente de tarjetas: ${fmt(pendienteTarjetas)}. Las cuentas en dólares, archivadas o sin clasificar se muestran por separado.</div></div>`;
   const efectivo=cuentasSaldos();
   let html=resumen+efectivo.map((c,i)=>{
-    const {moneda,saldo}=getCuentaBalanceMoneda(c),av=avisosCuenta(c);
+    const {moneda,saldo}=getCuentaBalanceMoneda(c,hasta),av=avisosCuenta(c);
+    const config=cuentaPorNombre(c);
+    const fuera=(!config||config[3])?`<div class="card-stat-sub">${config?'Cuenta archivada':'Cuenta sin clasificar'} · fuera de la suma anterior</div>`:'';
     // El costo en soles de los dólares es un dato secundario: el saldo de la
     // cuenta es el nominal en dólares.
     const costo=moneda==='USD'?`<div class="card-stat-sub">costo ${fmt(getCuentaBalance(c))}</div>`:'';
     const avisos=(av.pendientes?`<div class="card-stat-sub">${av.pendientes} transferencia${av.pendientes>1?'s':''} sin importe recibido (${fmt(av.solesPendientes)} enviados): no suman aún</div>`:'')
       +(av.enSoles?`<div class="card-stat-sub">${av.enSoles} movimiento${av.enSoles>1?'s':''} en soles en esta cuenta en dólares: no suman</div>`:'');
     const conc=conciliando?`<input type="number" inputmode="decimal" step="0.01" class="sel" style="margin-top:8px;width:100%" placeholder="Saldo banco" value="${escAttr(conciliacion[c]||'')}" oninput="actualizarDiferenciaBanco(${i},this.value)"><div class="card-stat-sub" id="difBanco${i}"></div>`:'';
-    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}</div><div class="card-stat-val ${saldo>=0?'stat-delta-pos':'stat-delta-neg'}">${fmtCuenta(saldo,moneda)}</div>${costo}${avisos}${conc}</div>`;
+    return `<div class="card-stat"><div class="card-stat-lbl">${escHtml(c)}</div><div class="card-stat-val ${saldo>=0?'stat-delta-pos':'stat-delta-neg'}">${fmtCuenta(saldo,moneda)}</div>${fuera}${costo}${avisos}${conc}</div>`;
   }).join('');
   const sin=movimientosSinCuenta();
   if(sin.n)html+=`<div class="card-stat full"><div class="card-stat-lbl">Sin cuenta asignada</div><div class="card-stat-val">${fmt(sin.total)}</div><div class="card-stat-sub">${sin.n} movimiento${sin.n>1?'s':''} sin cuenta: no están en el saldo de ninguna. Edítalos y elígeles una cuenta para que cuadren.</div></div>`;
@@ -2895,13 +2903,14 @@ function avisosCuenta(cuenta){
   });
   return a;
 }
-function getCuentaBalanceMoneda(cuenta){
+function getCuentaBalanceMoneda(cuenta,hasta=null){
   const moneda=monedaCuenta(cuenta);
-  let saldo=(datos.transacciones||[]).reduce((s,t)=>s+movimientoCuentaMoneda(t,cuenta),0);
+  const enFecha=fecha=>!hasta||pf(fecha)<=hasta;
+  let saldo=(datos.transacciones||[]).filter(t=>enFecha(t[0])).reduce((s,t)=>s+movimientoCuentaMoneda(t,cuenta),0);
   // Un pago en soles descuenta de una cuenta en soles lo que pagó. Un pago en
   // dólares descuenta de una cuenta en soles lo que costó, y de una cuenta en
   // dólares los dólares pagados.
-  (datos.pagosTarjetas||[]).forEach(p=>{
+  (datos.pagosTarjetas||[]).filter(p=>enFecha(p[4])).forEach(p=>{
     if(!sameAccount(String(p[6]||''),cuenta))return;
     if(moneda==='PEN')saldo-=pagoSalidaSoles(p);
     else if(pagoEsUSD(p))saldo-=Number(p[3])||0;
@@ -5416,13 +5425,13 @@ function cardTxCycleKey(card,t){
   const offset=(date.getFullYear()-getCurrentCycleEndMonth().getFullYear())*12+date.getMonth()-getCurrentCycleEndMonth().getMonth()+(date.getDate()>card.finDia?1:0);
   return getCycleKey(getCardCycle(card,offset));
 }
-function cardLedger(card){
+function cardLedger(card,hasta=null){
   const buckets=new Map();
   const bucket=key=>{if(!buckets.has(key))buckets.set(key,{total:0,pagado:0,reembolsos:0,creditoAplicado:0});return buckets.get(key);};
-  const expenses=datos.transacciones.filter(t=>isCardExpenseFor(card,t));
+  const expenses=datos.transacciones.filter(t=>isCardExpenseFor(card,t)&&(!hasta||pf(t[0])<=hasta));
   expenses.forEach(t=>bucket(cardTxCycleKey(card,t)).total+=Number(t[4]));
-  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=pagoEnSoles(p));
-  datos.transacciones.filter(t=>t[3]==='Reembolso'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=endOfDay(new Date())).forEach(t=>{
+  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)&&(!hasta||pf(p[4])<=hasta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=pagoEnSoles(p));
+  datos.transacciones.filter(t=>t[3]==='Reembolso'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=(hasta||endOfDay(new Date()))).forEach(t=>{
     const original=expenses.find(g=>String(g[6])===String(t[8]));
     if(original)bucket(cardTxCycleKey(card,original)).reembolsos+=Number(t[4]);
   });
@@ -5431,7 +5440,7 @@ function cardLedger(card){
   for(const key of [...buckets.keys()].sort()){const b=buckets.get(key);b.creditoAplicado=Math.min(favor,b.pendiente);b.pendiente-=b.creditoAplicado;favor-=b.creditoAplicado;}
   return {buckets,saldoFavor:favor,pendiente:[...buckets.values()].reduce((sum,b)=>sum+b.pendiente,0)};
 }
-function getCardOutstandingTotal(card){return cardLedger(card).pendiente;}
+function getCardOutstandingTotal(card,hasta=null){return cardLedger(card,hasta).pendiente;}
 function getCardData(card,offset=cardCycleOffset){
   const cycle=getCardCycle(card,offset),key=getCycleKey(cycle);
   const gastos=datos.transacciones.filter(t=>isCardExpenseFor(card,t)&&txBelongsToCycle(card,t,cycle)).sort((a,b)=>pf(b[0])-pf(a[0]));
@@ -5693,7 +5702,7 @@ async function bootAuth(){
 }
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 const previousRender=render;
-render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=verUSD?'Dólares en tus cuentas':soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Saldo estimado + tarjetas':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
+render=function(){previousRender();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=verUSD?'Dólares en tus cuentas':soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Efectivo hasta hoy':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';};
 const APP_PREFS_KEY='finanzas.appearance.v1';
 function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
 let appPreferences=leerPreferencias();
