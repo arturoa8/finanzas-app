@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -4044,6 +4043,13 @@ function pfFilasConVivo(filas){
   return [...filas,{...ultima,fecha_valoracion:hoyIso,valor_total:v.valor,creado_en:new Date().toISOString()}];
 }
 
+// Puntos diarios → formato de construirGraficoIntradia ({t,valor}),
+// conservando la fecha para el scrubbing.
+function pfSeriePorFecha(serie){
+  return serie.map(p=>({fecha:p.fecha,t:+parseDateOnly(p.fecha),valor:Number(p.valor)})).sort((a,b)=>a.t-b.t);
+}
+function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
+
 function renderPfChart(){
   const toggle=document.getElementById('pfDesdeToggle');
   if(toggle)toggle.style.display=pfPeriodo==='DESDE'?'none':'';
@@ -4074,7 +4080,16 @@ function renderPfChart(){
       res.innerHTML=cifras;
       hint.textContent='Hay un aporte o retiro sin dólares confirmados en este período: sin ese dato no se puede aislar su efecto para calcular la rentabilidad. Confírmalo en la transferencia, o prueba un período sin ese movimiento.';
     }else{
-      area.innerHTML=construirLineChartSVG(r.serie,{escala:'detail',zeroLine:true,fmt:v=>v.toFixed(1)+'%'});
+      // Mismo gráfico que el 1D (tamaño, escala ajustada, colores por tramo
+      // y scrubbing); solo cambia el eje X, que muestra fechas.
+      const valorPorFecha=new Map(filas.map(f=>[f.fecha_valoracion,Number(f.valor_total)]));
+      const grafico=construirGraficoIntradia(pfSeriePorFecha(r.serie),{etiqueta:pfEtiquetaFecha,aria:'Rendimiento del portafolio en el período'});
+      area.innerHTML=grafico.svg;
+      pfWireChartTooltip(area,grafico,{describir:p=>{
+        const v=valorPorFecha.get(p.fecha);
+        // Con TWR el cambio de valor incluye aportes/retiros: solo el %.
+        return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:r.metodo==='twr'||v==null?'':pfSigned(v-r.inicial,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
+      }});
       res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
       hint.textContent=r.metodo==='twr'
         ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
@@ -4082,7 +4097,14 @@ function renderPfChart(){
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
-    area.innerHTML=construirLineChartSVG(filas.map(r=>({fecha:r.fecha_valoracion,valor:r.valor_total})),{escala:'detail'});
+    const serie=pfSeriePorFecha(filas.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
+    const inicial=serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
+    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,aria:'Valor total de la cuenta en el período'});
+    area.innerHTML=grafico.svg;
+    pfWireChartTooltip(area,grafico,{describir:p=>{
+      const pctNum=inicial?(p.valor/inicial-1)*100:0;
+      return{valorTexto:pfFmt(p.valor,moneda),gananciaTexto:pfSigned(p.valor-inicial,moneda),pctTexto:pfSignedPct(pctNum),pctNum};
+    }});
     hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.';
   }
   renderPfBenchmark(filas);
@@ -4264,7 +4286,11 @@ function construirGraficoIntradia(puntos,opts={}){
   const x=t=>PAD_L+(t-t0)/tden*innerW;
   const y=v=>baseline-(v-yMin)/denom*innerH;
   const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
-  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" style="aspect-ratio:${VB_W}/${VB_H}" role="img" aria-label="Rendimiento intradía del portafolio">`;
+  // opts.etiqueta: texto de cada marca del eje X (y del pill al tocar). Por
+  // defecto la hora (1D); los períodos más largos pasan la fecha, así todos
+  // los períodos comparten exactamente el mismo gráfico.
+  const etiqueta=opts.etiqueta||(t=>new Date(t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}));
+  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" style="aspect-ratio:${VB_W}/${VB_H}" role="img" aria-label="${esc(opts.aria||'Rendimiento intradía del portafolio')}">`;
   // Grid horizontal extremadamente sutil (sección 11): sin números — el
   // rendimiento exacto se lee tocando el gráfico (hero + pill de hora).
   for(let i=1;i<3;i++){const yy=PAD_T+innerH*(i/3);
@@ -4296,11 +4322,13 @@ function construirGraficoIntradia(puntos,opts={}){
   // en el pill vertical mientras se hace scrubbing.
   const numEtiquetas=Math.min(4,validos.length);
   const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
-  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle';
-    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}))}</text>`;});
+  let etiquetaAnterior=null;
+  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle',texto=etiqueta(p.t);
+    if(texto===etiquetaAnterior)return;etiquetaAnterior=texto;
+    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;});
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
   svg+='</svg>';
-  return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos}};
+  return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos,etiqueta}};
 }
 // Scrubbing tipo Yahoo Finance (secciones 2-8, 18-23 del pedido): el HERO de
 // arriba (pfHeroValor/pfHeroHoy/pfFrescura) pasa a mostrar el punto tocado
@@ -4322,7 +4350,7 @@ function pfWireChartTooltip(container,grafico,opts){
   let label=container.querySelector('.pf-intraday-tooltip');
   if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
   label.style.display='none';
-  const {puntos,VB_W}=grafico.meta;
+  const {puntos,VB_W,etiqueta}=grafico.meta;
   const heroValorEl=document.getElementById('pfHeroValor'),heroHoyEl=document.getElementById('pfHeroHoy'),frescuraEl=document.getElementById('pfFrescura');
   function puntoDesdeEvento(evt){
     const rect=svgEl.getBoundingClientRect();
@@ -4340,14 +4368,14 @@ function pfWireChartTooltip(container,grafico,opts){
     tipDot.setAttribute('cx',xPix);tipDot.setAttribute('cy',yPix);
     tipDot.setAttribute('fill',color);
     tipG.style.display='';
-    const hora=new Date(p.t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'});
+    const hora=etiqueta(p.t);
     label.textContent=hora;
     label.style.display='block';
     label.style.left=Math.min(Math.max((xPix/VB_W)*100,10),90)+'%';
     // Hero temporal (secciones 2-3, 14, 18): reemplaza valor/rendimiento/hora
     // mientras se arrastra. evt.preventDefault evita seleccionar texto.
     if(heroValorEl)heroValorEl.textContent=d.valorTexto;
-    if(heroHoyEl){heroHoyEl.textContent=d.gananciaTexto+' ('+d.pctTexto+')';heroHoyEl.style.color=color;}
+    if(heroHoyEl){heroHoyEl.textContent=d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
     if(frescuraEl)frescuraEl.textContent=hora;
     if(evt.cancelable)evt.preventDefault();
   }
