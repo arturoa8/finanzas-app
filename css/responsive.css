@@ -14,9 +14,6 @@
 #pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:340px;aspect-ratio:4/3}
 .pf-intraday-tooltip{position:absolute;top:2px;transform:translateX(-50%);display:none;padding:3px 9px;border-radius:20px;background:var(--card2);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--dim);pointer-events:none;white-space:nowrap;z-index:2}
 #pfChartArea .chart-svg{user-select:none;-webkit-user-select:none;touch-action:pan-y}
-/* Ejes del gráfico del portafolio. El tamaño va en unidades del viewBox y lo
-   fija pfAjustarLetraEjes (intraday.js) según el ancho real: ~11px en pantalla. */
-#pfChartArea .pf-eje text{font-size:var(--pf-eje-fs,12px);fill:var(--dim);opacity:.85;font-variant-numeric:tabular-nums}
 #p-ana .container{padding-top:14px}
 #pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
 .pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}

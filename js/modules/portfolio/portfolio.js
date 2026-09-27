@@ -5,7 +5,7 @@ import {filtrarPorPeriodo} from '../analytics.js';
 import {renderPfDistribucion} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico, renderPfDiagnosticoYahoo} from './diagnostics.js';
-import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pfMonedaVisible, pintarValorPrincipal} from './hero.js';
+import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from './hero.js';
 import {construirGraficoIntradia, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
 import {pfFlujos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
@@ -295,12 +295,12 @@ export function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
 // vistas). Solo decide qué parte del eje se ve; nunca toca la serie.
 // Rango mínimo, para no convertir ruido en una montaña: 0.2 pp en el día y
 // 0.5 pp en períodos largos (Rendimiento); 0.2% / 0.5% del valor (Valor).
-export function pfOpcionesEscala(serie,{vista,moneda,intradia=false}){
+export function pfOpcionesEscala(serie,{vista,intradia=false}){
   const escala=escalaGrafico();
-  if(vista==='rendimiento')return{escala,rangoMinimo:intradia?0.2:0.5,eje:{unidad:'%'}};
+  if(vista==='rendimiento')return{escala,rangoMinimo:intradia?0.2:0.5};
   const vals=serie.map(p=>Number(p.valor)).filter(Number.isFinite);
   const nivel=vals.length?vals.reduce((a,v)=>a+Math.abs(v),0)/vals.length:0;
-  return{escala,rangoMinimo:nivel*(intradia?0.002:0.005),eje:{factor:pfMonedaVisible(moneda).factor}};
+  return{escala,rangoMinimo:nivel*(intradia?0.002:0.005)};
 }
 
 // Días en que la cuenta todavía no tenía dinero (valor 0 antes del primer
@@ -347,7 +347,7 @@ export function renderPfChart(){
       // y scrubbing); solo cambia el eje X, que muestra fechas.
       const valorPorFecha=new Map(filas.map(f=>[f.fecha_valoracion,Number(f.valor_total)]));
       const serie=pfSeriePorFecha(r.serie);
-      const grafico=construirGraficoIntradia(serie,{etiqueta:pfEtiquetaFecha,ejeX:'fecha',aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento',moneda:r.moneda})});
+      const grafico=construirGraficoIntradia(serie,{etiqueta:pfEtiquetaFecha,aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento'})});
       area.innerHTML=grafico.svg;
       // Cambio en dinero hasta el punto tocado SIN contar lo aportado o
       // retirado entre medio: un depósito no es ganancia. Mismo criterio de
@@ -368,7 +368,7 @@ export function renderPfChart(){
     const conValor=pfSinCerosIniciales(filas);
     const serie=pfSeriePorFecha(conValor.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
     const inicial=serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
-    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,ejeX:'fecha',aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor',moneda})});
+    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor'})});
     area.innerHTML=grafico.svg;
     // Valor: fecha y valor, sin %: un cambio de valor aquí puede ser un
     // aporte, y mostrarlo como porcentaje lo haría pasar por rentabilidad.

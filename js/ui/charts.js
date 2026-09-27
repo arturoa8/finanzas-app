@@ -5,10 +5,10 @@ import {anPeriodo, getTxAn} from '../modules/analytics.js';
 import {escalaGrafico} from '../modules/settings.js';
 import {gastoNeto, gastosPorCat} from '../modules/transactions.js';
 import {datos} from '../state.js';
-import {dominioY, textoTickY, ticksY} from './chart-scale.js';
+import {dominioY} from './chart-scale.js';
 import {getMesActivo} from './navigation.js';
 import {fmtDateShort, parseDateOnly, pf} from '../utils/dates.js';
-import {esc, fmtC, getEmoji, mesesC} from '../utils/formatters.js';
+import {esc, fmtC, fmtCompacto, getEmoji, mesesC} from '../utils/formatters.js';
 
 let chartTipo='bar';
 
@@ -181,9 +181,7 @@ export function construirLineChartSVG(puntos,opts={}){
  // por el signo del último valor frente a cero.
  const colorLinea=opts.color||(opts.ganancia?(vals.at(-1)>=0?'var(--green)':'var(--red)'):(vals.at(-1)>=vals[0]?'var(--green)':'var(--red)'));
  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="`+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
- // Niveles redondos (1, 2, 2.5 o 5 × 10^k) en vez de cuartos del rango.
- const ejeY=ticksY(lo,hi);
- ejeY.ticks.forEach(v=>{const yy=y({valor:v});svg+=`<line x1="${PAD_L}" y1="${yy.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yy.toFixed(2)}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${(yy+4).toFixed(2)}" font-size="10">${opts.fmt?opts.fmt(v):esc(textoTickY(v,ejeY.paso))}</text>`;});
+ for(let i=0;i<4;i++){const yy=PAD_T+innerH*(i/3);svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
  if(opts.ganancia){const y0=y({valor:0});svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="${PAD_L-8}" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;}
  else{
    svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${colorLinea}" opacity=".08"/><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;

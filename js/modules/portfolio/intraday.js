@@ -8,7 +8,7 @@ import {pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrinci
 import {pfFlujos, pfModeloGanancia} from './performance.js';
 import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
 import {pfLondonDay, pfMarketEstimate, pfQuoteKey, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
-import {dominioY, lttb, textoTickY, ticksTiempo, ticksY} from '../../ui/chart-scale.js';
+import {dominioY, lttb} from '../../ui/chart-scale.js';
 import {parseDateOnly} from '../../utils/dates.js';
 import {esc} from '../../utils/formatters.js';
 
@@ -214,12 +214,8 @@ function pfSinDuplicados(puntos){
 //  opts.escala        'auto' (rango observado + margen) o 'cero' (incluye 0).
 //  opts.rangoMinimo   rango vertical mínimo, en unidades de la serie: evita
 //                     que una variación insignificante parezca enorme.
-//  opts.eje           {unidad:'%'} o {prefijo:'US$ ',factor:1}: texto del eje Y.
-//                     Con factor (ver en soles) los ticks son redondos EN LA
-//                     MONEDA MOSTRADA, no en dólares convertidos.
 //  opts.referencia    valor de partida (0% o el primer valor): colorea tramos.
 //  opts.etiqueta      texto del pill del tooltip (hora o fecha del punto).
-//  opts.ejeX          'fecha' si son cierres diarios: el eje X nunca muestra horas.
 export function construirGraficoIntradia(puntos,opts={}){
   const validos=pfSinDuplicados(puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t)));
   if(validos.length<2)return{svg:'<div class="empty">'+esc(opts.vacio||'No hay suficientes datos de hoy para graficar.')+'</div>',meta:null};
@@ -228,15 +224,10 @@ export function construirGraficoIntradia(puntos,opts={}){
   const dibujo=lttb(validos,500);
   const vals=validos.map(p=>p.valor);
   const [yMin,yMax]=dominioY(vals,{modo:opts.escala==='cero'?'cero':'auto',rangoMinimo:opts.rangoMinimo||0});
-  const eje=opts.eje||{},factor=eje.factor||1;
-  // Ticks calculados en la unidad que se LEE (soles si se muestra en soles).
-  const {paso,ticks}=ticksY(yMin*factor,yMax*factor);
-  const textos=ticks.map(v=>textoTickY(v,paso,eje));
-  // Composición 560×330 (≈1.7:1). El espacio de la derecha es para el eje Y;
-  // se dimensiona para el texto más largo al tamaño de letra del móvil
-  // (.pf-eje en CSS), donde el SVG se ve más reducido.
-  const FS=19,anchoEje=Math.ceil(Math.max(...textos.map(t=>t.length))*FS*0.58)+10;
-  const VB_W=560,VB_H=330,PAD_L=6,PAD_R=anchoEje,PAD_T=14,PAD_B=34;
+  // Composición tipo Yahoo Finance: 560×330 (≈1.7:1) y casi sin padding
+  // lateral: no hay etiquetas numéricas en el eje Y (se leen tocando el
+  // gráfico), así que ese espacio se le devuelve a la curva.
+  const VB_W=560,VB_H=330,PAD_L=10,PAD_R=8,PAD_T=14,PAD_B=26;
   const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
   const denom=(yMax-yMin)||1;
   const t0=validos[0].t,tn=validos[validos.length-1].t,tden=(tn-t0)||1;
@@ -245,15 +236,10 @@ export function construirGraficoIntradia(puntos,opts={}){
   const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
   const etiqueta=opts.etiqueta||(t=>new Date(t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}));
   let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" style="aspect-ratio:${VB_W}/${VB_H}" role="img" aria-label="${esc(opts.aria||'Rendimiento intradía del portafolio')}">`;
-  // Eje Y: 4–6 niveles redondos, línea tenue y número a la derecha.
-  svg+='<g class="pf-eje">';
-  ticks.forEach((v,i)=>{
-    const yy=y(v/factor);
-    if(yy<PAD_T-1||yy>baseline+1)return;
-    svg+=`<line x1="${PAD_L}" y1="${yy.toFixed(2)}" x2="${VB_W-PAD_R+4}" y2="${yy.toFixed(2)}" stroke="var(--border)" opacity=".5"/>`;
-    svg+=`<text x="${VB_W-2}" y="${(yy+FS*0.34).toFixed(2)}" text-anchor="end" font-size="12">${esc(textos[i])}</text>`;
-  });
-  svg+='</g>';
+  // Grid horizontal extremadamente sutil: sin números — el valor exacto se
+  // lee tocando el gráfico (hero + pill de fecha u hora).
+  for(let i=1;i<3;i++){const yy=PAD_T+innerH*(i/3);
+    svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" opacity=".15"/>`;}
   // Referencia (dónde arrancó el gráfico): 0% en rendimiento, o el primer
   // valor en la vista de valor. Cada tramo se pinta del color de su signo
   // respecto a ella; la línea punteada se recorta al borde si queda fuera.
@@ -273,17 +259,14 @@ export function construirGraficoIntradia(puntos,opts={}){
     svg+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   svg+=`<line x1="${PAD_L}" y1="${yRefClamp.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yRefClamp.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>`;
-  // Eje X por calendario: horas en el 1D, días en 1S, fechas en 1M, meses o
-  // años en los largos. Si no cabe ninguna frontera (serie muy corta), el
-  // primer y el último punto.
-  let marcas=ticksTiempo(t0,tn,5,{soloFechas:opts.ejeX==='fecha'});
-  if(marcas.length<2)marcas=[{t:t0,texto:etiqueta(t0)},{t:tn,texto:etiqueta(tn)}];
-  svg+='<g class="pf-eje">';
-  marcas.forEach(m=>{
-    const xx=x(m.t),anchor=xx<PAD_L+40?'start':xx>VB_W-PAD_R-40?'end':'middle';
-    svg+=`<text x="${xx.toFixed(2)}" y="${baseline+FS+6}" text-anchor="${anchor}" font-size="12">${esc(m.texto)}</text>`;
-  });
-  svg+='</g>';
+  // Eje X: ~4 marcas (hora en el 1D, fecha en el resto), no más — la exacta
+  // aparece en el pill vertical mientras se hace scrubbing.
+  const numEtiquetas=Math.min(4,validos.length);
+  const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
+  let etiquetaAnterior=null;
+  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle',texto=etiqueta(p.t);
+    if(texto===etiquetaAnterior)return;etiquetaAnterior=texto;
+    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;});
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
   svg+='</svg>';
   return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos,etiqueta,dominio:[yMin,yMax]}};
@@ -298,20 +281,6 @@ export function construirGraficoIntradia(puntos,opts={}){
 // (secciones 19-21): usa directamente los puntos ya construidos por
 // construirSerieIntradia y solo escribe texto en el DOM — instantáneo,
 // pensado para que se sienta fluido en un teléfono.
-// Letra de los ejes: ~11px en pantalla sea cual sea el ancho del gráfico. El
-// SVG escala con su viewBox, así que el tamaño en unidades del viewBox se
-// calcula con la escala real (entre 11 y 19 unidades: 19 es lo que cabe en
-// el margen reservado para el eje Y). Se recalcula si cambia el ancho.
-function pfAjustarLetraEjes(svgEl){
-  const ajustar=()=>{
-    const r=svgEl.getBoundingClientRect(),vb=svgEl.viewBox.baseVal;
-    const escala=Math.min(r.width/vb.width,r.height/vb.height);
-    if(escala>0)svgEl.style.setProperty('--pf-eje-fs',Math.min(19,Math.max(11,11/escala)).toFixed(1)+'px');
-  };
-  ajustar();
-  if(typeof ResizeObserver==='function')new ResizeObserver(ajustar).observe(svgEl);
-}
-
 export function pfWireChartTooltip(container,grafico,opts){
   if(!grafico.meta)return;
   const svgEl=container.querySelector('svg');
@@ -319,7 +288,6 @@ export function pfWireChartTooltip(container,grafico,opts){
   // pan-y (no "none"): el navegador conserva el scroll vertical de la
   // página; el arrastre horizontal lo captura este listener (sección 6).
   svgEl.style.touchAction='pan-y';
-  pfAjustarLetraEjes(svgEl);
   const tipG=svgEl.querySelector('#pfIntraTip'),tipLine=svgEl.querySelector('#pfIntraTipLine'),tipDot=svgEl.querySelector('#pfIntraTipDot');
   let label=container.querySelector('.pf-intraday-tooltip');
   if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
@@ -409,12 +377,12 @@ export function renderPfChart1D(area,titulo,hint,res){
   if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';res.innerHTML='';renderPfContribuciones(null);return;}
   const colorLinea=(s.actual-s.base)>=0?'var(--green)':'var(--red)';
   titulo.textContent=s.dia.fuente==='IBKR_CIERRES'?'Últimos cierres IBKR':(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión · '+pfFechaCorta(s.sesion):'Hoy';
-  const opcX=s.etiquetaX?{etiqueta:s.etiquetaX,ejeX:'fecha'}:{};
+  const opcX=s.etiquetaX?{etiqueta:s.etiquetaX}:{};
   if(pfVista==='rendimiento'){
     // Referencia 0% = "dónde estaba el rendimiento al inicio" (siempre 0,
     // por definición). El coloreado por tramos y la línea punteada viven en
     // construirGraficoIntradia (referencia por defecto).
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX,...pfOpcionesEscala(s.serie,{vista:'rendimiento',moneda:s.moneda,intradia:true})});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX,...pfOpcionesEscala(s.serie,{vista:'rendimiento',intradia:true})});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{describir:p=>{
       const valorAbs=s.base*(1+p.valor/100),ganancia=valorAbs-s.base;
@@ -424,7 +392,7 @@ export function renderPfChart1D(area,titulo,hint,res){
     // En valor absoluto la referencia es el primer punto mostrado (el valor
     // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
     // (con base Yahoo es el cierre anterior, no la primera vela)
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX,...pfOpcionesEscala(s.serie,{vista:'valor',moneda:s.moneda,intradia:true})});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX,...pfOpcionesEscala(s.serie,{vista:'valor',intradia:true})});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{describir:p=>{
       const pctNum=(p.valor/s.base-1)*100,ganancia=p.valor-s.base;
