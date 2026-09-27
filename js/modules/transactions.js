@@ -7,7 +7,7 @@ import {filaPago} from './cards/payments.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
 import {render} from './dashboard.js';
 import {cargarTcMercado} from '../services/exchange-rate.js';
-import {sbDelete, sbInsert, sbSelect, sbUpdate} from '../services/supabase.js';
+import {sbDelete, sbInsert, sbSelect, sbSelectTodo, sbUpdate} from '../services/supabase.js';
 import {datos} from '../state.js';
 import {getMesActivo, vista} from '../ui/navigation.js';
 import {toast} from '../ui/toast.js';
@@ -50,13 +50,13 @@ async function cargar__base(){
   const cuentasReq=sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc').catch(()=>null);
   try{
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
-      sbSelect('transacciones','?select=*&order=fecha.asc'),
+      sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
-      sbSelect('pagos_tarjetas','?select=*&order=fecha.asc'),
+      sbSelectTodo('pagos_tarjetas','?select=*&order=fecha.asc,id.asc'),
       sbSelect('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key'),
       sbSelect('categorias','?select=nombre,color'),
       sbSelect('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo'),
-      sbSelect('deudas_abonos','?select=id,deuda_id,monto,fecha,nota,tx_id'),
+      sbSelectTodo('deudas_abonos','?select=id,deuda_id,monto,fecha,nota,tx_id&order=id.asc'),
       sbSelect('presupuestos','?select=categoria,monto_limite,mes'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
@@ -77,7 +77,7 @@ async function cargar__base(){
     if(!primeraCarga)toast('Actualizado','success');
     primeraCarga=false;
   }
-  catch(e){console.error(e);toast('Error al cargar','error');}
+  catch(e){console.error(e);toast(e.incompleto?e.message:'Error al cargar','error');}
   finally{b.classList.remove('loading');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las

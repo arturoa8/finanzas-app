@@ -12,7 +12,7 @@ import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
 import {escalaGrafico} from '../settings.js';
 import {pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, startPfYahoo} from '../../services/market-data.js';
-import {sbFetch} from '../../services/supabase.js';
+import {sbFetch, sbFetchTodo} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
 import {diasEntre, fmtDateLong, fmtDateShort, hoyLocal, parseDateOnly} from '../../utils/dates.js';
 import {esc, fmtMoneda} from '../../utils/formatters.js';
@@ -56,19 +56,19 @@ export async function renderPortafolio(){
     [config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy]=await Promise.all([
       sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
       sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
-      sbFetch('portafolio_historial?select=*&order=fecha_valoracion.asc'),
+      sbFetchTodo('portafolio_historial?select=*&order=fecha_valoracion.asc,id.asc'),
       sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
       sbFetch('sincronizaciones_portafolio?select=estado,finalizado_en,iniciado_en&estado=in.(ok,ok_historico)&order=finalizado_en.desc.nullslast&limit=1'),
       // Referencia para "vs S&P 500": cierres oficiales de IBKR de un ETF del S&P 500
       // que ya está en la cartera. Si falla, solo se pierde la comparación.
-      sbFetch('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc').catch(()=>[]),
+      sbFetchTodo('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc,id.asc').catch(()=>[]),
       // Diagnóstico (sección 11): última reconciliación calculado-vs-IBKR y
       // tamaño del ledger. Si falla, el diagnóstico simplemente no se muestra.
       sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
-      sbFetch('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc').catch(()=>[]),
+      sbFetchTodo('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc,id.desc').catch(()=>[]),
       // 1D: snapshots calculados de hoy (ver construirSerieIntradia). Si falla,
       // el 1D cae al mensaje de "sin cotizaciones todavía", no rompe el resto.
-      sbFetch('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc').catch(()=>[]),
+      sbFetchTodo('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc,id.asc').catch(()=>[]),
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
@@ -318,7 +318,7 @@ function pfIntradiaDelPeriodo(per){
     const desde=new Date();desde.setDate(desde.getDate()-45);
     Promise.all([
       pfConsultarHistoriaYahoo(periodo),
-      pfPosHistCache?Promise.resolve(pfPosHistCache):sbFetch('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc'),
+      pfPosHistCache?Promise.resolve(pfPosHistCache):sbFetchTodo('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc,id.asc'),
     ]).then(([,pos])=>{pfPosHistCache=pos||[];pfIntradiaCarga.delete(periodo);if(pfPeriodo===periodo)renderPfChart();})
       .catch(()=>{pfIntradiaCarga.set(periodo,'error');});
   }

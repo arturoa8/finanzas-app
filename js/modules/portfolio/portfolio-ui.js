@@ -6,7 +6,7 @@ import {pfFmt} from './hero.js';
 import {pfPosicionMostrada, pfRendimientoActivo, pfRendimientoPosicion} from './performance.js';
 import {pfColor, pfFechaCorta, pfPosicionesCache, pfResolverPeriodo, pfSigned, pfSignedPct, pfTextoDesde, renderPortafolio} from './portfolio.js';
 import {pfMarketEstimate, pfQuoteKey, pfYahoo, refreshPfYahoo, renderPfYahoo} from '../../services/market-data.js';
-import {sbFetch} from '../../services/supabase.js';
+import {sbFetch, sbFetchTodo} from '../../services/supabase.js';
 import {construirLineChartSVG} from '../../ui/charts.js';
 import {toast} from '../../ui/toast.js';
 import {esc, fmtMoneda, fmtN, fmtPct, norm} from '../../utils/formatters.js';
@@ -64,7 +64,7 @@ async function abrirPfPosModal(contractId){
   pfModalPeriodo='6M';pfModalDesde='';
   pfModalContractId=contractId;
   try{
-    const hist=await sbFetch(`posiciones_historial?select=*&contract_id=eq.${Number(contractId)}&order=fecha_valoracion.asc`);
+    const hist=await sbFetchTodo(`posiciones_historial?select=*&contract_id=eq.${Number(contractId)}&order=fecha_valoracion.asc,id.asc`);
     if(pfModalContractId!==contractId)return;
     pfModalHistoricoCache=hist||[];
   }catch(e){
