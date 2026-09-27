@@ -1,0 +1,46 @@
+// Preferencias y configuracion.
+// Extraido de v2/propuesta.html sin cambiar su comportamiento.
+
+import {renderCuentasConfig} from './accounts.js';
+import {renderPfModalChart} from './portfolio/portfolio-ui.js';
+import {pfHistoricoCache, renderPfChart} from './portfolio/portfolio.js';
+import {leerTipoCambio, tcUsdPen} from '../services/exchange-rate.js';
+import {toast} from '../ui/toast.js';
+
+const APP_PREFS_KEY='finanzas.appearance.v1';
+
+function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
+
+export let appPreferences=leerPreferencias();
+
+export function aplicarPreferencias(){
+ const colors={green:'#00d68f',blue:'#7aa2ff',violet:'#c4a2ff'};
+ document.documentElement.style.setProperty('--accent',colors[appPreferences.accent]||colors.green);
+}
+
+export function abrirConfiguracion(seccion){
+ document.getElementById('appAccent').value=appPreferences.accent||'green';
+ document.getElementById('appChartScale').value=appPreferences.chartScale||'overview';
+ const tcEl=document.getElementById('tcUsdPen');
+ if(tcEl){
+  if(tcUsdPen>0)tcEl.value=tcUsdPen;
+  // Si aún no se leyó de la base, completarlo sin pisar lo que se esté escribiendo.
+  leerTipoCambio().then(()=>{if(tcUsdPen>0&&document.activeElement!==tcEl&&!tcEl.value)tcEl.value=tcUsdPen;});
+ }
+ renderCuentasConfig();
+ document.getElementById('settingsModal').classList.add('active');
+ if(seccion==='cuentas'){
+  const s=document.getElementById('cuentasConfigSection');
+  if(s)setTimeout(()=>s.scrollIntoView({block:'start',behavior:'smooth'}),60);
+ }
+}
+
+export function cerrarConfiguracion(){document.getElementById('settingsModal').classList.remove('active');}
+
+export function guardarPreferencias(){
+ appPreferences={accent:document.getElementById('appAccent').value,chartScale:document.getElementById('appChartScale').value};
+ aplicarPreferencias();
+ try{localStorage.setItem(APP_PREFS_KEY,JSON.stringify(appPreferences));}catch(e){toast('Preferencia aplicada; este navegador no permite guardarla','error');}
+ if(pfHistoricoCache.length)renderPfChart();
+ if(document.getElementById('pfPosModal').classList.contains('active'))renderPfModalChart();
+}

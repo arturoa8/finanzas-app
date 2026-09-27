@@ -1,0 +1,203 @@
+/* Tarjetas de credito: pagina, detalle, ciclos, linea y pagos.
+   Lineas 352-551 de v2/propuesta.html, sin cambios.
+   EL ORDEN DE LOS <link> EN index.html ES PARTE DEL DISENO: ver README. */
+/* Credit cards page */
+.card-tabs{display:flex;gap:8px;margin-bottom:16px;}
+.card-tab{flex:1;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--dim);font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;}
+.card-tab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+.credit-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px;margin-bottom:14px;}
+.credit-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.credit-name{font-size:1rem;font-weight:800;letter-spacing:-0.01em;}
+.credit-sub{font-size:0.72rem;color:var(--muted);margin-top:4px;}
+.credit-amount{font-size:1.25rem;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.credit-info{display:grid;gap:8px;}
+.credit-row{display:flex;justify-content:space-between;gap:12px;font-size:0.78rem;}
+.credit-row span:first-child{color:var(--muted);}
+.credit-row span:last-child{color:var(--text);font-weight:600;text-align:right;}
+.status-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:5px 10px;font-size:0.7rem;font-weight:800;}
+.status-ok{color:var(--green);background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.35);}
+.status-warn{color:var(--yellow);background:rgba(255,184,77,0.12);border:1px solid rgba(255,184,77,0.35);}
+.status-bad{color:var(--red);background:rgba(255,59,107,0.12);border:1px solid rgba(255,59,107,0.35);}
+
+
+/* Smoother motion */
+*{scroll-behavior:smooth;}
+.icon-btn,.chip,.kpi,.ccard,.tx,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;}
+.icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-pill:active,.cchip:active{transform:scale(.97);}
+.page.active{animation:softPageIn .38s cubic-bezier(.2,.8,.2,1);}
+@keyframes softPageIn{from{opacity:0;transform:translateY(12px) scale(.99);}to{opacity:1;transform:translateY(0) scale(1);}}
+.mc{animation:softSlideUp .36s cubic-bezier(.2,.8,.2,1);}
+@keyframes softSlideUp{from{transform:translateY(100%);opacity:.8;}to{transform:translateY(0);opacity:1;}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
+
+/* Card detail / payments */
+.credit-card{cursor:pointer;position:relative;overflow:hidden;}
+.credit-card::after{content:'Toca para ver detalle';display:block;margin-top:12px;font-size:.68rem;color:var(--muted);font-weight:600;}
+.credit-pay-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px;}
+.credit-mini{background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:10px;}
+.credit-mini-lbl,.card-stat-lbl{font-size:.66rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.credit-mini-val{font-size:.95rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.credit-mini-val.red,.card-tx-amt{color:var(--red);} .credit-mini-val.green{color:var(--green);} .credit-mini-val.yellow{color:var(--yellow);}
+.pay-input-row{display:flex;gap:8px;align-items:center;margin:12px 0 16px;}
+.pay-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 14px;color:var(--text);font-size:1rem;font-family:inherit;font-weight:700;outline:none;min-width:0;}
+.pay-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
+.card-detail-head{margin-bottom:14px;}.card-detail-name{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;}.card-detail-sub{font-size:.76rem;color:var(--muted);margin-top:4px;}
+.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0;}.card-stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;}.card-stat.full{grid-column:1/-1;}.card-stat-val{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}.card-stat-sub{font-size:.66rem;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:3px;}
+.card-tx-list{margin-top:12px;}.card-tx-title{font-size:.82rem;font-weight:800;margin-bottom:8px;color:var(--text);}.card-tx-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;}.card-tx-desc{font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.card-tx-meta{font-size:.68rem;color:var(--muted);margin-top:2px;}.card-tx-amt{font-size:.86rem;font-weight:800;font-variant-numeric:tabular-nums;}
+
+/* Balance number smoothing */
+.big-num,.kpi{transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1),filter .22s ease;}
+.num-changing{opacity:.62;transform:translateY(2px) scale(.985);filter:blur(.15px);}
+
+/* Card detail internal tabs and cycle overrides */
+.detail-tabs{display:flex;gap:8px;margin:14px 0 12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;position:sticky;top:0;z-index:3;backdrop-filter:blur(16px);}
+.detail-tab{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-size:.78rem;font-weight:800;border-radius:10px;font-family:inherit;cursor:pointer;}
+.detail-tab.active{background:var(--card2);color:var(--text);}
+.card-panel{animation:softPageIn .24s cubic-bezier(.2,.8,.2,1);}
+.tx-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.mini-action{background:var(--card);border:1px solid var(--border);color:var(--dim);border-radius:999px;padding:6px 9px;font-size:.66rem;font-weight:800;font-family:inherit;cursor:pointer;}
+.mini-action.active{border-color:var(--green);color:var(--green);background:rgba(0,214,143,.08);}
+.manual-tag{display:inline-flex;margin-left:6px;color:var(--yellow);font-size:.62rem;font-weight:800;}
+.card-detail-scroll{max-height:62vh;overflow:auto;padding-right:2px;}
+
+
+
+/* Tarjetas v2 */
+.modal.centered{align-items:center;padding:18px;}
+.modal.centered .mc{border-radius:24px;max-height:86vh;padding:20px;box-shadow:0 20px 80px rgba(0,0,0,.65);}
+.compact-mc{max-width:520px;}
+.page-tabs{margin-bottom:16px;}
+.detail-tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;}
+.detail-tab{flex:1;padding:10px;border:none;border-radius:10px;background:transparent;color:var(--muted);font-family:inherit;font-size:.78rem;font-weight:800;cursor:pointer;}
+.detail-tab.active{background:var(--card2);color:var(--text);}
+.card-section-title{font-size:.86rem;font-weight:800;margin:16px 4px 10px;color:var(--text);}
+.card-mini-list{margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;}
+.card-mini-item{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.card-mini-desc{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-mini-meta{font-size:.64rem;color:var(--muted);margin-top:2px;}
+.card-mini-amt{font-size:.78rem;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;}
+.credit-card::after{content:''!important;display:none!important;}
+.credit-card .hint{margin-top:12px;font-size:.68rem;color:var(--muted);font-weight:600;}
+.stat-bar-row{margin-top:10px;}
+.card-detail-scroll{max-height:52vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;padding-right:4px;}
+.card-detail-actions{display:flex;gap:8px;margin-top:12px;}
+.card-detail-actions .btn{padding:12px 14px;}
+
+
+/* Credit line usage summary */
+.line-summary-card{
+  background:linear-gradient(180deg,rgba(24,24,27,.95),rgba(17,17,19,.95));
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:14px;
+  margin:4px 0 14px;
+  box-shadow:0 10px 34px rgba(0,0,0,.18);
+}
+.line-summary-top,.line-row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.line-summary-title{font-size:.78rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+.line-summary-main{font-size:1.15rem;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+.line-summary-main .used{color:var(--red);}
+.line-summary-main .limit{color:var(--dim);font-size:.86rem;font-weight:800;}
+.line-edit-btn{background:var(--card2);border:1px solid var(--border);border-radius:999px;color:var(--text);font-family:inherit;font-size:.72rem;font-weight:800;padding:8px 11px;cursor:pointer;white-space:nowrap;}
+.line-progress{height:8px;background:var(--border);border-radius:999px;overflow:hidden;position:relative;}
+.line-fill{height:100%;border-radius:999px;background:var(--green);transition:width .35s cubic-bezier(.2,.8,.2,1),background .25s ease;}
+.line-fill.warn{background:var(--yellow);}.line-fill.bad{background:var(--red);}.line-fill.danger{background:#ff174f;}
+.line-summary-meta{display:flex;justify-content:space-between;gap:12px;margin-top:9px;font-size:.72rem;color:var(--dim);line-height:1.25;}
+.line-summary-meta strong{color:var(--text);font-weight:900;}
+.line-advice.ok{color:var(--green);}.line-advice.warn{color:var(--yellow);}.line-advice.bad,.line-advice.danger{color:var(--red);}
+.credit-line-block{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06);}
+.credit-line-title{display:flex;justify-content:space-between;gap:10px;font-size:.72rem;color:var(--muted);font-weight:800;margin-bottom:7px;}
+.credit-line-title span:last-child{color:var(--text);font-variant-numeric:tabular-nums;}
+.credit-line-sub{display:flex;justify-content:space-between;gap:12px;font-size:.68rem;color:var(--muted);margin-top:7px;line-height:1.25;}
+.credit-line-sub .line-advice{font-weight:800;text-align:right;}
+.line-config-grid{display:grid;gap:12px;margin-top:8px;}
+.line-config-item{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;}
+.line-config-name{font-size:.9rem;font-weight:900;margin-bottom:10px;}
+.line-config-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;}
+.cuenta-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.cuenta-item:last-child{border-bottom:0;}
+.cuenta-item.archivada{opacity:.55;}
+.cuenta-item-acciones{display:flex;gap:6px;flex-shrink:0;}
+.cuenta-item-nombre{font-size:.85rem;font-weight:700;}
+.cuenta-item-meta{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+.line-field label{display:block;font-size:.66rem;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.04em;margin-bottom:6px;}
+.line-field input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:.95rem;font-weight:800;padding:11px 12px;outline:none;}
+.line-field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
+
+
+/* Tarjetas refinamiento: selector rápido, línea + siguiente ciclo, consumo detalle */
+.card-cycle-bar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch;margin:0 0 12px;}
+.card-cycle-main,.card-cycle-next{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;cursor:pointer;transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .25s ease,background .25s ease;}
+.card-cycle-main:active,.card-cycle-next:active{transform:scale(.98);}
+.card-cycle-title{font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.card-cycle-value{font-size:.95rem;color:var(--text);font-weight:900;display:flex;align-items:center;gap:6px;}
+.card-cycle-amount{font-size:.85rem;color:var(--red);font-weight:900;font-variant-numeric:tabular-nums;margin-top:4px;}
+.card-cycle-next{min-width:150px;}
+.card-cycle-next .card-cycle-value{justify-content:space-between;}
+.card-cycle-arrow{color:var(--dim);font-size:.9rem;}
+.line-summary-breakdown{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.7rem;color:var(--muted);}
+.line-summary-breakdown strong{color:var(--text);}
+.tx-detail-grid{display:grid;gap:10px;margin:12px 0;}
+.tx-detail-row{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;font-size:.8rem;}
+.tx-detail-row span:first-child{color:var(--muted);font-weight:700;}
+.tx-detail-row span:last-child{color:var(--text);font-weight:800;text-align:right;}
+.stat-delta-pos{color:var(--green)!important}.stat-delta-neg{color:var(--red)!important}.stat-delta-flat{color:var(--dim)!important}
+@media(max-width:460px){.card-cycle-bar{grid-template-columns:1fr}.card-cycle-next{min-width:0}.line-summary-meta{flex-direction:column}.line-summary-breakdown{flex-direction:column;gap:4px}}
+
+
+/* === Ajustes finales Arturo: carrusel de ciclos y recuperación === */
+.card-cycle-bar{transition:grid-template-columns .28s cubic-bezier(.2,.8,.2,1);}
+.card-cycle-bar.offset-next{grid-template-columns:auto 1fr;}
+.card-cycle-bar.offset-next .card-cycle-main{min-width:150px;}
+.card-cycle-bar.offset-next .card-cycle-next{min-width:0;}
+.card-cycle-main,.card-cycle-next{will-change:transform,opacity;overflow:hidden;}
+.card-cycle-bar.animating .card-cycle-main,.card-cycle-bar.animating .card-cycle-next{animation:cycleSoftSlide .28s cubic-bezier(.2,.8,.2,1);}
+@keyframes cycleSoftSlide{from{opacity:.72;transform:translateX(10px) scale(.985)}to{opacity:1;transform:translateX(0) scale(1)}}
+.manual-section-title{font-size:.72rem;color:var(--yellow);font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px;}
+.card-tx-item.recovery{border-color:rgba(255,184,77,.25);background:rgba(255,184,77,.035);}
+
+
+
+/* === Pagos por tarjeta + carrusel horizontal siempre === */
+.card-cycle-bar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:10px!important;
+}
+.card-cycle-bar.offset-next{
+  grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)!important;
+}
+.card-cycle-main,.card-cycle-next{min-width:0!important;}
+.card-cycle-title{font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-cycle-value{font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-cycle-value span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.card-cycle-amount{font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:460px){
+  .card-cycle-bar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;}
+  .card-cycle-bar.offset-next{grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)!important;}
+  .card-cycle-main,.card-cycle-next{padding:10px 11px;}
+  .card-cycle-title{font-size:.64rem;}
+  .card-cycle-value{font-size:.86rem;}
+  .card-cycle-amount{font-size:.72rem;}
+}
+.pay-form-grid{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0;align-items:end;}
+.pay-form-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pay-field label{display:block;font-size:.64rem;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px 2px;}
+.pay-field input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:14px;color:var(--text);font-family:inherit;font-size:.9rem;font-weight:800;padding:12px 12px;outline:none;min-width:0;}
+.pay-field input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,214,143,.08);}
+.pay-note{grid-column:1/-1;}
+.pay-history{margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:12px;}
+.pay-history-title{font-size:.82rem;font-weight:900;margin-bottom:8px;}
+.pay-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.pay-item-main{min-width:0;}
+.pay-item-amt{font-size:.92rem;font-weight:900;color:var(--green);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pay-item-date{font-size:.72rem;color:var(--dim);font-weight:800;}
+.pay-item-note{font-size:.68rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pay-item-actions{display:flex;gap:6px;margin-top:7px;}
+.pay-small-btn{background:var(--card);border:1px solid var(--border);color:var(--dim);border-radius:999px;padding:6px 9px;font-size:.64rem;font-weight:900;font-family:inherit;cursor:pointer;}
+.pay-small-btn.danger{color:var(--red);border-color:rgba(255,59,107,.28);}
+.pay-quick-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 4px;}
+.pay-quick-row .btn{padding:12px 12px;}
+@media(max-width:460px){.pay-form-grid{grid-template-columns:1fr}.pay-form-fields{grid-template-columns:1fr 1fr}.pay-quick-row{grid-template-columns:1fr}}
+
+

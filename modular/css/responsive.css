@@ -1,0 +1,30 @@
+/* Color de acento y adaptacion a cada ancho. Ultima capa: gana sobre el resto.
+   Lineas 611-637 de v2/propuesta.html, sin cambios.
+   EL ORDEN DE LOS <link> EN index.html ES PARTE DEL DISENO: ver README. */
+/* Preferencias y portafolio adaptable */
+:root{--accent:#00d68f}
+.logo span,.detail-tab.active,.nav button.active{color:var(--accent)}
+.btn-p{background:var(--accent)}
+#anPanelPortafolio{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+#anPanelPortafolio>*{min-width:0}.pf-source-strip{grid-column:1/-1}
+#pfChartCard{grid-column:1/-1}.pf-hero-hoy-sub{font-size:11px;color:var(--dim);margin-top:1px}
+.pf-rent-par{display:grid;gap:6px;margin-top:4px}.pf-rent-par span{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}.pf-rent-par strong{display:block;font-size:clamp(15px,2.4vw,18px);letter-spacing:-.02em;font-variant-numeric:tabular-nums}.pf-rent-par small{display:block;font-size:10px;color:var(--dim)}
+#pfCostosEditor{margin-top:8px;max-height:320px;overflow:auto}.pf-costo-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px;cursor:pointer}.pf-costo-item input{flex-shrink:0;width:18px;height:18px}.pf-costo-item span{flex:1;min-width:0}.pf-costo-item strong{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pf-costo-item small{display:block;font-size:11px;color:var(--dim)}.pf-costo-item em{font-style:normal;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pf-contrib{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}.pf-contrib-head strong{display:block;font-size:13px}.pf-contrib-head span{display:block;font-size:11px;color:var(--dim);margin-top:1px}.pf-contrib-grupo{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:10px 0 2px}.pf-contrib-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;font-size:13px}.pf-contrib-row>span:first-child{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}.pf-contrib-row .v{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:12px}.pf-contrib-foot{margin-top:6px;font-size:11px;color:var(--dim);line-height:1.5}.pf-contrib-btn{background:none;border:0;color:var(--dim);font:inherit;font-size:12px;padding:6px 0 0;cursor:pointer;text-decoration:underline}#pfChartArea,#pfModalChartArea{width:100%;min-width:0;position:relative}
+#pfChartArea .chart-svg,#pfModalChartArea .chart-svg{height:auto;max-height:340px;aspect-ratio:4/3}
+.pf-intraday-tooltip{position:absolute;top:2px;transform:translateX(-50%);display:none;padding:3px 9px;border-radius:20px;background:var(--card2);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--dim);pointer-events:none;white-space:nowrap;z-index:2}
+#pfChartArea .chart-svg{user-select:none;-webkit-user-select:none;touch-action:pan-y}
+#p-ana .container{padding-top:14px}
+#pfResumenCard .m-val,.pf-market-total{font-size:clamp(20px,3vw,30px);overflow-wrap:anywhere}
+.pf-position-details strong,.pf-position-head>strong{overflow-wrap:anywhere}
+.pf-position-head{flex-wrap:wrap}#settingsModal .sel{width:100%;margin-top:10px}
+#settingsModal .hint{margin:10px 0;line-height:1.5;color:var(--dim)}.line-config-row>*{min-width:0}
+.header{gap:10px;flex-wrap:wrap}.actions-row{flex-wrap:wrap}
+@media(max-width:600px){#anPanelPortafolio .s-head{flex-wrap:wrap;gap:8px}}
+
+#catChips[hidden],#transferFields[hidden],#refundFields[hidden],#destinoMontoRow[hidden]{display:none}
+#tr.active,#tre.active,.tamt-pill.transfer{color:var(--blue);background:#7aa2ff18}
+.transfer-note{color:var(--dim);line-height:1.6;margin-bottom:18px}
+.cuenta-row input{min-width:0;flex:1}.tt{flex-wrap:wrap}.ttb{min-width:0}
+
+#refundFields .sel{width:100%;margin:8px 0 12px}#refundFields label{font-size:13px}.ttb{flex:1 1 40%}

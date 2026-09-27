@@ -1,0 +1,110 @@
+/* Piezas reutilizables: boton flotante, navegacion, modales y avisos.
+   Lineas 221-327 de v2/propuesta.html, sin cambios.
+   EL ORDEN DE LOS <link> EN index.html ES PARTE DEL DISENO: ver README. */
+/* FAB */
+.fab{position:fixed;bottom:calc(82px + env(safe-area-inset-bottom));right:20px;width:56px;height:56px;border-radius:50%;background:var(--green);border:none;color:var(--bg);font-size:1.6rem;font-weight:700;cursor:pointer;box-shadow:0 4px 24px #00d68f55;z-index:90;display:flex;align-items:center;justify-content:center;}
+
+/* Bottom nav */
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,10,0.92);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:10px 6px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;z-index:100;}
+.nt{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 6px;font-family:inherit;font-size:0.58rem;font-weight:600;letter-spacing:0.03em;flex:1;}
+.nt.active{color:var(--green);}
+.nt svg{width:20px;height:20px;stroke-width:2;}
+.page{display:none;}.page.active{display:block;animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* Modal (image 3 style) */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);display:none;align-items:flex-end;justify-content:center;z-index:200;}
+.modal.active{display:flex;}
+.mc{background:#0a0a0a;border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:600px;max-height:92vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior-x:none;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.mh-x{width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--dim);font-size:1.05rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.mt{font-size:0.82rem;font-weight:600;color:var(--dim);}
+.tt{display:flex;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:14px;}
+.ttb{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-size:0.82rem;font-weight:600;cursor:pointer;border-radius:8px;font-family:inherit;}
+.ttb.active.gasto{background:#ff3b6b33;color:var(--red);}
+.ttb.active.ingreso{background:#00d68f33;color:var(--green);}
+.pill-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.mpill{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-size:0.8rem;font-weight:600;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.mpill input[type=date]{background:transparent;border:none;color:var(--text);font-family:inherit;font-size:0.82rem;outline:none;color-scheme:dark;}
+.big-input{width:100%;background:transparent;border:none;color:var(--text);font-size:1.7rem;font-weight:700;font-family:inherit;outline:none;padding:10px 0;letter-spacing:-0.02em;}
+.big-input::placeholder{color:#3a3a40;}
+.big-input.muto{font-variant-numeric:tabular-nums;}
+.cat-chips{display:flex;gap:8px;overflow-x:auto;padding:6px 4px 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.cat-chips::-webkit-scrollbar{display:none;}
+.cchip{flex-shrink:0;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:9px 14px;font-size:0.82rem;font-weight:600;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:8px;}
+.cchip.selected{border-color:var(--green);color:var(--green);background:rgba(0,214,143,0.06);}
+.cchip-emoji{font-size:1rem;}
+.cuenta-row{display:flex;align-items:center;gap:8px;margin-bottom:18px;}
+.cuenta-lbl{font-size:0.72rem;color:var(--muted);}
+.sel{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:var(--text);font-size:0.85rem;font-family:inherit;font-weight:500;outline:none;}
+/* La moneda es un prefijo del importe, no un control aparte: sin caja propia
+   para que el número siga siendo lo que más pesa en la pantalla. Va DESPUÉS de
+   .sel porque comparte especificidad con ella y necesita ganarle. El tamaño de
+   letra lo fija el !important global de más abajo, que evita que iOS haga zoom
+   al enfocar, así que la jerarquía se consigue con color y peso, no con px. */
+.monto-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.moneda-sel{flex:0 0 auto;width:auto;background:transparent;border:0;border-radius:0;
+  padding:0 12px 0 0;color:var(--muted);font-weight:800;cursor:pointer;
+  -webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 6px) calc(50% + 1px),calc(100% - 2px) calc(50% + 1px);
+  background-size:4px 4px;background-repeat:no-repeat;}
+/* Cuenta en dólares: la moneda no se elige, así que se quita la flecha. */
+.moneda-sel:disabled{opacity:1;background-image:none;padding-right:0;cursor:default;}
+.brow{display:flex;gap:8px;margin-top:10px;}
+.btn{flex:1;padding:14px;border-radius:14px;border:none;font-family:inherit;font-size:0.92rem;font-weight:700;cursor:pointer;}
+.btn-p{background:var(--text);color:var(--bg);}
+.btn-s{background:var(--card);color:var(--text);border:1px solid var(--border);flex:0 0 auto;padding:14px 18px;}
+.btn-d{background:var(--red);color:var(--text);flex:0 0 auto;padding:14px 18px;}
+
+/* Toast */
+.toast{
+  position:fixed;
+  top:calc(14px + env(safe-area-inset-top));
+  left:50%;
+  transform:translateX(-50%) translateY(-140px);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+
+  background:var(--card);
+  border:1px solid var(--border);
+  padding:12px 20px;
+  border-radius:24px;
+  font-size:0.85rem;
+  font-weight:600;
+  z-index:9999;
+  cursor:pointer;
+
+  transition:
+    transform 0.28s ease,
+    opacity 0.2s ease,
+    visibility 0s linear 0.28s;
+}
+
+.toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transition:
+    transform 0.28s ease,
+    opacity 0.2s ease,
+    visibility 0s;
+}
+
+.toast.success{
+  border-color:var(--green);
+  color:var(--green);
+  background:rgba(0,214,143,0.10);
+}
+
+.toast.error{
+  border-color:var(--red);
+  color:var(--red);
+  background:rgba(255,59,107,0.10);
+}
+
+.page-title{font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;}
+

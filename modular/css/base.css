@@ -1,0 +1,24 @@
+/* Reset, variables de color y cabecera.
+   Lineas 39-59 de v2/propuesta.html, sin cambios.
+   EL ORDEN DE LOS <link> EN index.html ES PARTE DEL DISENO: ver README. */
+:root{
+  --bg:#000;--card:#111113;--card2:#18181b;--card3:#1f1f23;--border:#1f1f23;
+  --text:#fafafa;--dim:#a1a1aa;--muted:#52525b;
+  --green:#00d68f;--red:#ff3b6b;--yellow:#ffb84d;--blue:#7aa2ff;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+html{touch-action:manipulation;}
+body{background:var(--bg);color:var(--text);font-family:'Inter Tight',sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:120px;padding-top:env(safe-area-inset-top);min-height:100vh;-webkit-user-select:none;user-select:none;overflow-x:hidden;overscroll-behavior-x:none;}
+input,textarea{-webkit-user-select:text;user-select:text;}
+.container{max-width:600px;margin:0 auto;padding:0 20px;}
+
+/* Header */
+.header{padding:18px 0 18px;display:flex;justify-content:space-between;align-items:center;}
+.logo{font-size:1.35rem;font-weight:800;letter-spacing:-0.02em;}
+.logo span{color:var(--green);}
+.actions-row{display:flex;gap:8px;}
+.icon-btn{background:var(--card);border:1px solid var(--border);width:36px;height:36px;border-radius:50%;color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.icon-btn svg{width:16px;height:16px;stroke:var(--dim);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.icon-btn.loading svg{animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+

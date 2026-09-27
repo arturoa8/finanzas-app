@@ -1,0 +1,41 @@
+/* Tarjetas de deudas.
+   Lineas 183-220 de v2/propuesta.html, sin cambios.
+   EL ORDEN DE LOS <link> EN index.html ES PARTE DEL DISENO: ver README. */
+/* ── Deudas cards ── */
+.dcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:12px;}
+.dcard.vencida{border-color:#ff3b6b44;}
+.dcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.dcard-info{flex:1;min-width:0;}
+.dcard-person{font-size:0.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dcard-desc{font-size:0.7rem;color:var(--muted);margin-top:2px;}
+.dcard-right{text-align:right;flex-shrink:0;}
+.dcard-amt{font-size:1.02rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.dcard-amt.in{color:var(--green);}.dcard-amt.out{color:var(--red);}
+.dcard-subamt{font-size:0.68rem;color:var(--muted);margin-top:2px;}
+.dcard-prog{margin:10px 0 6px;}
+.dcard-progbar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:5px;}
+.dcard-progfill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+.dcard-progfill.in{background:var(--green);}.dcard-progfill.out{background:var(--red);}
+.dcard-progmeta{font-size:0.65rem;color:var(--muted);display:flex;justify-content:space-between;}
+.dcard-dates{display:flex;gap:8px;margin:10px 0 6px;}
+.dcard-date{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:7px 10px;}
+.dcard-date-lbl{font-size:0.6rem;color:var(--muted);margin-bottom:3px;font-weight:600;letter-spacing:0.04em;}
+.dcard-date input[type=date]{background:none;border:none;color:var(--text);font-size:0.78rem;font-weight:600;width:100%;cursor:pointer;font-family:inherit;padding:0;outline:none;-webkit-appearance:none;}
+.dcard-date input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.4;cursor:pointer;margin:0;padding:0;}
+.dcard-actions{display:flex;gap:6px;margin-top:10px;}
+.dcard-btn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--dim);font-size:0.7rem;font-weight:600;cursor:pointer;font-family:inherit;transition:transform .18s ease,background .22s ease,color .22s ease;}
+.dcard-btn:active{transform:scale(.95);}
+.dcard-btn.primary{background:var(--green);border-color:var(--green);color:#000;}
+.dcard-btn.danger{border-color:#ff3b6b44;color:var(--red);}
+.dcard-badge{font-size:0.62rem;font-weight:700;padding:2px 7px;border-radius:20px;vertical-align:middle;margin-left:5px;}
+.dcard-badge.pagado{background:#00d68f1a;color:var(--green);}
+.dcard-badge.nopago{background:#ff3b6b1a;color:var(--red);}
+.dcard-badge.medeben{background:#7aa2ff1a;color:var(--blue);}
+.dcard-badge.lesdebo{background:#ff3b6b1a;color:var(--red);}
+.dcard-venc-warn{font-size:0.65rem;color:var(--red);margin-top:3px;}
+.ritem{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;}
+.rdesc{font-size:0.88rem;font-weight:600;}
+.rmeta{font-size:0.7rem;color:var(--muted);margin-top:2px;}
+.ramt{font-size:0.95rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.ramt.in{color:var(--green);}
+
