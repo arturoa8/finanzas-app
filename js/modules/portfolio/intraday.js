@@ -169,6 +169,71 @@ function construirSerieIntradia(){
   return{ok:true,serie,moneda,base,actual,notaFallback,fuente,sesion:tl.sesion||dia.sesion,dia};
 }
 
+// ── 1S / 1M: intradía de varias sesiones ────────────────────────────────────
+// Cada sesión d se valora exactamente como el 1D: el cierre oficial de IBKR
+// anterior a d más Σ pfDeltaPosicion(posición de ESE cierre, precio Yahoo(t)).
+// Así se usan las cantidades que realmente tenías ese día (posiciones_historial)
+// y un aporte o una compra nunca se mezclan con el movimiento de precios.
+//  · Cada posición aporta su último precio <= t dentro de la sesión; un
+//    instante en que alguna aún no cotizó no se usa (no se inventa nada).
+//  · Una posición sin velas en la sesión (poco líquida o sin equivalencia
+//    Yahoo) aporta su precio oficial de cierre de ese día como constante.
+//  · Una sesión que no se puede reconstruir (sin posiciones al cierre
+//    anterior, p. ej. el día de la primera compra, o sin velas) entra solo
+//    con su cierre oficial: un punto real, nunca una curva inventada.
+export function construirSerieSesiones(quotes,posHist,historial,desdeISO){
+  const qByKey=new Map(quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
+  const cierres=historial.filter(r=>Number(r.valor_total)>0);
+  const posPorFecha=new Map();
+  posHist.forEach(p=>{if(!posPorFecha.has(p.fecha_valoracion))posPorFecha.set(p.fecha_valoracion,[]);posPorFecha.get(p.fecha_valoracion).push(p);});
+  // Velas por posición y por sesión (día de Londres).
+  const velas=new Map();
+  quotes.forEach(q=>{const k=String(q.account)+'|'+String(q.contract_id),m=new Map();
+    q.points.forEach(pt=>{const d=pfLondonDayDe(pt.t);if(!m.has(d))m.set(d,[]);m.get(d).push(pt);});
+    m.forEach(v=>v.sort((a,b)=>a.t-b.t));velas.set(k,m);});
+  const sesiones=[...new Set([...velas.values()].flatMap(m=>[...m.keys()]))].filter(d=>d>=desdeISO).sort();
+  const puntos=[];let omitidas=0;
+  for(const d of sesiones){
+    let base=null;for(let i=cierres.length-1;i>=0;i--)if(cierres[i].fecha_valoracion<d){base=cierres[i];break;}
+    const filas=base?posPorFecha.get(base.fecha_valoracion)||[]:[];
+    const cierreDia=cierres.find(r=>r.fecha_valoracion===d);
+    // Punto de cierre oficial (cierre:true): en la vista Rendimiento se toma
+    // el TWR de ese cierre tal cual; su hora es la del cierre de Londres.
+    const soloCierre=()=>{omitidas++;if(cierreDia&&base)puntos.push({t:pfCierreLondres(d),valor:Number(cierreDia.valor_total),fecha:d,base:Number(base.valor_total),fechaBase:base.fecha_valoracion,cierre:true});};
+    if(!base||!filas.length){soloCierre();continue;}
+    const C=Number(base.valor_total),oficialDia=new Map((posPorFecha.get(d)||[]).map(p=>[pfQuoteKey(p),p]));
+    let deltaFijo=0,rota=false;const conVelas=[];
+    filas.forEach(p=>{
+      const pts=(velas.get(pfQuoteKey(p))||new Map()).get(d)||[];
+      if(pts.length){conVelas.push({p,pts});return;}
+      const o=oficialDia.get(pfQuoteKey(p));
+      const dlt=o?pfDeltaPosicion(p,Number(o.precio_mercado)):0;
+      if(dlt===null)rota=true;else deltaFijo+=dlt;
+    });
+    if(rota||!conVelas.length){soloCierre();continue;}
+    const timeline=[...new Set(conVelas.flatMap(s=>s.pts.map(pt=>pt.t)))].sort((a,b)=>a-b);
+    for(const t of timeline){
+      let delta=deltaFijo,completos=0;
+      for(const s of conVelas){
+        let precio=null;
+        for(let i=s.pts.length-1;i>=0;i--){if(s.pts[i].t<=t){precio=s.pts[i].price;break;}}
+        if(precio===null)break;
+        const dlt=pfDeltaPosicion(s.p,precio);if(dlt===null)break;
+        delta+=dlt;completos++;
+      }
+      if(completos===conVelas.length)puntos.push({t,valor:C+delta,fecha:d,base:C,fechaBase:base.fecha_valoracion});
+    }
+  }
+  return{ok:puntos.length>1,puntos,omitidas,fechaBase:puntos[0]?.fechaBase??null,base:puntos[0]?.base??null};
+}
+
+// 16:30 de Londres del día `iso` (cierre regular de la LSE), en epoch ms.
+function pfCierreLondres(iso){
+  const utc=Date.parse(iso+'T16:30:00Z');
+  const hLondres=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'numeric',hourCycle:'h23'}).format(new Date(utc)));
+  return utc-(hLondres-16)*3600e3;
+}
+
 // Segmenta una serie en tramos contiguos por encima/debajo de una
 // referencia (por defecto 0 — la vista de valor absoluto pasa el primer
 // punto), insertando un punto sintético (solo para dibujar, nunca se toca
@@ -216,12 +281,14 @@ function pfSinDuplicados(puntos){
 //                     que una variación insignificante parezca enorme.
 //  opts.referencia    valor de partida (0% o el primer valor): colorea tramos.
 //  opts.etiqueta      texto del pill del tooltip (hora o fecha del punto).
+//  opts.etiquetaEje   texto de las marcas del eje X (por defecto, opts.etiqueta).
+//  opts.xPorIndice    puntos equiespaciados: sin huecos de mercado cerrado.
 export function construirGraficoIntradia(puntos,opts={}){
   const validos=pfSinDuplicados(puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t)));
   if(validos.length<2)return{svg:'<div class="empty">'+esc(opts.vacio||'No hay suficientes datos de hoy para graficar.')+'</div>',meta:null};
   // Con muchísimos puntos solo se DIBUJA un subconjunto que conserva picos y
   // valles (LTTB); el tooltip sigue recorriendo todos los puntos reales.
-  const dibujo=lttb(validos,500);
+  const dibujo=lttb(validos,1000);
   const vals=validos.map(p=>p.valor);
   const [yMin,yMax]=dominioY(vals,{modo:opts.escala==='cero'?'cero':'auto',rangoMinimo:opts.rangoMinimo||0});
   // Composición tipo Yahoo Finance: 560×330 (≈1.7:1) y casi sin padding
@@ -231,7 +298,18 @@ export function construirGraficoIntradia(puntos,opts={}){
   const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
   const denom=(yMax-yMin)||1;
   const t0=validos[0].t,tn=validos[validos.length-1].t,tden=(tn-t0)||1;
-  const x=t=>PAD_L+(t-t0)/tden*innerW;
+  // xPorIndice: los puntos van equiespaciados (como Yahoo en 5D/1M), así las
+  // noches, los fines de semana y los feriados no ocupan espacio ni dibujan
+  // un tramo plano. Un instante intermedio (cruce de la referencia) se ubica
+  // interpolando entre los dos puntos reales que lo rodean.
+  const tiempos=validos.map(p=>p.t),nIdx=(validos.length-1)||1;
+  const indiceDe=t=>{
+    if(t<=tiempos[0])return 0;if(t>=tiempos[tiempos.length-1])return tiempos.length-1;
+    let lo=0,hi=tiempos.length-1;
+    while(hi-lo>1){const m=(lo+hi)>>1;if(tiempos[m]<=t)lo=m;else hi=m;}
+    return lo+(t-tiempos[lo])/((tiempos[hi]-tiempos[lo])||1);
+  };
+  const x=opts.xPorIndice?(t=>PAD_L+indiceDe(t)/nIdx*innerW):(t=>PAD_L+(t-t0)/tden*innerW);
   const y=v=>baseline-(v-yMin)/denom*innerH;
   const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
   const etiqueta=opts.etiqueta||(t=>new Date(t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}));
@@ -264,7 +342,7 @@ export function construirGraficoIntradia(puntos,opts={}){
   const numEtiquetas=Math.min(4,validos.length);
   const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
   let etiquetaAnterior=null;
-  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle',texto=etiqueta(p.t);
+  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle',texto=(opts.etiquetaEje||etiqueta)(p.t);
     if(texto===etiquetaAnterior)return;etiquetaAnterior=texto;
     svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;});
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
@@ -310,7 +388,7 @@ export function pfWireChartTooltip(container,grafico,opts){
     tipDot.setAttribute('cx',xPix);tipDot.setAttribute('cy',yPix);
     tipDot.setAttribute('fill',color);
     tipG.style.display='';
-    const hora=etiqueta(p.t);
+    const hora=d.fechaTexto||etiqueta(p.t);
     label.textContent=hora;
     label.style.display='block';
     label.style.left=Math.min(Math.max((xPix/VB_W)*100,10),90)+'%';

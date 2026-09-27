@@ -6,12 +6,12 @@ import {renderPfDistribucion} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico, renderPfDiagnosticoYahoo} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from './hero.js';
-import {construirGraficoIntradia, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
+import {construirGraficoIntradia, construirSerieSesiones, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
 import {pfFlujos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
 import {escalaGrafico} from '../settings.js';
-import {pfComputeBaseId, pfComputeScope, pfLondonDay, pfValidarCacheYahoo, pfYahoo, startPfYahoo} from '../../services/market-data.js';
+import {pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, startPfYahoo} from '../../services/market-data.js';
 import {sbFetch} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
 import {diasEntre, fmtDateLong, fmtDateShort, hoyLocal, parseDateOnly} from '../../utils/dates.js';
@@ -85,6 +85,7 @@ export async function renderPortafolio(){
   pfBenchCache=bench||[];
   pfSnapshotsHoyCache=snapshotsHoy||[];
   pfLedgerCache=ledger||[];
+  pfPosHistCache=null;pfIntradiaCarga.clear();
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
   const ultimaSync=(sync&&sync[0])||null;
   pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
@@ -274,13 +275,17 @@ function pfEtiquetaPeriodo(desde){return PF_PERIODO_LABEL[pfPeriodo]||('Rendimie
 // (misma fuente que el hero: obtenerValorActualPortafolio). Si la fila de
 // hoy ya existe en portafolio_historial (cron ya corrió), no se duplica —
 // eso mantiene el histórico oficial intacto (sección 15).
+// El punto en vivo lleva la fecha de la SESIÓN de su precio, no la de hoy:
+// con el mercado cerrado (noche, fin de semana, feriado) Yahoo devuelve el
+// precio de la última sesión, que ya tiene su cierre oficial — agregarlo
+// como "hoy" solo estiraba una línea plana hasta el final del gráfico.
 function pfFilasConVivo(filas){
   if(!filas.length)return filas;
   const v=obtenerValorActualPortafolio();
   if(v.fuente!=='YAHOO')return filas;
-  const ultima=filas[filas.length-1],hoyIso=pfIso(new Date());
-  if(ultima.fecha_valoracion>=hoyIso)return filas;
-  return [...filas,{...ultima,fecha_valoracion:hoyIso,valor_total:v.valor,creado_en:new Date().toISOString()}];
+  const ultima=filas[filas.length-1],sesion=pfLondonDay(new Date(v.timestamp));
+  if(!(sesion>ultima.fecha_valoracion))return filas;
+  return [...filas,{...ultima,fecha_valoracion:sesion,valor_total:v.valor,creado_en:new Date().toISOString()}];
 }
 
 // Puntos diarios → formato de construirGraficoIntradia ({t,valor}),
@@ -290,6 +295,35 @@ function pfSeriePorFecha(serie){
 }
 
 export function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
+
+function pfEtiquetaFechaHora(t){const d=new Date(t);return fmtDateShort(d)+' '+d.toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'});}
+
+// ── 1S / 1M con detalle intradía ────────────────────────────────────────────
+// Se piden solo al abrir esos períodos: velas de Yahoo de varias sesiones y
+// las cantidades de cada día (posiciones_historial). Mientras llegan, o si
+// fallan, se muestra el gráfico de cierres diarios de siempre.
+const PF_PERIODOS_INTRADIA=new Set(['1S','1M']);
+const pfIntradiaCarga=new Map();
+let pfPosHistCache=null;
+
+function pfIntradiaDelPeriodo(per){
+  if(!PF_PERIODOS_INTRADIA.has(pfPeriodo)||!per.filas.length)return null;
+  const periodo=pfPeriodo,h=pfHistoriaYahooEnCache(periodo);
+  if(h&&pfPosHistCache){
+    const s=construirSerieSesiones(h.quotes,pfPosHistCache,pfHistoricoCache,per.filas[0].fecha_valoracion);
+    return s.ok?s:null;
+  }
+  if(!pfIntradiaCarga.has(periodo)){
+    pfIntradiaCarga.set(periodo,'cargando');
+    const desde=new Date();desde.setDate(desde.getDate()-45);
+    Promise.all([
+      pfConsultarHistoriaYahoo(periodo),
+      pfPosHistCache?Promise.resolve(pfPosHistCache):sbFetch('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc'),
+    ]).then(([,pos])=>{pfPosHistCache=pos||[];pfIntradiaCarga.delete(periodo);if(pfPeriodo===periodo)renderPfChart();})
+      .catch(()=>{pfIntradiaCarga.set(periodo,'error');});
+  }
+  return null;
+}
 
 // Escala de los gráficos del portafolio (todos los períodos y las dos
 // vistas). Solo decide qué parte del eje se ve; nunca toca la serie.
@@ -332,7 +366,13 @@ export function renderPfChart(){
     }
   }
   if(!per.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
-  const filas=pfFilasConVivo(per.filas);
+  // Con detalle intradía, el período arranca en el cierre anterior a la
+  // primera sesión mostrada (como el 5D/1M de Yahoo): así el lunes también
+  // cuenta, y el % del período coincide con el final de la curva.
+  const intradia=pfIntradiaDelPeriodo(per);
+  const iBase=intradia?pfHistoricoCache.findIndex(r=>r.fecha_valoracion===intradia.fechaBase):-1;
+  const filas=pfFilasConVivo(iBase>=0?pfHistoricoCache.slice(iBase):per.filas);
+  const conIntradia=intradia&&iBase>=0;
   if(pfVista==='rendimiento'){
     const r=pfRendimientoPortafolio(filas,pfFlujos());
     titulo.textContent=r.ok?(pfFechaCorta(r.desde)+' – '+pfFechaCorta(r.hasta)):'';
@@ -346,36 +386,56 @@ export function renderPfChart(){
       // Mismo gráfico que el 1D (tamaño, escala ajustada, colores por tramo
       // y scrubbing); solo cambia el eje X, que muestra fechas.
       const valorPorFecha=new Map(filas.map(f=>[f.fecha_valoracion,Number(f.valor_total)]));
-      const serie=pfSeriePorFecha(r.serie);
-      const grafico=construirGraficoIntradia(serie,{etiqueta:pfEtiquetaFecha,aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento'})});
+      const fl=pfFlujos();
+      let serie,opcX;
+      if(conIntradia){
+        // Rentabilidad encadenada (TWR): el factor acumulado hasta el cierre
+        // anterior a cada sesión × el movimiento dentro de la sesión, medido
+        // contra ese cierre. Un aporte del día entra en el cierre, nunca en
+        // la curva intradía.
+        const factor=new Map(r.serie.map(p=>[p.fecha,1+p.valor/100]));
+        serie=[{t:intradia.puntos[0].t-1,fecha:intradia.fechaBase,valor:0,abs:intradia.base,cierre:true}]
+          .concat(intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,abs:p.valor,cierre:p.cierre,valor:p.cierre?(factor.has(p.fecha)?(factor.get(p.fecha)-1)*100:NaN):factor.has(p.fechaBase)?(factor.get(p.fechaBase)*p.valor/p.base-1)*100:NaN})))
+          .filter(p=>Number.isFinite(p.valor));
+        opcX={etiqueta:pfEtiquetaFechaHora,etiquetaEje:pfEtiquetaFecha};
+      }else{
+        serie=pfSeriePorFecha(r.serie).map(p=>({...p,abs:valorPorFecha.get(p.fecha)}));
+        opcX={etiqueta:pfEtiquetaFecha};
+      }
+      const grafico=construirGraficoIntradia(serie,{...opcX,xPorIndice:true,aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento'})});
       area.innerHTML=grafico.svg;
       // Cambio en dinero hasta el punto tocado SIN contar lo aportado o
-      // retirado entre medio: un depósito no es ganancia. Mismo criterio de
-      // fechas que el TWR (flujos después del cierre inicial y hasta el punto).
-      const fl=pfFlujos();
+      // retirado entre medio: un depósito no es ganancia. En un cierre, los
+      // flujos hasta ese día; dentro de una sesión, solo los de días previos
+      // (los del día aún no están en la curva intradía).
       pfWireChartTooltip(area,grafico,{describir:p=>{
-        const v=valorPorFecha.get(p.fecha);
-        const aportado=fl.flujos.filter(f=>f.fecha>r.desde&&f.fecha<=p.fecha).reduce((s,f)=>s+f.monto,0);
-        return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:v==null?'':pfSigned(v-r.inicial-aportado,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
+        const v=p.abs;
+        const aportado=fl.flujos.filter(f=>f.fecha>r.desde&&(conIntradia&&!p.cierre?f.fecha<p.fecha:f.fecha<=p.fecha)).reduce((s,f)=>s+f.monto,0);
+        return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:v==null?'':pfSigned(v-r.inicial-aportado,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null};
       }});
       res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
       hint.textContent=r.metodo==='twr'
         ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
-        :'Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.';
+        :'Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.'
+      if(conIntradia)hint.textContent+=' Curva con precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre esos cierres; solo sesiones de mercado.';
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
     const conValor=pfSinCerosIniciales(filas);
-    const serie=pfSeriePorFecha(conValor.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
+    const serie=conIntradia
+      ?[{t:intradia.puntos[0].t-1,fecha:intradia.fechaBase,valor:intradia.base,cierre:true}].concat(intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,valor:p.valor,cierre:p.cierre})))
+      :pfSeriePorFecha(conValor.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
     const inicial=serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
-    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor'})});
+    const opcX=conIntradia?{etiqueta:pfEtiquetaFechaHora,etiquetaEje:pfEtiquetaFecha}:{etiqueta:pfEtiquetaFecha};
+    const grafico=construirGraficoIntradia(serie,{referencia:inicial,...opcX,xPorIndice:true,aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor'})});
     area.innerHTML=grafico.svg;
     // Valor: fecha y valor, sin %: un cambio de valor aquí puede ser un
     // aporte, y mostrarlo como porcentaje lo haría pasar por rentabilidad.
-    pfWireChartTooltip(area,grafico,{describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null})});
+    pfWireChartTooltip(area,grafico,{describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null})});
     const recorte=conValor.length<filas.length&&conValor.length?' Se muestra desde el primer día con valor en la cuenta ('+pfFechaCorta(conValor[0].fecha_valoracion)+').':'';
     const truncado=grafico.meta&&grafico.meta.dominio[0]>0?' El eje vertical se ajusta al rango del período y no empieza en 0.':'';
-    hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.'+recorte+truncado;
+    const detalle=conIntradia?' Precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';
+    hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.'+(conIntradia?'':recorte)+truncado+detalle;
   }
   renderPfBenchmark(filas);
 }

@@ -233,6 +233,41 @@ async function pfConsultarYahoo(){
   finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;renderPfYahoo();pfProgramarYahoo();}}
 }
 
+// ── Historia intradía de varios días (1S / 1M) ─────────────────────────────
+// Velas reales de Yahoo de las últimas sesiones, pedidas solo al abrir 1S o
+// 1M. Caché de 5 min por período y por conjunto de posiciones; nunca pisa
+// pfYahoo (el 1D y el valor en vivo siguen su propio ciclo).
+const pfHistoriaYahoo=new Map();
+const PF_HISTORIA_TTL_MS=5*60*1000;
+
+export function pfHistoriaYahooEnCache(periodo){
+  const c=pfHistoriaYahoo.get(periodo);
+  return c&&c.scope===pfComputeScope()&&Date.now()-c.fetchedAt<PF_HISTORIA_TTL_MS?c:null;
+}
+
+export async function pfConsultarHistoriaYahoo(periodo){
+  const enCache=pfHistoriaYahooEnCache(periodo);if(enCache)return enCache;
+  const previa=pfHistoriaYahoo.get(periodo);if(previa&&previa.promesa)return previa.promesa;
+  const promesa=(async()=>{
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),35000);
+    try{
+      const authorization=await authHeader();
+      const r=await fetch(SUPABASE_URL+'/functions/v1/cotizaciones-yahoo?historia='+encodeURIComponent(periodo),{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:authorization},signal:controller.signal});
+      if(!r.ok)throw new Error('Historia intradía no disponible');
+      const data=await r.json();if(!Array.isArray(data.quotes))throw new Error('Respuesta de historia inválida');
+      // Solo contratos que existen en la cartera (igual que pfConsultarYahoo).
+      const known=new Map(pfPosicionesCache.map(p=>[pfQuoteKey(p),p]));
+      const quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo&&q.status==='ok'&&Array.isArray(q.points);});
+      const valor={periodo,quotes,scope:pfComputeScope(),fetchedAt:Date.now()};
+      pfHistoriaYahoo.set(periodo,valor);
+      return valor;
+    }catch(e){pfHistoriaYahoo.delete(periodo);throw e;}
+    finally{clearTimeout(timeout);}
+  })();
+  pfHistoriaYahoo.set(periodo,{...(previa||{}),promesa});
+  return promesa;
+}
+
 export function renderPfYahoo(){
   if(!pfHistoricoCache.length)return;
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
