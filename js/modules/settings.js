@@ -13,6 +13,13 @@ function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS
 
 export let appPreferences=leerPreferencias();
 
+// Escala vertical de los gráficos del portafolio: 'auto' (rango observado,
+// recomendada y por defecto) o 'cero' (siempre desde 0). Las versiones
+// anteriores guardaban 'overview'/'detail', que solo afectaban al gráfico de
+// una posición; se leen como 'auto' para que nadie quede con la escala plana
+// sin haberla elegido con el nuevo significado.
+export function escalaGrafico(){return appPreferences.chartScale==='cero'?'cero':'auto';}
+
 export function aplicarPreferencias(){
  const colors={green:'#00d68f',blue:'#7aa2ff',violet:'#c4a2ff'};
  document.documentElement.style.setProperty('--accent',colors[appPreferences.accent]||colors.green);
@@ -20,7 +27,7 @@ export function aplicarPreferencias(){
 
 export function abrirConfiguracion(seccion){
  document.getElementById('appAccent').value=appPreferences.accent||'green';
- document.getElementById('appChartScale').value=appPreferences.chartScale||'overview';
+ document.getElementById('appChartScale').value=escalaGrafico();
  const tcEl=document.getElementById('tcUsdPen');
  if(tcEl){
   if(tcUsdPen>0)tcEl.value=tcUsdPen;

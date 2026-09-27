@@ -5,11 +5,12 @@ import {filtrarPorPeriodo} from '../analytics.js';
 import {renderPfDistribucion} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico, renderPfDiagnosticoYahoo} from './diagnostics.js';
-import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from './hero.js';
+import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pfMonedaVisible, pintarValorPrincipal} from './hero.js';
 import {construirGraficoIntradia, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
 import {pfFlujos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
+import {escalaGrafico} from '../settings.js';
 import {pfComputeBaseId, pfComputeScope, pfLondonDay, pfValidarCacheYahoo, pfYahoo, startPfYahoo} from '../../services/market-data.js';
 import {sbFetch} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
@@ -290,6 +291,28 @@ function pfSeriePorFecha(serie){
 
 export function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
 
+// Escala de los gráficos del portafolio (todos los períodos y las dos
+// vistas). Solo decide qué parte del eje se ve; nunca toca la serie.
+// Rango mínimo, para no convertir ruido en una montaña: 0.2 pp en el día y
+// 0.5 pp en períodos largos (Rendimiento); 0.2% / 0.5% del valor (Valor).
+export function pfOpcionesEscala(serie,{vista,moneda,intradia=false}){
+  const escala=escalaGrafico();
+  if(vista==='rendimiento')return{escala,rangoMinimo:intradia?0.2:0.5,eje:{unidad:'%'}};
+  const vals=serie.map(p=>Number(p.valor)).filter(Number.isFinite);
+  const nivel=vals.length?vals.reduce((a,v)=>a+Math.abs(v),0)/vals.length:0;
+  return{escala,rangoMinimo:nivel*(intradia?0.002:0.005),eje:{factor:pfMonedaVisible(moneda).factor}};
+}
+
+// Días en que la cuenta todavía no tenía dinero (valor 0 antes del primer
+// aporte). IBKR los reporta, pero no son parte de la historia del
+// portafolio: con ellos el eje iba de 0 al valor actual y la curva real
+// quedaba aplastada arriba. Solo se quitan los del INICIO; un 0 posterior
+// (p. ej. un retiro total) sí es un hecho y se mantiene.
+function pfSinCerosIniciales(filas){
+  const i=filas.findIndex(f=>Number(f.valor_total)>0);
+  return i<=0?filas:filas.slice(i);
+}
+
 export function renderPfChart(){
   const toggle=document.getElementById('pfDesdeToggle');
   if(toggle)toggle.style.display=pfPeriodo==='DESDE'?'none':'';
@@ -323,12 +346,17 @@ export function renderPfChart(){
       // Mismo gráfico que el 1D (tamaño, escala ajustada, colores por tramo
       // y scrubbing); solo cambia el eje X, que muestra fechas.
       const valorPorFecha=new Map(filas.map(f=>[f.fecha_valoracion,Number(f.valor_total)]));
-      const grafico=construirGraficoIntradia(pfSeriePorFecha(r.serie),{etiqueta:pfEtiquetaFecha,aria:'Rendimiento del portafolio en el período'});
+      const serie=pfSeriePorFecha(r.serie);
+      const grafico=construirGraficoIntradia(serie,{etiqueta:pfEtiquetaFecha,ejeX:'fecha',aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento',moneda:r.moneda})});
       area.innerHTML=grafico.svg;
+      // Cambio en dinero hasta el punto tocado SIN contar lo aportado o
+      // retirado entre medio: un depósito no es ganancia. Mismo criterio de
+      // fechas que el TWR (flujos después del cierre inicial y hasta el punto).
+      const fl=pfFlujos();
       pfWireChartTooltip(area,grafico,{describir:p=>{
         const v=valorPorFecha.get(p.fecha);
-        // Con TWR el cambio de valor incluye aportes/retiros: solo el %.
-        return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:r.metodo==='twr'||v==null?'':pfSigned(v-r.inicial,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
+        const aportado=fl.flujos.filter(f=>f.fecha>r.desde&&f.fecha<=p.fecha).reduce((s,f)=>s+f.monto,0);
+        return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:v==null?'':pfSigned(v-r.inicial-aportado,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
       }});
       res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
       hint.textContent=r.metodo==='twr'
@@ -337,15 +365,17 @@ export function renderPfChart(){
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
-    const serie=pfSeriePorFecha(filas.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
+    const conValor=pfSinCerosIniciales(filas);
+    const serie=pfSeriePorFecha(conValor.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
     const inicial=serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
-    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,aria:'Valor total de la cuenta en el período'});
+    const grafico=construirGraficoIntradia(serie,{referencia:inicial,etiqueta:pfEtiquetaFecha,ejeX:'fecha',aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor',moneda})});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{describir:p=>{
-      const pctNum=inicial?(p.valor/inicial-1)*100:0;
-      return{valorTexto:pfFmt(p.valor,moneda),gananciaTexto:pfSigned(p.valor-inicial,moneda),pctTexto:pfSignedPct(pctNum),pctNum};
-    }});
-    hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.';
+    // Valor: fecha y valor, sin %: un cambio de valor aquí puede ser un
+    // aporte, y mostrarlo como porcentaje lo haría pasar por rentabilidad.
+    pfWireChartTooltip(area,grafico,{describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null})});
+    const recorte=conValor.length<filas.length&&conValor.length?' Se muestra desde el primer día con valor en la cuenta ('+pfFechaCorta(conValor[0].fecha_valoracion)+').':'';
+    const truncado=grafico.meta&&grafico.meta.dominio[0]>0?' El eje vertical se ajusta al rango del período y no empieza en 0.':'';
+    hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.'+recorte+truncado;
   }
   renderPfBenchmark(filas);
 }

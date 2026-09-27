@@ -2,12 +2,13 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {anPeriodo, getTxAn} from '../modules/analytics.js';
-import {appPreferences} from '../modules/settings.js';
+import {escalaGrafico} from '../modules/settings.js';
 import {gastoNeto, gastosPorCat} from '../modules/transactions.js';
 import {datos} from '../state.js';
+import {dominioY, textoTickY, ticksY} from './chart-scale.js';
 import {getMesActivo} from './navigation.js';
 import {fmtDateShort, parseDateOnly, pf} from '../utils/dates.js';
-import {esc, fmtC, fmtCompacto, getEmoji, mesesC} from '../utils/formatters.js';
+import {esc, fmtC, getEmoji, mesesC} from '../utils/formatters.js';
 
 let chartTipo='bar';
 
@@ -147,15 +148,13 @@ function renderTrend(area,leg){
   leg.innerHTML=`<span class="legend-item"><span class="legend-dot" style="background:#00d68f"></span>Gasto neto ${anPeriodo==='mes'?'diario':'mensual'}</span>`;
 }
 
-function pfChartDomain(values,scale='overview'){
- const min=Math.min(...values),max=Math.max(...values);
- // Menos padding (sección 11): la serie debe ocupar la mayor parte de la
- // altura útil. El piso de .01 es solo para evitar división por cero en una
- // serie perfectamente plana — ya no hay un mínimo grande (antes era "1",
- // que en vistas de rendimiento (puntos porcentuales) dominaba casi siempre
- // y aplanaba visualmente movimientos reales de menos de 1pp).
- const margin=Math.max((max-min)*.07,Math.max(Math.abs(min),Math.abs(max))*.02,.01);
- return scale==='detail'?[min-margin,max+margin]:[Math.min(0,min-margin),Math.max(0,max+margin)];
+// Dominio vertical del gráfico de línea (modal de posición). La lógica vive
+// en chart-scale.js, compartida con el gráfico principal del portafolio:
+// 'detail'/'auto' = rango observado con margen; cualquier otro = desde cero.
+function pfChartDomain(values,scale='auto'){
+ const vs=values.filter(Number.isFinite);
+ const nivel=vs.length?Math.max(...vs.map(Math.abs)):0;
+ return dominioY(vs,{modo:scale==='detail'||scale==='auto'?'auto':'cero',rangoMinimo:nivel*0.004});
 }
 
 // pfChartX: posición temporal de un punto. Los puntos normales (uno por día)
@@ -174,7 +173,7 @@ export function construirLineChartSVG(puntos,opts={}){
  // CSS (.chart-svg{aspect-ratio:4/3}) tiene que combinar con esto.
  const VB_W=560,VB_H=420,PAD_L=52,PAD_R=20,PAD_T=22,PAD_B=33;
  const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
- const vals=pts.map(p=>Number(p.valor));let [lo,hi]=pfChartDomain(vals,opts.escala||appPreferences.chartScale);if(opts.ganancia){lo=Math.min(lo,0);hi=Math.max(hi,0);if(hi===lo)hi=lo+1;}
+ const vals=pts.map(p=>Number(p.valor));let [lo,hi]=pfChartDomain(vals,opts.escala||escalaGrafico());if(opts.ganancia){lo=Math.min(lo,0);hi=Math.max(hi,0);if(hi===lo)hi=lo+1;}
  const t0=pfChartX(pts[0]),tn=pfChartX(pts.at(-1)),x=p=>PAD_L+(pfChartX(p)-t0)/(tn-t0||1)*innerW,y=p=>baseline-(Number(p.valor)-lo)/(hi-lo)*innerH;
  const path=pts.map((p,i)=>(i?'L':'M')+x(p).toFixed(2)+' '+y(p).toFixed(2)).join(' ');
  // Color según tendencia (sección 14): verde si sube, rojo si baja — igual
@@ -182,7 +181,9 @@ export function construirLineChartSVG(puntos,opts={}){
  // por el signo del último valor frente a cero.
  const colorLinea=opts.color||(opts.ganancia?(vals.at(-1)>=0?'var(--green)':'var(--red)'):(vals.at(-1)>=vals[0]?'var(--green)':'var(--red)'));
  let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" role="img" aria-label="`+(opts.ganancia?'Ganancia frente a los aportes en el período':'Evolución del valor en el período')+'"><title>'+(opts.ganancia?'Ganancia: valor menos aportes netos acumulados':'Evolución del valor; incluye aportes y retiros')+'</title>';
- for(let i=0;i<4;i++){const yy=PAD_T+innerH*(i/3);svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${yy+4}" font-size="10">${opts.fmt?opts.fmt(hi-(hi-lo)*i/3):fmtCompacto(hi-(hi-lo)*i/3)}</text>`;}
+ // Niveles redondos (1, 2, 2.5 o 5 × 10^k) en vez de cuartos del rango.
+ const ejeY=ticksY(lo,hi);
+ ejeY.ticks.forEach(v=>{const yy=y({valor:v});svg+=`<line x1="${PAD_L}" y1="${yy.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yy.toFixed(2)}" stroke="var(--border)" stroke-dasharray="3 5"/><text x="0" y="${(yy+4).toFixed(2)}" font-size="10">${opts.fmt?opts.fmt(v):esc(textoTickY(v,ejeY.paso))}</text>`;});
  if(opts.ganancia){const y0=y({valor:0});svg+=`<line x1="${PAD_L}" y1="${y0.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${y0.toFixed(2)}" stroke="var(--dim)" stroke-width="1"/><text x="${PAD_L-8}" y="${(y0+4).toFixed(2)}" font-size="10" text-anchor="end">0</text><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;}
  else{
    svg+=`<path d="${path} L ${VB_W-PAD_R} ${baseline} L ${PAD_L} ${baseline} Z" fill="${colorLinea}" opacity=".08"/><path d="${path}" fill="none" stroke="${colorLinea}" stroke-width="2.5"/>`;

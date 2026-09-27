@@ -297,12 +297,20 @@ function pintarPfHeroHoy(){
 // fmtMoneda: cero cambio de comportamiento salvo que el usuario lo active.
 let pfMostrarPEN=false;
 
-export function pfFmt(n,moneda){
+// Moneda en que se MUESTRA un importe del portafolio y el factor para
+// convertirlo. Única fuente del "ver en soles": la usan pfFmt y el eje Y de
+// los gráficos, así el eje nunca queda en otra moneda que el tooltip.
+export function pfMonedaVisible(moneda){
   if(pfMostrarPEN&&moneda==='USD'){
     const tc=tcMercado>0?tcMercado:tcUsdPen;
-    if(tc>0)return fmtMoneda(n===null||n===undefined?null:Number(n)*tc,'PEN');
+    if(tc>0)return{moneda:'PEN',factor:tc,prefijo:'S/ '};
   }
-  return fmtMoneda(n,moneda);
+  return{moneda,factor:1,prefijo:moneda==='USD'?'US$ ':moneda==='PEN'?'S/ ':''};
+}
+
+export function pfFmt(n,moneda){
+  const m=pfMonedaVisible(moneda);
+  return fmtMoneda(n===null||n===undefined||m.factor===1?n:Number(n)*m.factor,m.moneda);
 }
 
 export async function togglePfMoneda(btn){

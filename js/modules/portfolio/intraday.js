@@ -6,8 +6,9 @@ import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico1D} from './diagnostics.js';
 import {pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrincipal} from './hero.js';
 import {pfFlujos, pfModeloGanancia} from './performance.js';
-import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
+import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
 import {pfLondonDay, pfMarketEstimate, pfQuoteKey, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
+import {dominioY, lttb, textoTickY, ticksTiempo, ticksY} from '../../ui/chart-scale.js';
 import {parseDateOnly} from '../../utils/dates.js';
 import {esc} from '../../utils/formatters.js';
 
@@ -168,9 +169,6 @@ function construirSerieIntradia(){
   return{ok:true,serie,moneda,base,actual,notaFallback,fuente,sesion:tl.sesion||dia.sesion,dia};
 }
 
-// Renderer propio del 1D (no toca construirLineChartSVG, que sigue sirviendo
-// a 1S/1M/6M/AIF/1A/Todo/Desde y al modal de posición): eje X por hora real,
-// escala más ajustada y devuelve el mapeo x(t)/y(valor) para el tooltip.
 // Segmenta una serie en tramos contiguos por encima/debajo de una
 // referencia (por defecto 0 — la vista de valor absoluto pasa el primer
 // punto), insertando un punto sintético (solo para dibujar, nunca se toca
@@ -203,45 +201,64 @@ function pfColorTramo(tramo,fallback,ref=0){
   return p?(p.valor>=ref?'var(--green)':'var(--red)'):fallback;
 }
 
+// Un punto por instante: si llegan dos con el mismo t (p. ej. el cierre de hoy
+// y el punto en vivo de la misma fecha), gana el último. Nunca se promedian.
+function pfSinDuplicados(puntos){
+  const porT=new Map();
+  puntos.forEach(p=>porT.set(p.t,p));
+  return[...porT.values()].sort((a,b)=>a.t-b.t);
+}
+
+// Gráfico de línea de TODOS los períodos del portafolio (1D por hora; 1S…Todo
+// y Desde por fecha). Devuelve el SVG y el mapeo x(t)/y(valor) para el tooltip.
+//  opts.escala        'auto' (rango observado + margen) o 'cero' (incluye 0).
+//  opts.rangoMinimo   rango vertical mínimo, en unidades de la serie: evita
+//                     que una variación insignificante parezca enorme.
+//  opts.eje           {unidad:'%'} o {prefijo:'US$ ',factor:1}: texto del eje Y.
+//                     Con factor (ver en soles) los ticks son redondos EN LA
+//                     MONEDA MOSTRADA, no en dólares convertidos.
+//  opts.referencia    valor de partida (0% o el primer valor): colorea tramos.
+//  opts.etiqueta      texto del pill del tooltip (hora o fecha del punto).
+//  opts.ejeX          'fecha' si son cierres diarios: el eje X nunca muestra horas.
 export function construirGraficoIntradia(puntos,opts={}){
-  const validos=puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t));
-  if(validos.length<2)return{svg:'<div class="empty">No hay suficientes datos de hoy para graficar.</div>',meta:null};
-  // Composición tipo Yahoo Finance (sección 9-11 del pedido): 560×330
-  // (≈1.7:1, más horizontal que el 4:3 del resto de períodos — el propio
-  // <svg> lleva su aspect-ratio inline, así que esto NO afecta a
-  // construirLineChartSVG ni al modal de posición) y casi sin padding
-  // lateral: ya no hay etiquetas numéricas en el eje Y (se leen tocando el
-  // gráfico), así que ese espacio se le devuelve a la curva.
-  const VB_W=560,VB_H=330,PAD_L=10,PAD_R=8,PAD_T=14,PAD_B=26;
-  const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
+  const validos=pfSinDuplicados(puntos.filter(p=>p.valor!=null&&Number.isFinite(Number(p.valor))&&Number.isFinite(p.t)));
+  if(validos.length<2)return{svg:'<div class="empty">'+esc(opts.vacio||'No hay suficientes datos de hoy para graficar.')+'</div>',meta:null};
+  // Con muchísimos puntos solo se DIBUJA un subconjunto que conserva picos y
+  // valles (LTTB); el tooltip sigue recorriendo todos los puntos reales.
+  const dibujo=lttb(validos,500);
   const vals=validos.map(p=>p.valor);
-  const min=Math.min(...vals),max=Math.max(...vals),range=max-min;
-  // Escala Y: la curva ocupa casi toda la altura útil con datos reales
-  // (min/max de la sesión), nunca arranca en 0 — solo un padding chico.
-  const pad=Math.max(range*0.025,0.008);
-  const yMin=min-pad,yMax=max+pad,denom=(yMax-yMin)||1;
+  const [yMin,yMax]=dominioY(vals,{modo:opts.escala==='cero'?'cero':'auto',rangoMinimo:opts.rangoMinimo||0});
+  const eje=opts.eje||{},factor=eje.factor||1;
+  // Ticks calculados en la unidad que se LEE (soles si se muestra en soles).
+  const {paso,ticks}=ticksY(yMin*factor,yMax*factor);
+  const textos=ticks.map(v=>textoTickY(v,paso,eje));
+  // Composición 560×330 (≈1.7:1). El espacio de la derecha es para el eje Y;
+  // se dimensiona para el texto más largo al tamaño de letra del móvil
+  // (.pf-eje en CSS), donde el SVG se ve más reducido.
+  const FS=19,anchoEje=Math.ceil(Math.max(...textos.map(t=>t.length))*FS*0.58)+10;
+  const VB_W=560,VB_H=330,PAD_L=6,PAD_R=anchoEje,PAD_T=14,PAD_B=34;
+  const baseline=VB_H-PAD_B,innerH=baseline-PAD_T,innerW=(VB_W-PAD_R)-PAD_L;
+  const denom=(yMax-yMin)||1;
   const t0=validos[0].t,tn=validos[validos.length-1].t,tden=(tn-t0)||1;
   const x=t=>PAD_L+(t-t0)/tden*innerW;
   const y=v=>baseline-(v-yMin)/denom*innerH;
   const color=opts.color||(vals[vals.length-1]>=vals[0]?'var(--green)':'var(--red)');
-  // opts.etiqueta: texto de cada marca del eje X (y del pill al tocar). Por
-  // defecto la hora (1D); los períodos más largos pasan la fecha, así todos
-  // los períodos comparten exactamente el mismo gráfico.
   const etiqueta=opts.etiqueta||(t=>new Date(t).toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'}));
   let svg=`<svg viewBox="0 0 ${VB_W} ${VB_H}" class="chart-svg" style="aspect-ratio:${VB_W}/${VB_H}" role="img" aria-label="${esc(opts.aria||'Rendimiento intradía del portafolio')}">`;
-  // Grid horizontal extremadamente sutil (sección 11): sin números — el
-  // rendimiento exacto se lee tocando el gráfico (hero + pill de hora).
-  for(let i=1;i<3;i++){const yy=PAD_T+innerH*(i/3);
-    svg+=`<line x1="${PAD_L}" y1="${yy}" x2="${VB_W-PAD_R}" y2="${yy}" stroke="var(--border)" opacity=".15"/>`;}
-  // Referencia (dónde estaba el valor al ARRANCAR el gráfico): 0% en la
-  // vista de rendimiento, o el primer punto en la vista de valor absoluto
-  // (opts.referencia). Cada tramo se pinta del color de su propio signo
-  // respecto a esa referencia — verde arriba, rojo abajo — y la línea
-  // punteada que la marca SIEMPRE se dibuja: si el período entero quedó de
-  // un solo lado, se recorta al borde del gráfico (mismo clamp que ya usaba
-  // el relleno) en vez de desaparecer por caer fuera del rango visible.
+  // Eje Y: 4–6 niveles redondos, línea tenue y número a la derecha.
+  svg+='<g class="pf-eje">';
+  ticks.forEach((v,i)=>{
+    const yy=y(v/factor);
+    if(yy<PAD_T-1||yy>baseline+1)return;
+    svg+=`<line x1="${PAD_L}" y1="${yy.toFixed(2)}" x2="${VB_W-PAD_R+4}" y2="${yy.toFixed(2)}" stroke="var(--border)" opacity=".5"/>`;
+    svg+=`<text x="${VB_W-2}" y="${(yy+FS*0.34).toFixed(2)}" text-anchor="end" font-size="12">${esc(textos[i])}</text>`;
+  });
+  svg+='</g>';
+  // Referencia (dónde arrancó el gráfico): 0% en rendimiento, o el primer
+  // valor en la vista de valor. Cada tramo se pinta del color de su signo
+  // respecto a ella; la línea punteada se recorta al borde si queda fuera.
   const ref=opts.referencia??0;
-  const tramos=pfSegmentarPorSigno(validos,ref);
+  const tramos=pfSegmentarPorSigno(dibujo,ref);
   const yRefClamp=Math.min(baseline,Math.max(PAD_T,y(ref)));
   tramos.forEach(tramo=>{
     if(tramo.length<2)return;
@@ -256,28 +273,45 @@ export function construirGraficoIntradia(puntos,opts={}){
     svg+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   svg+=`<line x1="${PAD_L}" y1="${yRefClamp.toFixed(2)}" x2="${VB_W-PAD_R}" y2="${yRefClamp.toFixed(2)}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>`;
-  // Eje X: ~4 marcas de hora, no más (sección 12) — la hora exacta aparece
-  // en el pill vertical mientras se hace scrubbing.
-  const numEtiquetas=Math.min(4,validos.length);
-  const idxs=[...new Set(Array.from({length:numEtiquetas},(_,i)=>Math.round(i*(validos.length-1)/(numEtiquetas-1||1))))];
-  let etiquetaAnterior=null;
-  idxs.forEach(i=>{const p=validos[i],anchor=i===0?'start':i===validos.length-1?'end':'middle',texto=etiqueta(p.t);
-    if(texto===etiquetaAnterior)return;etiquetaAnterior=texto;
-    svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;});
+  // Eje X por calendario: horas en el 1D, días en 1S, fechas en 1M, meses o
+  // años en los largos. Si no cabe ninguna frontera (serie muy corta), el
+  // primer y el último punto.
+  let marcas=ticksTiempo(t0,tn,5,{soloFechas:opts.ejeX==='fecha'});
+  if(marcas.length<2)marcas=[{t:t0,texto:etiqueta(t0)},{t:tn,texto:etiqueta(tn)}];
+  svg+='<g class="pf-eje">';
+  marcas.forEach(m=>{
+    const xx=x(m.t),anchor=xx<PAD_L+40?'start':xx>VB_W-PAD_R-40?'end':'middle';
+    svg+=`<text x="${xx.toFixed(2)}" y="${baseline+FS+6}" text-anchor="${anchor}" font-size="12">${esc(m.texto)}</text>`;
+  });
+  svg+='</g>';
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
   svg+='</svg>';
-  return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos,etiqueta}};
+  return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos,etiqueta,dominio:[yMin,yMax]}};
 }
 
 // Scrubbing tipo Yahoo Finance (secciones 2-8, 18-23 del pedido): el HERO de
 // arriba (pfHeroValor/pfHeroHoy/pfFrescura) pasa a mostrar el punto tocado
 // — el gráfico en sí solo aporta la guía visual (línea + punto + hora), ya
 // no repite valor/% en una caja flotante (eso ahora vive arriba, sección 5).
-// Un solo listener por SVG, Pointer Events (mouse y dedo). Solo se usa en el
-// 1D. Nunca recalcula el portafolio ni toca pfYahoo/Supabase/snapshots
+// Un solo listener por SVG, Pointer Events (mouse y dedo). Lo usan todos
+// los períodos. Nunca recalcula el portafolio ni toca pfYahoo/Supabase/snapshots
 // (secciones 19-21): usa directamente los puntos ya construidos por
 // construirSerieIntradia y solo escribe texto en el DOM — instantáneo,
 // pensado para que se sienta fluido en un teléfono.
+// Letra de los ejes: ~11px en pantalla sea cual sea el ancho del gráfico. El
+// SVG escala con su viewBox, así que el tamaño en unidades del viewBox se
+// calcula con la escala real (entre 11 y 19 unidades: 19 es lo que cabe en
+// el margen reservado para el eje Y). Se recalcula si cambia el ancho.
+function pfAjustarLetraEjes(svgEl){
+  const ajustar=()=>{
+    const r=svgEl.getBoundingClientRect(),vb=svgEl.viewBox.baseVal;
+    const escala=Math.min(r.width/vb.width,r.height/vb.height);
+    if(escala>0)svgEl.style.setProperty('--pf-eje-fs',Math.min(19,Math.max(11,11/escala)).toFixed(1)+'px');
+  };
+  ajustar();
+  if(typeof ResizeObserver==='function')new ResizeObserver(ajustar).observe(svgEl);
+}
+
 export function pfWireChartTooltip(container,grafico,opts){
   if(!grafico.meta)return;
   const svgEl=container.querySelector('svg');
@@ -285,6 +319,7 @@ export function pfWireChartTooltip(container,grafico,opts){
   // pan-y (no "none"): el navegador conserva el scroll vertical de la
   // página; el arrastre horizontal lo captura este listener (sección 6).
   svgEl.style.touchAction='pan-y';
+  pfAjustarLetraEjes(svgEl);
   const tipG=svgEl.querySelector('#pfIntraTip'),tipLine=svgEl.querySelector('#pfIntraTipLine'),tipDot=svgEl.querySelector('#pfIntraTipDot');
   let label=container.querySelector('.pf-intraday-tooltip');
   if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
@@ -314,7 +349,9 @@ export function pfWireChartTooltip(container,grafico,opts){
     // Hero temporal (secciones 2-3, 14, 18): reemplaza valor/rendimiento/hora
     // mientras se arrastra. evt.preventDefault evita seleccionar texto.
     if(heroValorEl)heroValorEl.textContent=d.valorTexto;
-    if(heroHoyEl){heroHoyEl.textContent=d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
+    // lineaTexto: la vista Valor no muestra un %, que ahí mezclaría aportes
+    // con rentabilidad; describe el punto con su propio texto.
+    if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto!=null?d.lineaTexto:d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
     if(frescuraEl)frescuraEl.textContent=hora;
     if(evt.cancelable)evt.preventDefault();
   }
@@ -372,12 +409,12 @@ export function renderPfChart1D(area,titulo,hint,res){
   if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';res.innerHTML='';renderPfContribuciones(null);return;}
   const colorLinea=(s.actual-s.base)>=0?'var(--green)':'var(--red)';
   titulo.textContent=s.dia.fuente==='IBKR_CIERRES'?'Últimos cierres IBKR':(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión · '+pfFechaCorta(s.sesion):'Hoy';
-  const opcX=s.etiquetaX?{etiqueta:s.etiquetaX}:{};
+  const opcX=s.etiquetaX?{etiqueta:s.etiquetaX,ejeX:'fecha'}:{};
   if(pfVista==='rendimiento'){
     // Referencia 0% = "dónde estaba el rendimiento al inicio" (siempre 0,
     // por definición). El coloreado por tramos y la línea punteada viven en
     // construirGraficoIntradia (referencia por defecto).
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX,...pfOpcionesEscala(s.serie,{vista:'rendimiento',moneda:s.moneda,intradia:true})});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{describir:p=>{
       const valorAbs=s.base*(1+p.valor/100),ganancia=valorAbs-s.base;
@@ -387,7 +424,7 @@ export function renderPfChart1D(area,titulo,hint,res){
     // En valor absoluto la referencia es el primer punto mostrado (el valor
     // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
     // (con base Yahoo es el cierre anterior, no la primera vela)
-    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX});
+    const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX,...pfOpcionesEscala(s.serie,{vista:'valor',moneda:s.moneda,intradia:true})});
     area.innerHTML=grafico.svg;
     pfWireChartTooltip(area,grafico,{describir:p=>{
       const pctNum=(p.valor/s.base-1)*100,ganancia=p.valor-s.base;
