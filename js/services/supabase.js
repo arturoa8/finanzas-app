@@ -21,29 +21,40 @@ export async function sbFetch(path,opts={}){
 // Supabase entrega como maximo 1000 filas por respuesta (max_rows) y corta
 // el resto EN SILENCIO. sbFetchTodo pide por tandas hasta tener todas.
 //
-// El final no se decide por "la tanda vino incompleta" sino por el total que
-// Supabase informa en Content-Range (Prefer: count=exact): asi funciona
-// aunque max_rows cambie. Si al terminar no cuadra con ese total (se agrego
-// o borro algo a mitad de la carga, un corte de red), reintenta una vez y
-// si sigue sin cuadrar lanza un error con incompleto=true: es preferible un
-// aviso a mostrar saldos calculados sobre datos parciales.
+// El primer pedido trae la primera tanda y el total (Prefer: count=exact,
+// cabecera Content-Range). Con el total se piden TODAS las tandas restantes a
+// la vez: con 10.000 filas tarda lo mismo que dos viajes. El paso es lo que
+// devolvio la primera tanda, no `tanda`: si Supabase bajara max_rows, las
+// tandas siguen sin solaparse.
+//
+// Si al terminar no cuadra con el total (se agrego o borro algo a mitad de la
+// carga, un corte de red), reintenta una vez y si sigue sin cuadrar lanza un
+// error con incompleto=true: es preferible un aviso a mostrar saldos
+// calculados sobre datos parciales.
 //
 // El orden de `path` debe terminar en una columna unica (id): con empates,
 // una tanda podria repetir una fila y saltarse otra.
 export async function sbFetchTodo(path,tanda=1000){
   const sep=path.includes('?')?'&':'?';
+  const pedir=(desde,conteo)=>sbRespuesta(`${path}${sep}limit=${tanda}&offset=${desde}`,conteo?{headers:{Prefer:'count=exact'}}:{});
   let filas=[],total=null;
   for(let intento=0;intento<2;intento++){
-    filas=[];total=null;
-    for(;;){
-      const r=await sbRespuesta(`${path}${sep}limit=${tanda}&offset=${filas.length}`,total===null?{headers:{Prefer:'count=exact'}}:{});
-      if(total===null){const m=/\/(\d+)$/.exec(r.headers.get('content-range')||'');total=m?Number(m[1]):null;}
-      const parte=await r.json();
-      filas.push(...parte);
-      // Sin total (cabecera no expuesta): cae al criterio de tanda incompleta.
-      if(parte.length===0||(total===null?parte.length<tanda:filas.length>=total))break;
+    const r=await pedir(0,true);
+    const m=/\/(\d+)$/.exec(r.headers.get('content-range')||'');
+    total=m?Number(m[1]):null;
+    filas=await r.json();
+    if(total===null){
+      // Sin total (cabecera no expuesta): una tras otra hasta una tanda incompleta.
+      for(let parte=filas;parte.length===tanda;){parte=await (await pedir(filas.length,false)).json();filas.push(...parte);}
+      return filas;
     }
-    if(total===null||filas.length===total)return filas;
+    const paso=filas.length;
+    if(paso>0&&paso<total){
+      const desdes=[];for(let d=paso;d<total;d+=paso)desdes.push(d);
+      const partes=await Promise.all(desdes.map(d=>pedir(d,false).then(x=>x.json())));
+      partes.forEach(p=>filas.push(...p));
+    }
+    if(filas.length===total)return filas;
   }
   const e=new Error(`No se cargaron todos tus datos (${filas.length} de ${total}). Recarga la página.`);
   e.incompleto=true;

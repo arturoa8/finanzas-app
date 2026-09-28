@@ -394,8 +394,12 @@ export function renderPfChart(){
         // contra ese cierre. Un aporte del día entra en el cierre, nunca en
         // la curva intradía.
         const factor=new Map(r.serie.map(p=>[p.fecha,1+p.valor/100]));
-        serie=[{t:intradia.puntos[0].t-1,fecha:intradia.fechaBase,valor:0,abs:intradia.base,cierre:true}]
-          .concat(intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,abs:p.valor,cierre:p.cierre,valor:p.cierre?(factor.has(p.fecha)?(factor.get(p.fecha)-1)*100:NaN):factor.has(p.fechaBase)?(factor.get(p.fechaBase)*p.valor/p.base-1)*100:NaN})))
+        // El cierre de partida NO entra como punto: con los puntos
+        // equiespaciados quedaba pegado a la primera vela y el hueco de la
+        // noche (EE. UU. sigue operando tras el cierre de Londres) se veía
+        // como un salto vertical al inicio. Igual que en el 1D, es la línea
+        // punteada del 0%.
+        serie=intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,abs:p.valor,cierre:p.cierre,valor:p.cierre?(factor.has(p.fecha)?(factor.get(p.fecha)-1)*100:NaN):factor.has(p.fechaBase)?(factor.get(p.fechaBase)*p.valor/p.base-1)*100:NaN}))
           .filter(p=>Number.isFinite(p.valor));
         opcX={etiqueta:pfEtiquetaFechaHora,etiquetaEje:pfEtiquetaFecha};
       }else{
@@ -422,10 +426,12 @@ export function renderPfChart(){
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
     const conValor=pfSinCerosIniciales(filas);
+    // Con intradía, el cierre de partida es la línea punteada, no un punto
+    // (ver la vista Rendimiento).
     const serie=conIntradia
-      ?[{t:intradia.puntos[0].t-1,fecha:intradia.fechaBase,valor:intradia.base,cierre:true}].concat(intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,valor:p.valor,cierre:p.cierre})))
+      ?intradia.puntos.map(p=>({t:p.t,fecha:p.fecha,valor:p.valor,cierre:p.cierre}))
       :pfSeriePorFecha(conValor.map(r=>({fecha:r.fecha_valoracion,valor:Number(r.valor_total)})));
-    const inicial=serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
+    const inicial=conIntradia?intradia.base:serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
     const opcX=conIntradia?{etiqueta:pfEtiquetaFechaHora,etiquetaEje:pfEtiquetaFecha}:{etiqueta:pfEtiquetaFecha};
     const grafico=construirGraficoIntradia(serie,{referencia:inicial,...opcX,xPorIndice:true,aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor'})});
     area.innerHTML=grafico.svg;
