@@ -203,6 +203,7 @@ export function renderBal(){
     }else{nota.hidden=true;nota.textContent='';}
   }
 
+  balance=Math.round(balance*100)/100;
   const soloTransf=seleccionSoloTransferencias();
   if(soloTransf)balance=txPeriodo.reduce((s,t)=>s+(parseFloat(t[4])||0),0);
   const kpiRow=document.getElementById('kpiRow');

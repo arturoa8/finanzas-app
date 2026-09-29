@@ -145,7 +145,7 @@ export function getCuentaBalanceMoneda(cuenta,hasta=null){
     if(moneda==='PEN')saldo-=pagoSalidaSoles(p);
     else if(pagoEsUSD(p))saldo-=Number(p[3])||0;
   });
-  return {moneda,saldo};
+  return {moneda,saldo:Math.round(saldo*100)/100};
 }
 
 export function fmtCuenta(n,moneda){return moneda==='USD'?(n<0?'−':'')+'US$ '+fmtN(Math.abs(n)):fmt(n);}

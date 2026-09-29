@@ -76,8 +76,13 @@ function cardLedger(card,hasta=null){
     const original=expenses.find(g=>String(g[6])===String(t[8]));
     if(original)bucket(cardTxCycleKey(card,original)).reembolsos+=Number(t[4]);
   });
+  // Los importes son decimales binarios: 89.90+3.50+19.90 da 113.30000000000001
+  // y contra 113.30 pagados deja una "deuda" de 1e-14 que marca Vencido. Todo el
+  // cálculo se hace con los acumulados ya redondeados a céntimos.
+  const cts=v=>Math.round(v*100)/100;
+  for(const b of buckets.values()){b.total=cts(b.total);b.pagado=cts(b.pagado);b.reembolsos=cts(b.reembolsos);}
   let favor=0;
-  for(const b of buckets.values()){const net=b.total-b.pagado-b.reembolsos;b.pendiente=Math.max(0,net);favor+=Math.max(0,-net);}
+  for(const b of buckets.values()){const net=cts(b.total-b.pagado-b.reembolsos);b.pendiente=Math.max(0,net);favor+=Math.max(0,-net);}
   for(const key of [...buckets.keys()].sort()){const b=buckets.get(key);b.creditoAplicado=Math.min(favor,b.pendiente);b.pendiente-=b.creditoAplicado;favor-=b.creditoAplicado;}
   // A céntimos: sin esto, un residuo de 1e-13 hace que un ciclo parezca tener
   // saldo a favor o crédito aplicado y muestre un recuadro de puros ceros.

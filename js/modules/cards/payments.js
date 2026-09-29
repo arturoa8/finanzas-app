@@ -77,7 +77,7 @@ async function deleteCardPaymentRecord(card,cycle,id){
 }
 
 export function getPaymentStatus(total,pagado,payDate){
-  const pendiente=Math.max(total-pagado,0);const days=getDaysDiff(new Date(),payDate);
+  const pendiente=Math.max(Math.round((total-pagado)*100)/100,0);const days=getDaysDiff(new Date(),payDate);
   if(total<=0)return{text:'Sin pagar',detail:'Sin consumos',cls:'status-ok'};
   if(pendiente<=0)return{text:'Pagado',detail:'Saldo cubierto',cls:'status-ok'};
   if(days<0)return{text:'Vencido',detail:`Venció hace ${Math.abs(days)} día${Math.abs(days)===1?'':'s'}`,cls:'status-bad'};

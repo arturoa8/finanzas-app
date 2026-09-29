@@ -130,7 +130,7 @@ function movimientoCuenta(t,cuenta){
 function getCuentaBalance(cuenta){
   let bal=datos.transacciones.reduce((sum,t)=>sum+movimientoCuenta(t,cuenta),0);
   (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(String(p[6]||''),cuenta))bal-=pagoSalidaSoles(p);});
-  return bal;
+  return Math.round(bal*100)/100;
 }
 
 // Cuentas de efectivo (todas menos inversión y tarjetas). Las viejas se siguen

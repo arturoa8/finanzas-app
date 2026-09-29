@@ -90,7 +90,7 @@ export function renderCardsPage(){
           <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente):''}</span></div>
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
           <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
-        </div>${renderCardRefundSummary(data)}${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
+        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
     }).join('');
     return;
   }
@@ -178,12 +178,6 @@ function renderCardTxList(card,gastos,cycle){
   return list+renderManualMovedSection(card,cycle);
 }
 
-function renderCardRefundSummary(data){
-  const c=v=>Math.round((Number(v)||0)*100)/100;
-  if(!c(data.reembolsos)&&!c(data.creditoAplicado)&&!c(data.saldoFavor))return '';
-  return `<div class="hint" style="color:var(--dim);line-height:1.6;margin:12px 0">Devoluciones de este ciclo: ${fmt(data.reembolsos)} · Crédito aplicado: ${fmt(data.creditoAplicado)} · Saldo a favor disponible: ${fmt(data.saldoFavor)}<br>Saldos recalculados con las devoluciones registradas hasta hoy.</div>`;
-}
-
 export function renderCardDetail(){
   const cont=document.getElementById('cardDetailContent'); const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta)); if(!cont||!card)return;
   const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data; const st=cardStats(gastos,total);
@@ -201,7 +195,6 @@ export function renderCardDetail(){
   }
   cont.innerHTML=head+`
     <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
-    ${renderCardRefundSummary(data)}
     ${renderCreditLineBlock(card,pendiente)}
     <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
     ${renderPaymentForm(pendiente,card)}
