@@ -49,10 +49,22 @@ export function cardStats(gastos,total){
 // una referencia con el tipo de cambio de mercado y no se suma a nada.
 export function refSolesHoy(usd){return tcMercado>0?' <small style="color:var(--dim)">≈ '+fmt(usd*tcMercado)+' hoy</small>':'';}
 
-export function filaDeudaUSD(card){
-  const d=deudaTarjetaUSD(card);
-  return d.usd>0?`<div class="credit-row"><span>Debes en dólares</span><span style="color:var(--red)">US$ ${fmtN(d.usd)}${refSolesHoy(d.usd)}</span></div>`:'';
+// Dólares de UN ciclo: consumos menos devoluciones y pagos en dólares de ese
+// ciclo. Se muestran junto al importe en soles, sin fila aparte. Devuelve null
+// si el ciclo no tiene consumos en dólares.
+export function usdCiclo(card,data){
+  const key=getCycleKey(data.cycle);
+  let total=0,reemb=0,pagado=0;
+  data.gastos.forEach(t=>{if(t[9]==='USD')total+=Number(t[10])||0;});
+  if(!(total>0))return null;
+  const ids=new Set(data.gastos.filter(t=>t[9]==='USD').map(t=>String(t[6])));
+  (datos.transacciones||[]).forEach(t=>{if(t[3]==='Reembolso'&&t[9]==='USD'&&sameAccount(t[5]||'',card.cuenta)&&ids.has(String(t[8])))reemb+=Number(t[10])||0;});
+  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p)&&normCycleKey(p[2])===key)pagado+=Number(p[3])||0;});
+  const c=v=>Math.round(v*100)/100;
+  return{total:c(total),pagado:c(Math.min(pagado,total)),pendiente:c(Math.max(0,total-reemb-pagado))};
 }
+
+export function chipUSD(usd){return usd>0?` <small style="color:var(--dim)">· US$ ${fmtN(usd)}</small>`:'';}
 
 function cardLedger(card,hasta=null){
   const buckets=new Map();
@@ -67,7 +79,11 @@ function cardLedger(card,hasta=null){
   let favor=0;
   for(const b of buckets.values()){const net=b.total-b.pagado-b.reembolsos;b.pendiente=Math.max(0,net);favor+=Math.max(0,-net);}
   for(const key of [...buckets.keys()].sort()){const b=buckets.get(key);b.creditoAplicado=Math.min(favor,b.pendiente);b.pendiente-=b.creditoAplicado;favor-=b.creditoAplicado;}
-  return {buckets,saldoFavor:favor,pendiente:[...buckets.values()].reduce((sum,b)=>sum+b.pendiente,0)};
+  // A céntimos: sin esto, un residuo de 1e-13 hace que un ciclo parezca tener
+  // saldo a favor o crédito aplicado y muestre un recuadro de puros ceros.
+  const c2=v=>Math.round(v*100)/100;
+  for(const b of buckets.values()){b.pendiente=c2(b.pendiente);b.creditoAplicado=c2(b.creditoAplicado);}
+  return {buckets,saldoFavor:c2(favor),pendiente:c2([...buckets.values()].reduce((sum,b)=>sum+b.pendiente,0))};
 }
 
 export function getCardOutstandingTotal(card,hasta=null){return cardLedger(card,hasta).pendiente;}

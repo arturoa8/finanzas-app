@@ -1,7 +1,7 @@
 // Pantallas de tarjetas.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cardStats, deudaUSDTotal, filaDeudaUSD, getCardData, getCardOutstandingTotal, refSolesHoy} from './cards.js';
+import {cardStats, chipUSD, deudaUSDTotal, getCardData, getCardOutstandingTotal, refSolesHoy, usdCiclo} from './cards.js';
 import {CREDIT_CARDS, getCardGoalPct, getCreditGoalPct, getCreditLimit, renderCreditLineBlock, renderLineProgress} from './config.js';
 import {cardCycleOffset, clearTxCycleOverride, getCardCycle, getCycleKey, getTxCycleOverride, isCardExpenseFor, setTxCycleOverride, txBelongsToCycle, updateCardCycleQuickUI} from './cycles.js';
 import {actualizarPagoUSD, renderPaymentForm, renderPaymentHistory} from './payments.js';
@@ -80,17 +80,16 @@ export function renderCardsPage(){
   if(cardPageTab==='resumen'){
     cont.innerHTML=bannerDeudaUSD()+CREDIT_CARDS.map(card=>{
       const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
-      const pct=total>0?Math.min((pagado/total)*100,100):0;
+      const pct=total>0?Math.min((pagado/total)*100,100):0; const usd=usdCiclo(card,data);
       return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
         <div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
         <div class="credit-info">
           <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
-          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}</span></div>
+          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}${usd?chipUSD(usd.total):''}</span></div>
           <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
-          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}</span></div>
+          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente):''}</span></div>
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
           <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
-          ${filaDeudaUSD(card)}
         </div>${renderCardRefundSummary(data)}${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
     }).join('');
     return;
@@ -180,7 +179,8 @@ function renderCardTxList(card,gastos,cycle){
 }
 
 function renderCardRefundSummary(data){
-  if(!data.reembolsos&&!data.creditoAplicado&&!data.saldoFavor)return '';
+  const c=v=>Math.round((Number(v)||0)*100)/100;
+  if(!c(data.reembolsos)&&!c(data.creditoAplicado)&&!c(data.saldoFavor))return '';
   return `<div class="hint" style="color:var(--dim);line-height:1.6;margin:12px 0">Devoluciones de este ciclo: ${fmt(data.reembolsos)} · Crédito aplicado: ${fmt(data.creditoAplicado)} · Saldo a favor disponible: ${fmt(data.saldoFavor)}<br>Saldos recalculados con las devoluciones registradas hasta hoy.</div>`;
 }
 
