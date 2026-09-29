@@ -47,7 +47,13 @@ async function cargar__base(){
   cargarTcMercado();   // sin esperar: solo alimenta el tipo de cambio propuesto
   // Aparte del Promise.all: si la migración de cuentas todavía no está
   // aplicada, cargar() no debe fallar.
-  const cuentasReq=sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc').catch(()=>null);
+  // Un fallo pasajero (sesión que se renueva, red) no debe dejar la app con las
+  // cuentas de respaldo: BCP Dólares pasaría a verse como soles y una compra de
+  // dólares se guardaría como transferencia común. Se reintenta una vez y, si
+  // sigue fallando, se conservan las cuentas ya cargadas y se avisa. Solo la
+  // tabla inexistente (migración sin aplicar) se acepta en silencio.
+  const pedirCuentas=()=>sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc');
+  const cuentasReq=pedirCuentas().catch(()=>pedirCuentas()).catch(e=>({falla:e}));
   try{
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
@@ -70,9 +76,17 @@ async function cargar__base(){
     datos.deudasAbonos=abonos.map(a=>[a.id,a.deuda_id,a.monto,a.fecha,a.nota,a.tx_id]);
     datos.presupuestos=pres.map(p=>[p.categoria,p.monto_limite,p.mes]);
     datos.recurrentes=rec.map(r=>[r.descripcion,r.categoria,r.tipo,r.monto,r.dia_mes,r.activo]);
-    const cuentasRows=await cuentasReq;
-    setCuentasMigradas(Array.isArray(cuentasRows));
-    datos.cuentas=(cuentasRows||[]).map(c=>[c.nombre,c.tipo,c.moneda,!!c.archivada,c.id]);
+    const cuentasRes=await cuentasReq;
+    const sinTabla=cuentasRes&&cuentasRes.falla&&/does not exist|schema cache|PGRST205|42P01/i.test(cuentasRes.falla.message||'');
+    if(cuentasRes&&cuentasRes.falla&&!sinTabla){
+      // Se mantiene datos.cuentas y cuentasMigradas tal como estaban.
+      console.error(cuentasRes.falla);
+      toast('No se pudieron cargar tus cuentas. Recarga antes de registrar movimientos en dólares.','error');
+    }else{
+      const cuentasRows=Array.isArray(cuentasRes)?cuentasRes:null;
+      setCuentasMigradas(!!cuentasRows);
+      datos.cuentas=(cuentasRows||[]).map(c=>[c.nombre,c.tipo,c.moneda,!!c.archivada,c.id]);
+    }
     render();
     if(!primeraCarga)toast('Actualizado','success');
     primeraCarga=false;
