@@ -5,7 +5,7 @@ Aplicación de finanzas personales publicada en https://arturoa8.github.io/finan
 ## Versión 2026.10.02
 
 - Descarga de movimientos CSV y respaldo JSON desde Configuración.
-- Explicación de Período, Acumulado, Neto y Patrimonio junto al balance.
+- Explicación de Período, Acumulado, Neto y Patrimonio en Configuración → Balances.
 - Comparaciones con el banco guardadas por usuario en este navegador, con fecha.
 - Bloqueo del formulario de movimientos cuando la carga de cuentas falla, conservando los campos en dólares.
 - Renovación compartida de la sesión para cargas simultáneas.
