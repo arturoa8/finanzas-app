@@ -39,9 +39,14 @@ function getSelectedCycleEndMonth(){return addMonths(getCurrentCycleEndMonth(),c
 
 export function getCardCycle(card,offset=cardCycleOffset){
   const base=addMonths(getCurrentCycleEndMonth(),offset);
-  const cycleEnd=endOfDay(new Date(base.getFullYear(),base.getMonth(),card.finDia));
-  const cycleStart=new Date(base.getFullYear(),base.getMonth()-1,card.inicioDia);
-  const payDate=new Date(base.getFullYear(),base.getMonth()+1,card.pagoDia);
+  const fechaEnMes=(delta,dia)=>{
+    const mes=new Date(base.getFullYear(),base.getMonth()+delta,1);
+    const ultimo=new Date(mes.getFullYear(),mes.getMonth()+1,0).getDate();
+    return new Date(mes.getFullYear(),mes.getMonth(),Math.min(dia,ultimo));
+  };
+  const cycleEnd=endOfDay(fechaEnMes(0,card.finDia));
+  const cycleStart=fechaEnMes(-1,card.finDia);cycleStart.setDate(cycleStart.getDate()+1);
+  const payDate=fechaEnMes(1,card.pagoDia);
   return{start:cycleStart,end:cycleEnd,pay:payDate};
 }
 
@@ -147,7 +152,8 @@ export function normCycleKey(v){
 export function cardTxCycleKey(card,t){
   const override=getTxCycleOverride(card,t);if(override)return normCycleKey(override);
   const date=pf(t[0]);
-  const offset=(date.getFullYear()-getCurrentCycleEndMonth().getFullYear())*12+date.getMonth()-getCurrentCycleEndMonth().getMonth()+(date.getDate()>card.finDia?1:0);
+  const ultimo=new Date(date.getFullYear(),date.getMonth()+1,0).getDate();
+  const offset=(date.getFullYear()-getCurrentCycleEndMonth().getFullYear())*12+date.getMonth()-getCurrentCycleEndMonth().getMonth()+(date.getDate()>Math.min(card.finDia,ultimo)?1:0);
   return getCycleKey(getCardCycle(card,offset));
 }
 

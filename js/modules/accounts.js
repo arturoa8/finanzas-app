@@ -6,7 +6,7 @@ import {CREDIT_CARDS} from './cards/config.js';
 import {pagoSalidaSoles} from './cards/payments.js';
 import {avisosCuenta, fmtCuenta, getCuentaBalanceMoneda, sincronizarCamposMoneda} from './currencies.js';
 import {render} from './dashboard.js';
-import {conciliando} from './reconciliation.js';
+import {conciliando, restaurarComparaciones, pintarComparaciones} from './reconciliation.js';
 import {abrirConfiguracion} from './settings.js';
 import {cargar, efectoResultado, sameAccount, tipoA} from './transactions.js';
 import {sbFetch, sbInsert, sbUpdate} from '../services/supabase.js';
@@ -18,6 +18,11 @@ import {escAttr, escHtml, fmt, norm} from '../utils/formatters.js';
 // true cuando la tabla cuentas ya existe en Supabase; si no, la app sigue
 // funcionando con las cuentas base de abajo.
 export let cuentasMigradas=false;
+export let estadoCuentas='cargando';
+export function setEstadoCuentas(estado){estadoCuentas=estado;}
+export function validarCuentasDisponibles(){
+  if(estadoCuentas==='error'||estadoCuentas==='cargando')throw new Error('Tus cuentas no se han cargado por completo. Pulsa Actualizar antes de guardar.');
+}
 // Escribir una variable importada no es posible en un modulo ES. Estas dos
 // eran las UNICAS de las 58 globales mutables que se modificaban desde otro
 // fichero, asi que en vez de mover todo el estado a un objeto central se
@@ -166,6 +171,7 @@ function totalPendienteTarjetasGlobal(){
 
 export function renderSaldoCuentas(){
   const cont=document.getElementById('saldoCuentas'); if(!cont)return;
+  restaurarComparaciones();
   const btn=document.getElementById('btnConciliar');
   if(btn){btn.classList.toggle('active-pill',conciliando);btn.setAttribute('aria-pressed',String(conciliando));btn.textContent=conciliando?'Ocultar comparación':'Comparar con banco';}
   // Desglose por cuentas, independiente del cálculo histórico de Acumulado.
@@ -193,6 +199,7 @@ export function renderSaldoCuentas(){
     return `<div class="card-stat full"><div class="card-stat-lbl">${escHtml(n)} · inversión, no es efectivo</div><div class="card-stat-val">${fmt(getCuentaBalance(n))} <small style="color:var(--dim)">aportes netos</small></div>${Math.abs(usd)>=0.005?`<div class="card-stat-sub">${fmtCuenta(usd,'USD')} acreditados</div>`:''}${av.pendientes?`<div class="card-stat-sub">${av.pendientes} aporte${av.pendientes>1?'s':''} sin dólares confirmados (${fmt(av.solesPendientes)})</div>`:''}</div>`;
   }).join('');
   cont.innerHTML=html;
+  pintarComparaciones();
 }
 
 const TIPOS_CUENTA={banco:'Banco',billetera:'Billetera',inversion:'Inversión'};
@@ -208,6 +215,7 @@ function errorCuentas(e){
 
 export function renderCuentasConfig(){
  const cont=document.getElementById('cuentasLista'); if(!cont)return;
+ if(estadoCuentas==='error'||estadoCuentas==='cargando'){cont.innerHTML='<p class="hint">No se pudo completar la carga de cuentas. Pulsa Actualizar para volver a intentar.</p>';return;}
  if(!cuentasMigradas){
   cont.innerHTML='<p class="hint">Todavía no está aplicado el SQL de cuentas en Supabase. Mientras tanto la app usa Plin, Yape e IBKR.</p>';
   return;

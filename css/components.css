@@ -108,3 +108,10 @@
 
 .page-title{font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;}
 
+.data-status{padding:12px 14px;border:1px solid var(--yellow);border-radius:12px;color:var(--yellow);line-height:1.6;}
+.balance-help{margin:12px 0 18px;color:var(--dim);font-size:.75rem;line-height:1.6;}
+.balance-help summary{cursor:pointer;color:var(--text);padding:6px 0;}
+.balance-help p{margin:8px 0;}
+.backup-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.backup-actions button{flex:1;min-width:140px;}
+button:disabled{opacity:.45;cursor:wait;}

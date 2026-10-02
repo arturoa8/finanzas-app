@@ -1,7 +1,8 @@
 // Movimientos: alta, edicion, borrado y reglas financieras.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cuentaPorNombre, llenarCuentas, setCuentasMigradas} from './accounts.js';
+import {cuentaPorNombre, llenarCuentas, setCuentasMigradas, setEstadoCuentas, validarCuentasDisponibles} from './accounts.js';
+import {recuperarAbonosPendientes} from '../services/debt-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {filaPago} from './cards/payments.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -55,15 +56,16 @@ async function cargar__base(){
   const pedirCuentas=()=>sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc');
   const cuentasReq=pedirCuentas().catch(()=>pedirCuentas()).catch(e=>({falla:e}));
   try{
+    await recuperarAbonosPendientes();
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
       sbSelectTodo('pagos_tarjetas','?select=*&order=fecha.asc,id.asc'),
-      sbSelect('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key'),
+      sbSelectTodo('ciclos_override','?select=id,tarjeta,tx_id,ciclo_key&order=id.asc'),
       sbSelect('categorias','?select=nombre,color'),
-      sbSelect('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo'),
+      sbSelectTodo('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo&order=id.asc'),
       sbSelectTodo('deudas_abonos','?select=id,deuda_id,monto,fecha,nota,tx_id&order=id.asc'),
-      sbSelect('presupuestos','?select=categoria,monto_limite,mes'),
+      sbSelectTodo('presupuestos','?select=id,categoria,monto_limite,mes&order=id.asc'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
     datos.transacciones=tx.map(filaTx);
@@ -77,21 +79,27 @@ async function cargar__base(){
     datos.presupuestos=pres.map(p=>[p.categoria,p.monto_limite,p.mes]);
     datos.recurrentes=rec.map(r=>[r.descripcion,r.categoria,r.tipo,r.monto,r.dia_mes,r.activo]);
     const cuentasRes=await cuentasReq;
-    const sinTabla=cuentasRes&&cuentasRes.falla&&/does not exist|schema cache|PGRST205|42P01/i.test(cuentasRes.falla.message||'');
+    const sinTabla=cuentasRes?.falla&&(['PGRST205','42P01'].includes(cuentasRes.falla.code)||/relation .*cuentas.* does not exist/i.test(cuentasRes.falla.message||''));
     if(cuentasRes&&cuentasRes.falla&&!sinTabla){
+      setEstadoCuentas('error');
       // Se mantiene datos.cuentas y cuentasMigradas tal como estaban.
       console.error(cuentasRes.falla);
       toast('No se pudieron cargar tus cuentas. Recarga antes de registrar movimientos en dólares.','error');
     }else{
+      setEstadoCuentas(sinTabla?'legacy':'lista');
       const cuentasRows=Array.isArray(cuentasRes)?cuentasRes:null;
       setCuentasMigradas(!!cuentasRows);
       datos.cuentas=(cuentasRows||[]).map(c=>[c.nombre,c.tipo,c.moneda,!!c.archivada,c.id]);
     }
     render();
-    if(!primeraCarga)toast('Actualizado','success');
+    datos.cargados=true;
+    const advertencia=document.getElementById('dataStatus');
+    sincronizarCamposMoneda();
+    if(advertencia){advertencia.hidden=!(cuentasRes?.falla&&!sinTabla);advertencia.textContent='La carga de cuentas está incompleta. Pulsa Actualizar antes de guardar.';}
+    if(!primeraCarga&&!(cuentasRes?.falla&&!sinTabla))toast('Actualizado','success');
     primeraCarga=false;
   }
-  catch(e){console.error(e);toast(e.incompleto?e.message:'Error al cargar','error');}
+  catch(e){console.error(e);const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=e.pending?e.message:'No se pudo completar la actualización. Se muestran los últimos datos cargados.';}toast(e.incompleto||e.pending?e.message:'Error al cargar','error');}
   finally{b.classList.remove('loading');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -243,6 +251,7 @@ let guardandoTx=false;
 
 async function guardar__base(){
   if(guardandoTx)return;
+  try{validarCuentasDisponibles();}catch(e){toast(e.message,'error');return;}
   const m=Number(document.getElementById('iMon').value);
   const d=document.getElementById('iDes').value;
   let c=getCatSeleccionada();

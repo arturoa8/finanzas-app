@@ -1,7 +1,7 @@
 // Multimoneda: equivalencias, costo del dolar y campos del formulario.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cuentaPorNombre, cuentasApp, cuentasSaldos} from './accounts.js';
+import {cuentaPorNombre, cuentasApp, cuentasSaldos, estadoCuentas} from './accounts.js';
 import {deudaUSDTotal} from './cards/cards.js';
 import {pagoEsUSD, pagoSalidaSoles} from './cards/payments.js';
 import {filtrar, render} from './dashboard.js';
@@ -250,6 +250,10 @@ function tcDerivadoTransferencia(){
 export function sincronizarCamposMoneda(){
   const selMon=document.getElementById('iMoneda'),div=document.getElementById('divisaFields');
   if(!selMon||!div)return;
+  const incompletas=estadoCuentas==='cargando'||estadoCuentas==='error';
+  document.querySelectorAll('#modalBtns button[onclick="guardar()"]').forEach(b=>b.disabled=incompletas);
+  const aviso=document.getElementById('accountStatus');if(aviso)aviso.hidden=!incompletas;
+  if(incompletas)return;
   const transferencia=tipoA==='Transferencia';
   selMon.hidden=cuentasUSDGastables().length===0;
   if(selMon.hidden)selMon.value='PEN';

@@ -4,6 +4,8 @@
 import {render} from './dashboard.js';
 import {getTxRow} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
+import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
+import {cargar} from './transactions.js';
 import {datos} from '../state.js';
 import {toast} from '../ui/toast.js';
 import {guardedOnce} from '../utils/async.js';
@@ -16,6 +18,11 @@ export let dT='me-deben';
 let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='me-deben';
 
 let editandoAbonoId=null,historialDeudaId=null;
+let solicitudAbonoId=null,solicitudAbonoTxId=null;
+function avisarErrorAbono(e){
+  const mensaje=e.message||'No se pudo guardar el abono';toast(mensaje,'error');
+  if(e.pending){const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=mensaje;}}
+}
 
 export function renderDeb(){
   const l=document.getElementById('debs');
@@ -202,6 +209,9 @@ export function abrirModalAbono(id){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
   abonosDeudaId=id;
+  const operacionPendiente=abonoPendiente();
+  solicitudAbonoId=operacionPendiente?.tipo==='crear'&&String(operacionPendiente.abono.deuda_id)===String(id)?operacionPendiente.id:crypto.randomUUID();
+  solicitudAbonoTxId=operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx?.id:crypto.randomUUID();
   const monto=parseFloat(d[3])||0;
   const abonado=calcAbonadoFromLog(id);
   const pendiente=Math.max(0,monto-abonado);
@@ -211,6 +221,7 @@ export function abrirModalAbono(id){
   document.getElementById('abonoFecha').value=toDateInput(new Date());
   document.getElementById('abonoMonto').value='';
   document.getElementById('abonoNota').value='';
+  if(operacionPendiente?.id===solicitudAbonoId){document.getElementById('abonoMonto').value=operacionPendiente.abono.monto;document.getElementById('abonoFecha').value=toDateInput(operacionPendiente.abono.fecha);document.getElementById('abonoNota').value=operacionPendiente.abono.nota||'';}
   document.getElementById('modalAbono').classList.add('active');
 }
 
@@ -230,23 +241,18 @@ export function abonarTodo(){
 // vinculada vía deudas_abonos.tx_id para poder editarla/borrarla en conjunto.
 async function guardarAbono__base(){
   if(!abonosDeudaId)return;
-  const monto=String(document.getElementById('abonoMonto').value).replace(/[^0-9.]/g,'').trim();
-  if(!monto||parseFloat(monto)<=0){toast('Ingresa un monto válido','error');return;}
+  const monto=Number(document.getElementById('abonoMonto').value);
+  if(!Number.isFinite(monto)||monto<=0){toast('Ingresa un monto válido','error');return;}
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   const fecha=document.getElementById('abonoFecha').value;
+  if(!fecha){toast('Completa la fecha del abono','error');return;}
   const nota=document.getElementById('abonoNota').value.trim();
   const tipo=(d&&d[7]||'').toString().toLowerCase();
   try{
-    let txId=null;
-    if(tipo==='me-deben'){
-      const txRow=await sbInsert('transacciones',{fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto:parseFloat(monto),cuenta:''});
-      datos.transacciones.push([txRow.fecha,txRow.descripcion,txRow.categoria,txRow.tipo,txRow.monto,txRow.cuenta,txRow.id]);
-      txId=txRow.id;
-    }
-    const abRow=await sbInsert('deudas_abonos',{deuda_id:abonosDeudaId,monto:parseFloat(monto),fecha,nota,tx_id:txId});
-    datos.deudasAbonos.push([abRow.id,abRow.deuda_id,abRow.monto,abRow.fecha,abRow.nota,abRow.tx_id]);
-    toast('Pago registrado','success');cerrarModalAbono();render();
-  }catch(e){toast('Error al registrar pago','error');}
+    const tx=tipo==='me-deben'?{id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto,cuenta:''}:null;
+    await ejecutarAbono({tipo:'crear',id:solicitudAbonoId,tx,abono:{id:solicitudAbonoId,deuda_id:abonosDeudaId,monto,fecha,nota,tx_id:tx?.id||null}});
+    cerrarModalAbono();await cargar();toast('Pago registrado','success');
+  }catch(e){avisarErrorAbono(e);}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -372,27 +378,20 @@ export function cerrarEditAbono(){
 
 async function guardarEditAbono__base(){
   if(!editandoAbonoId)return;
-  const monto=String(document.getElementById('editAbonoMonto').value).replace(/[^0-9.]/g,'').trim();
-  if(!monto||parseFloat(monto)<=0){toast('Monto inválido','error');return;}
+  const monto=Number(document.getElementById('editAbonoMonto').value);
+  if(!Number.isFinite(monto)||monto<=0){toast('Monto inválido','error');return;}
   const fecha=document.getElementById('editAbonoFecha').value;
+  if(!fecha){toast('Completa la fecha del abono','error');return;}
   const nota=document.getElementById('editAbonoNota').value.trim();
   try{
-    await sbUpdate('deudas_abonos',editandoAbonoId,{monto:parseFloat(monto),fecha,nota});
     const ab=datos.deudasAbonos.find(x=>_abId(x)===String(editandoAbonoId));
-    if(ab){
-      ab[2]=parseFloat(monto);ab[3]=fecha;ab[4]=nota;
-      const txId=_abTxId(ab);
-      if(txId){
-        await sbUpdate('transacciones',txId,{monto:parseFloat(monto),fecha});
-        const t=datos.transacciones.find(x=>String(getTxRow(x))===String(txId));
-        if(t){t[4]=parseFloat(monto);t[0]=fecha;}
-      }
-    }
+    await ejecutarAbono({tipo:'editar',id:editandoAbonoId,txId:ab?_abTxId(ab):null,patch:{monto,fecha,nota}});
+    await cargar();
     toast('Abono actualizado','success');
     cerrarEditAbono();
     render();
     if(historialDeudaId)renderHistorialAbonos();
-  }catch(e){toast('Error al actualizar','error');}
+  }catch(e){avisarErrorAbono(e);}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -402,14 +401,12 @@ async function eliminarAbono__base(abonoId){
   try{
     const ab=datos.deudasAbonos.find(x=>_abId(x)===String(abonoId));
     const txId=ab?_abTxId(ab):null;
-    await sbDelete('deudas_abonos',abonoId);
-    if(txId)await sbDelete('transacciones',txId);
-    datos.deudasAbonos=datos.deudasAbonos.filter(x=>_abId(x)!==String(abonoId));
-    if(txId)datos.transacciones=datos.transacciones.filter(t=>String(getTxRow(t))!==String(txId));
+    await ejecutarAbono({tipo:'eliminar',id:abonoId,txId});
+    await cargar();
     toast('Abono eliminado','success');
     render();
     if(historialDeudaId)renderHistorialAbonos();
-  }catch(e){toast('Error al eliminar','error');}
+  }catch(e){avisarErrorAbono(e);}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.

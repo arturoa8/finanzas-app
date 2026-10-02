@@ -8,7 +8,7 @@ import {SUPABASE_ANON_KEY, SUPABASE_URL} from './supabase-config.js';
 async function sbRespuesta(path,opts={}){
   const headers={apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json',Authorization:await authHeader(),...(opts.headers||{})};
   const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers});
-  if(!r.ok){let msg;try{msg=(await r.json()).message;}catch(e){msg=await r.text().catch(()=>r.statusText);}throw new Error(msg||('HTTP '+r.status));}
+  if(!r.ok){const body=await r.text();let data;try{data=JSON.parse(body);}catch(e){}const error=new Error(data?.message||body||('HTTP '+r.status));error.status=r.status;error.code=data?.code;throw error;}
   return r;
 }
 
@@ -44,9 +44,10 @@ export async function sbFetchTodo(path,tanda=1000){
     total=m?Number(m[1]):null;
     filas=await r.json();
     if(total===null){
-      // Sin total (cabecera no expuesta): una tras otra hasta una tanda incompleta.
-      for(let parte=filas;parte.length===tanda;){parte=await (await pedir(filas.length,false)).json();filas.push(...parte);}
-      return filas;
+      // Sin total (cabecera no expuesta): continuar hasta una tanda vacía,
+      // aunque el servidor limite cada respuesta a menos de `tanda`.
+      let parte=filas;
+      while(parte.length){parte=await (await pedir(filas.length,false)).json();filas.push(...parte);}
     }
     const paso=filas.length;
     if(paso>0&&paso<total){
@@ -54,9 +55,11 @@ export async function sbFetchTodo(path,tanda=1000){
       const partes=await Promise.all(desdes.map(d=>pedir(d,false).then(x=>x.json())));
       partes.forEach(p=>filas.push(...p));
     }
-    if(filas.length===total)return filas;
+    const ids=filas.map(f=>f.id).filter(id=>id!==undefined&&id!==null);
+    const distintas=new Set(ids).size===ids.length;
+    if(distintas&&(total===null||filas.length===total))return filas;
   }
-  const e=new Error(`No se cargaron todos tus datos (${filas.length} de ${total}). Recarga la página.`);
+  const e=new Error('No se cargaron todos tus datos de forma consistente. Recarga la página antes de registrar movimientos.');
   e.incompleto=true;
   throw e;
 }

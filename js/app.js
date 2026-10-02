@@ -12,6 +12,7 @@ import {bootAuth} from './services/auth.js';
 import {pfYahoo, renderPfYahoo, startPfYahoo, stopPfYahoo} from './services/market-data.js';
 import {guardedOnce} from './utils/async.js';
 import {initializeAccessibility} from './utils/dom.js';
+import {exportarMovimientosCSV, descargarRespaldo} from './modules/backup.js';
 
 [
   'guardar','eliminar','guardarDeuda','guardarAbono','confirmarArchivar',
@@ -26,4 +27,6 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopPfYahoo
 window.addEventListener('pagehide',stopPfYahoo);
 window.addEventListener('storage',e=>{if(e.key==='sb_session'){stopPfYahoo();pfYahoo.quotes=[];pfYahoo.lastAttempt=0;pfYahoo.scope='';renderPfYahoo();}});
 initializeAccessibility();
+document.getElementById('exportCSV')?.addEventListener('click',exportarMovimientosCSV);
+document.getElementById('exportBackup')?.addEventListener('click',descargarRespaldo);
 bootAuth();

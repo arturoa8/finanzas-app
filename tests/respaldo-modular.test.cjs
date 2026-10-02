@@ -1,0 +1,2 @@
+const assert=require('node:assert/strict');const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');entornoPrueba();
+(async()=>{const b=await modulo('modules/backup.js');assert.equal(b.celdaCSV('=HYPERLINK("x")'),'"\'=HYPERLINK(""x"")"');assert.equal(b.celdaCSV(-50),'"-50"');assert.equal(b.celdaCSV('Compra; "prueba"'),'"Compra; ""prueba"""');assert.match(b.movimientosCSV([['2026-10-01','Almuerzo','Comida','Gasto',25.5]]),/Monto en soles/);console.log('PASS: CSV UTF-8, comillas, separadores y fórmula neutralizada.');})().catch(e=>{console.error(e);process.exitCode=1;});
