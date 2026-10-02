@@ -4,7 +4,7 @@
 import {pfAssetColor} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico1D} from './diagnostics.js';
-import {pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrincipal} from './hero.js';
+import {obtenerValorActualPortafolio, pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrincipal} from './hero.js';
 import {pfFlujos, pfModeloGanancia} from './performance.js';
 import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
 import {pfLondonDay, pfMarketEstimate, pfQuoteKey, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
@@ -451,6 +451,14 @@ export function renderPfContribuciones(d){
 }
 
 export function renderPfChart1D(area,titulo,hint,res){
+  // Un fallback de dos cierres no es la curva intradía que está llegando.
+  // Con una cotización válida en caché, mantener la curva durante el refresh.
+  if(pfPosicionesCache.length&&['idle','loading'].includes(pfYahoo.status)&&obtenerValorActualPortafolio().fuente!=='YAHOO'){
+    area.setAttribute('aria-busy','true');titulo.textContent='';hint.textContent='';res.innerHTML='';
+    area.innerHTML='<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Cargando rendimiento…</div>';
+    renderPfContribuciones(null);return;
+  }
+  area.setAttribute('aria-busy','false');
   const s=construirSerieIntradia();
   if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';res.innerHTML='';renderPfContribuciones(null);return;}
   const colorLinea=(s.actual-s.base)>=0?'var(--green)':'var(--red)';

@@ -10,6 +10,7 @@ Aplicación de finanzas personales publicada en https://arturoa8.github.io/finan
 - Bloqueo del formulario de movimientos cuando la carga de cuentas falla, conservando los campos en dólares.
 - Renovación compartida de la sesión para cargas simultáneas.
 - Abonos con UUID estable y registro de recuperación local antes de escribir. Crear, editar y eliminar se recuperan al pulsar Actualizar o abrir de nuevo la aplicación. Un aviso persiste mientras falta confirmar la operación.
+- Portafolio muestra carga durante la primera consulta intradía, inicia los precios antes de las consultas auxiliares y conserva la curva válida al volver a la pestaña.
 - Fechas de corte y pago ajustadas al último día del mes, incluidos febrero y años bisiestos.
 - Paginación que continúa cuando la API reduce el tamaño de respuesta y detecta filas repetidas.
 

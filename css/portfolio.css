@@ -16,6 +16,8 @@
 .pf-moneda-toggle:hover{color:var(--text)}
 .pf-spinner{display:flex;justify-content:center;padding:18px 0}
 .pf-spinner svg{width:22px;height:22px;animation:spin 1s linear infinite}
+.pf-chart-loading{aspect-ratio:560/330;display:flex;align-items:center;justify-content:center;gap:9px;color:var(--dim);font-size:12px;}
+.pf-chart-loading-dot{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--dim);border-radius:50%;animation:spin 1s linear infinite;}
 .pf-desde-toggle:hover{color:var(--text)}
 .pf-riesgo-grupo{margin-bottom:20px}
 .pf-riesgo-grupo-titulo{font-size:11px;color:var(--dim);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px}

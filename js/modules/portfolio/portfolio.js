@@ -51,24 +51,24 @@ export async function renderPortafolio(){
     estadoEl.innerHTML='<div class="pf-spinner" role="status" aria-label="Cargando"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8" fill="none" stroke="var(--dim)" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
   }
 
-  let config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy;
+  // Comparación, diagnóstico y datos de sincronización cargan en paralelo,
+  // pero no retrasan la curva ni el inicio de la consulta de precios.
+  const auxiliares=Promise.all([
+    sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1').catch(()=>null),
+    sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1').catch(()=>null),
+    sbFetch('sincronizaciones_portafolio?select=estado,finalizado_en,iniciado_en&estado=in.(ok,ok_historico)&order=finalizado_en.desc.nullslast&limit=1').catch(()=>null),
+    sbFetchTodo('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc,id.asc').catch(()=>[]),
+    sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
+    sbFetchTodo('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc,id.asc').catch(()=>[]),
+  ]);
+  let historial,posiciones,ledger;
+  const baseAnterior=pfComputeBaseId(),scopeAnterior=pfComputeScope();
+  const snapshotsAlEntrar=new Set(pfSnapshotsHoyCache);
   try{
-    [config,sync,historial,posiciones,lastSuccess,bench,reconciliacion,ledger,snapshotsHoy]=await Promise.all([
-      sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1'),
-      sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1'),
+    [historial,posiciones,ledger]=await Promise.all([
       sbFetchTodo('portafolio_historial?select=*&order=fecha_valoracion.asc,id.asc'),
       sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
-      sbFetch('sincronizaciones_portafolio?select=estado,finalizado_en,iniciado_en&estado=in.(ok,ok_historico)&order=finalizado_en.desc.nullslast&limit=1'),
-      // Referencia para "vs S&P 500": cierres oficiales de IBKR de un ETF del S&P 500
-      // que ya está en la cartera. Si falla, solo se pierde la comparación.
-      sbFetchTodo('posiciones_historial?select=fecha_valoracion,precio_mercado&simbolo=eq.'+encodeURIComponent(PF_BENCHMARK.simbolo)+'&order=fecha_valoracion.asc,id.asc').catch(()=>[]),
-      // Diagnóstico (sección 11): última reconciliación calculado-vs-IBKR y
-      // tamaño del ledger. Si falla, el diagnóstico simplemente no se muestra.
-      sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
       sbFetchTodo('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc,id.desc').catch(()=>[]),
-      // 1D: snapshots calculados de hoy (ver construirSerieIntradia). Si falla,
-      // el 1D cae al mensaje de "sin cotizaciones todavía", no rompe el resto.
-      sbFetchTodo('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc,id.asc').catch(()=>[]),
     ]);
   }catch(e){
     if(sequence!==pfLoadSequence)return;
@@ -82,13 +82,12 @@ export async function renderPortafolio(){
   pfSetActualizando(false);
   pfHistoricoCache=historial||[];
   pfPosicionesCache=posiciones||[];
-  pfBenchCache=bench||[];
-  pfSnapshotsHoyCache=snapshotsHoy||[];
   pfLedgerCache=ledger||[];
-  pfPosHistCache=null;pfIntradiaCarga.clear();
+  if(baseAnterior!==pfComputeBaseId()||scopeAnterior!==pfComputeScope()){
+    pfBenchCache=[];pfSnapshotsHoyCache=[];
+    pfPosHistCache=null;pfIntradiaCarga.clear();
+  }
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
-  const ultimaSync=(sync&&sync[0])||null;
-  pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
 
   // Coherencia de caché Yahoo/IBKR: invalidar ANTES del primer pintado del
   // día si el día de mercado, el snapshot IBKR base o el scope de posiciones
@@ -116,24 +115,19 @@ export async function renderPortafolio(){
 
   if(!ultimoHistorial){
     ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
-    estadoEl.innerHTML=(config&&config[0])
+    const [config]=await auxiliares;
+    if(sequence!==pfLoadSequence)return;
+    estadoEl.innerHTML=config===null?'<div class="empty">Todavía no hay cierres de IBKR disponibles. Vuelve a actualizar en un momento.</div>':(config&&config[0])
       ? '<div class="empty">Todavía no hay ninguna sincronización exitosa con IBKR.<br>Se mostrará aquí en cuanto corra la primera.</div>'
       : '<div class="empty">La sincronización con IBKR aún no está configurada.</div>';
     return;
   }
   estadoEl.innerHTML='';
 
-  // Aviso de datos desactualizados: la última fila de sincronizaciones_portafolio
-  // es más nueva que el último histórico válido y terminó en error.
-  if(ultimaSync && ultimaSync.estado==='error' && ultimoHistorial &&
-     new Date(ultimaSync.iniciado_en) > new Date(ultimoHistorial.creado_en||0)){
-    const dias=diasEntre(hoyLocal(),parseDateOnly(ultimoHistorial.fecha_valoracion));
-    estadoEl.innerHTML=`<div class="empty" style="color:var(--yellow);text-align:left;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">
-      ⚠️ La última sincronización falló (${esc(fmtDateLong(new Date(ultimaSync.iniciado_en)))}). Mostrando los últimos datos válidos, de hace ${dias} día${dias!==1?'s':''}.
-    </div>`;
-  }
-
-  renderPfResumen(ultimoHistorial, (lastSuccess&&lastSuccess[0])||null);
+  // Lanzar Yahoo antes de pintar: mientras llega el primer precio, el 1D
+  // muestra carga en lugar de la línea provisional entre dos cierres.
+  startPfYahoo();
+  renderPfResumen(ultimoHistorial, pfUltimaSyncCache);
   document.getElementById('pfResumenCard').style.display='';
 
   document.getElementById('pfChartCard').style.display='';
@@ -146,11 +140,26 @@ export async function renderPortafolio(){
   document.getElementById('pfPosicionesCard').style.display='';
   renderPfPosiciones(pfPosicionesCache);
 
-  renderPfDiagnostico((reconciliacion&&reconciliacion[0])||null, ledger||[]);
   renderPfDiagnosticoYahoo();
   pfMostrarSubTabs(true);
   pfAplicarSubvista();
-  startPfYahoo();
+
+  const [,sync,lastSuccess,bench,reconciliacion,snapshotsHoy]=await auxiliares;
+  if(sequence!==pfLoadSequence)return;
+  pfBenchCache=bench||[];
+  const nuevosSnapshots=pfSnapshotsHoyCache.filter(s=>!snapshotsAlEntrar.has(s));
+  const snapshots=new Map([...snapshotsHoy,...nuevosSnapshots].map(s=>[s.capturado_en,s]));
+  pfSnapshotsHoyCache=[...snapshots.values()].sort((a,b)=>a.capturado_en.localeCompare(b.capturado_en));
+  pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
+  const ultimaSync=sync?.[0];
+  if(ultimaSync?.estado==='error'&&new Date(ultimaSync.iniciado_en)>new Date(ultimoHistorial.creado_en||0)){
+    const dias=diasEntre(hoyLocal(),parseDateOnly(ultimoHistorial.fecha_valoracion));
+    estadoEl.innerHTML=`<div class="empty" style="color:var(--yellow);text-align:left;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">⚠️ La última sincronización falló (${esc(fmtDateLong(new Date(ultimaSync.iniciado_en)))}). Mostrando los últimos datos válidos, de hace ${dias} día${dias!==1?'s':''}.</div>`;
+  }
+  renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
+  renderPfChart();
+  renderPfDiagnostico(reconciliacion?.[0]||null,ledger||[]);
+  pfAplicarSubvista();
 }
 
 export function renderPfResumen(row,ultimaSync){
@@ -351,6 +360,7 @@ export function renderPfChart(){
   const toggle=document.getElementById('pfDesdeToggle');
   if(toggle)toggle.style.display=pfPeriodo==='DESDE'?'none':'';
   const area=document.getElementById('pfChartArea'),titulo=document.getElementById('pfChartTitulo'),hint=document.getElementById('pfChartHint'),res=document.getElementById('pfRendResumen');
+  area.setAttribute('aria-busy','false');
   res.innerHTML='';renderPfBenchmark(null);renderPfContribuciones(null);
 
   if(pfPeriodo==='1D'){renderPfChart1D(area,titulo,hint,res);return;}
