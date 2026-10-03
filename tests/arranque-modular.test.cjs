@@ -4,12 +4,14 @@ const assert=require('node:assert/strict');
 const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');
 entornoPrueba();process.env.TZ='America/Lima';
 
-const nodos=new Map(),eventosVentana=new Map();
+const nodos=new Map(),eventosVentana=new Map(),escrituras=new Map();
 let animaciones=0,reducirMovimiento=true;
 function nodo(id){
-  const clases=new Set(),attrs=new Map(),eventos=new Map();
+  const clases=new Set(),attrs=new Map(),eventos=new Map();let html='',texto='';
   return {id,style:{setProperty(k,v){this[k]=v;},removeProperty(k){delete this[k];}},dataset:{},hidden:false,inert:false,disabled:false,
-    innerHTML:'',textContent:'',value:'',offsetWidth:320,clientWidth:320,scrollHeight:640,
+    get innerHTML(){return html;},set innerHTML(v){html=String(v);escrituras.set(id,(escrituras.get(id)||0)+1);},
+    get textContent(){return texto;},set textContent(v){texto=String(v);escrituras.set(id,(escrituras.get(id)||0)+1);},
+    value:'',offsetWidth:320,clientWidth:320,scrollHeight:640,
     classList:{add(...xs){xs.forEach(x=>clases.add(x));},remove(...xs){xs.forEach(x=>clases.delete(x));},contains:x=>clases.has(x),toggle(x,force){const next=force??!clases.has(x);if(next)clases.add(x);else clases.delete(x);return next;}},
     setAttribute(k,v){attrs.set(k,String(v));},getAttribute:k=>attrs.get(k)??null,removeAttribute:k=>attrs.delete(k),hasAttribute:k=>attrs.has(k),
     querySelector:()=>null,querySelectorAll:()=>[],getBoundingClientRect:()=>({x:0,y:0,width:320,height:640,top:0,bottom:640,left:0,right:320}),getClientRects:()=>[{}],
@@ -23,8 +25,9 @@ function nodo(id){
 const el=id=>{if(!nodos.has(id))nodos.set(id,nodo(id));return nodos.get(id);};
 document.getElementById=el;
 document.body=nodo('body');document.documentElement=nodo('html');document.activeElement=null;document.hidden=false;
-document.querySelector=s=>s==='.page.active'?el('p-dash'):null;
-document.querySelectorAll=s=>s==='.page'?[el('p-dash'),el('p-ana')]:[];
+const paginas=()=>['dash','ana','card','bud','deb'].map(p=>el('p-'+p));
+document.querySelector=s=>s==='.page.active'?paginas().find(p=>p.classList.contains('active'))||null:null;
+document.querySelectorAll=s=>s==='.page'?paginas():[];
 document.createElement=tag=>nodo(tag);document.createElementNS=(_,tag)=>nodo(tag);
 globalThis.window={matchMedia:()=>({matches:reducirMovimiento,addEventListener(){},removeEventListener(){}}),scrollTo(){},
   addEventListener(type,fn){if(!eventosVentana.has(type))eventosVentana.set(type,new Set());eventosVentana.get(type).add(fn);},removeEventListener(type,fn){eventosVentana.get(type)?.delete(fn);}};
@@ -44,19 +47,21 @@ async function esperar(condicion,mensaje){for(let i=0;i<150;i++){if(condicion())
 function sesion(id='usuario-demo'){localStorage.setItem('sb_session',JSON.stringify({user_id:id,access_token:'token-'+id,refresh_token:'refresh-'+id,expires_at:Date.now()+3600000}));}
 function respuesta(rows,status=200){return new Response(JSON.stringify(rows),{status,headers:{'content-type':'application/json','content-range':(Array.isArray(rows)&&rows.length?'0-'+(rows.length-1):'*')+'/'+(Array.isArray(rows)?rows.length:0)}});}
 let red=null;
-function configurarRed({fallar=false,bloquearLogin=false,prepararPortafolio=false,id='tx-demo',monto=125.5}={}){
-  const estado={core:aplazado(),login:aplazado(),graficos:new Map(['1D','1S','1M','cantidades'].map(periodo=>[periodo,aplazado()])),pedidosGraficos:[],pedidosCore:0,pedidosLogin:0,fallar,id,monto};red=estado;
+function configurarRed({fallar=false,bloquearLogin=false,prepararPortafolio=false,bloquearBasePortafolio=false,bloquearFx=false,id='tx-demo',monto=125.5}={}){
+  const estado={core:aplazado(),login:aplazado(),basePortafolio:aplazado(),fx:aplazado(),graficos:new Map(['1D','1S','1M','cantidades'].map(periodo=>[periodo,aplazado()])),pedidosGraficos:[],pedidosFondo:[],pedidosFx:0,pedidosCore:0,pedidosLogin:0,respuestasFondo:0,respuestasFx:0,fallar,id,monto};red=estado;
   const fecha=new Date(Date.now()-86400000).toISOString().slice(0,10);
   const posicion={cuenta_ibkr:'CUENTA_DEMO',contract_id:1,simbolo:'CSPX',cantidad:10,precio_mercado:100,valor_mercado_base:1000,multiplicador:1,moneda:'USD',moneda_base:'USD',fecha_datos:fecha};
   const quote={status:'ok',account:posicion.cuenta_ibkr,contract_id:1,ibkr_symbol:'CSPX',currency:'USD',price:104,previous_close:100,price_at:new Date().toISOString()};
   if(!bloquearLogin)estado.login.resolve();
+  if(!bloquearBasePortafolio)estado.basePortafolio.resolve();
+  if(!bloquearFx)estado.fx.resolve();
   globalThis.fetch=async (url,opts={})=>{
     const u=new URL(url),tabla=u.pathname.split('/').at(-1);
     if(u.pathname.includes('/auth/v1/token')){
       estado.pedidosLogin++;await estado.login.promise;
       return respuesta({access_token:'token-login',refresh_token:'refresh-login',expires_in:3600,user:{id:'usuario-demo'}});
     }
-    if(u.hostname==='open.er-api.com')return respuesta({result:'success',rates:{PEN:3.75}});
+    if(u.hostname==='open.er-api.com'){estado.pedidosFx++;await estado.fx.promise;estado.respuestasFx++;return respuesta({result:'success',rates:{PEN:3.75}});}
     if(tabla==='transacciones'){
       estado.pedidosCore++;await estado.core.promise;
       if(estado.fallar)return respuesta({message:'Sin conexión de prueba'},503);
@@ -65,6 +70,9 @@ function configurarRed({fallar=false,bloquearLogin=false,prepararPortafolio=fals
     if(tabla==='cuentas')return respuesta([{id:'cuenta-demo',nombre:'Plin',tipo:'billetera',moneda:'PEN',archivada:false}]);
     if(tabla==='categorias')return respuesta([{nombre:'Salario',color:'#00d68f'}]);
     if(prepararPortafolio){
+      if(['configuracion_integraciones','sincronizaciones_portafolio','posiciones_historial','reconciliaciones_portafolio','portafolio_snapshots','portafolio_historial','posiciones','operaciones_ibkr'].includes(tabla)){
+        estado.pedidosFondo.push({tabla,signal:opts.signal});await estado.basePortafolio.promise;estado.respuestasFondo++;
+      }
       if(tabla==='portafolio_historial')return respuesta([{fecha_valoracion:fecha,cuenta_ibkr:posicion.cuenta_ibkr,valor_total:1000,efectivo:0,valor_posiciones:1000,moneda_base:'USD'}]);
       if(tabla==='posiciones')return respuesta([posicion]);
       const cantidades=tabla==='posiciones_historial'&&(u.searchParams.get('select')||'').includes('cantidad');
@@ -85,8 +93,9 @@ function pendiente(){assert.equal(el('appContent').inert,true,'los controles que
 function listo(){assert.equal(el('appContent').inert,false,'se habilita el contenido cargado');assert.notEqual(el('appContent').getAttribute('aria-hidden'),'true');assert.equal(el('appStartup').hidden,true,'se retira la preparación al quedar listo');}
 
 (async()=>{
-  const [auth,startup,tx,state,dom,market,portfolio]=await Promise.all([
+  const [auth,startup,tx,state,dom,market,portfolio,navigation,dashboard,{fmt,fmtN}]=await Promise.all([
     modulo('services/auth.js'),modulo('ui/startup.js'),modulo('modules/transactions.js'),modulo('state.js'),modulo('utils/dom.js'),modulo('services/market-data.js'),modulo('modules/portfolio/portfolio.js'),
+    modulo('ui/navigation.js'),modulo('modules/dashboard.js'),modulo('utils/formatters.js'),
   ]);
   const {datos}=state;
   const consoleError=console.error;
@@ -103,6 +112,76 @@ function listo(){assert.equal(el('appContent').inert,false,'se habilita el conte
     redActual.core.resolve();const [resultado]=await Promise.all([carga,inicio,segundoInicio]);assert.equal(resultado.ok,true);listo();
     assert.equal(datos.transacciones[0][6],'tx-demo');assert.equal(datos.cargados,true);assert.equal(el('balAmt').textContent,'125.50','el primer saldo ya contiene el importe real');
     assert.match(el('txs').innerHTML,/Ingreso real de prueba/);assert.equal(animaciones,0,'reduced motion evita las animaciones de JavaScript');
+
+    // La carga comparte todos los datos, pero no pinta páginas ocultas. Al
+    // navegar se calcula cada vista con el estado actual, también tras cambios.
+    {
+      const otrasVistas=['cardsPage','cardsLineSummary','debs','mAhorro','mGastoNeto','chartArea','saldoCuentas'];
+      for(const id of otrasVistas)assert.equal(escrituras.get(id)||0,0,id+' no debe retrasar Inicio mientras está oculto');
+      const anteriores={transacciones:datos.transacciones,configTarjetas:datos.configTarjetas,deudas:datos.deudas,deudasAbonos:datos.deudasAbonos};
+      const navegar=p=>{navigation.setPg(p,el('nav-'+p));assert.equal(document.querySelector('.page.active').id,'p-'+p);};
+      const fecha=new Date().toISOString();
+      try{
+        datos.configTarjetas=[['Visa demo',1000,30,'Visa demo','💳',24,12]];
+        datos.transacciones=[...datos.transacciones,
+          [fecha,'Consumo de navegación','Compras','Gasto',40,'Visa demo','tarjeta-nav'],
+          [fecha,'Gasto de navegación','Compras','Gasto',20,'Plin','banco-nav']];
+        datos.deudas=[['deuda-nav','Persona demo','Préstamo de navegación',200,0,fecha,null,'me-deben']];datos.deudasAbonos=[];
+        navegar('card');assert.match(el('cardsPage').innerHTML,/Visa demo/);assert.ok(el('cardsPage').innerHTML.includes(fmt(40)),'Tarjetas pinta el consumo actual al abrirla');
+        for(const id of ['debs','mAhorro','chartArea'])assert.equal(escrituras.get(id)||0,0,'abrir Tarjetas no pinta '+id);
+        navegar('bud');assert.equal(el('mGastoNeto').textContent,fmt(60),'Análisis usa los gastos actuales al abrirse');
+        assert.equal(escrituras.get('debs')||0,0,'Análisis no pinta Deudas');
+        navegar('deb');assert.match(el('debs').innerHTML,/Persona demo/);assert.ok(el('debs').innerHTML.includes(fmt(200)),'Deudas se pinta al abrirse');
+        navegar('dash');assert.equal(el('balAmt').textContent,fmtN(65.5),'volver a Inicio refresca su balance');
+
+        const pinturasAntes=new Map(otrasVistas.map(id=>[id,escrituras.get(id)||0]));
+        datos.configTarjetas[0][3]='Visa actualizada';
+        datos.transacciones.find(t=>t[6]==='tarjeta-nav')[4]=75;
+        datos.deudas[0][1]='Persona actualizada';datos.deudas[0][3]=300;
+        dashboard.render();assert.equal(el('balAmt').textContent,fmtN(30.5),'Inicio se actualiza con los datos nuevos');
+        for(const id of otrasVistas)assert.equal(escrituras.get(id)||0,pinturasAntes.get(id),'actualizar Inicio no repinta '+id+' oculto');
+        navegar('card');assert.match(el('cardsPage').innerHTML,/Visa actualizada/);assert.ok(el('cardsPage').innerHTML.includes(fmt(75)),'Tarjetas abandona los valores anteriores al volver');
+        navegar('bud');assert.equal(el('mGastoNeto').textContent,fmt(95),'Análisis abandona los cálculos anteriores al volver');
+        navegar('deb');assert.match(el('debs').innerHTML,/Persona actualizada/);assert.ok(el('debs').innerHTML.includes(fmt(300)),'Deudas abandona los datos anteriores al volver');
+
+        const tarjetasAntes=escrituras.get('cardsPage'),analisisAntes=escrituras.get('mAhorro');
+        datos.deudas[0][3]=350;dashboard.render();assert.ok(el('debs').innerHTML.includes(fmt(350)),'la página de Deudas visible sigue actualizándose tras una operación');
+        assert.equal(escrituras.get('cardsPage'),tarjetasAntes);assert.equal(escrituras.get('mAhorro'),analisisAntes);
+        datos.transacciones=[...datos.transacciones,[fecha,'Ingreso al volver a Inicio','Salario','Ingreso',25,'Plin','ingreso-nav']];
+        navegar('dash');assert.equal(el('balAmt').textContent,fmtN(55.5));assert.match(el('txs').innerHTML,/Ingreso al volver a Inicio/);
+      }finally{Object.assign(datos,anteriores);navegar('dash');}
+    }
+
+    // Ni la base ni los auxiliares de IBKR ni el TC retienen la animación de
+    // Inicio. Las curvas también quedan pendientes después de liberar la base.
+    {
+      startup.mostrarAcceso();datos.cargados=false;portfolio.limpiarCachePortafolio();sesion();localStorage.removeItem('tc_mercado');
+      redActual=configurarRed({prepararPortafolio:true,bloquearBasePortafolio:true,bloquearFx:true,id:'tx-base-pendiente'});
+      const antes=animaciones;reducirMovimiento=false;
+      let inicioBase,limite;
+      try{
+        inicioBase=auth.bootAuth();
+        await esperar(()=>redActual.pedidosCore===1&&redActual.pedidosFondo.length>=9&&redActual.pedidosFx>0,'deben empezar movimientos y las consultas independientes de fondo');
+        pendiente();redActual.core.resolve();
+        await Promise.race([inicioBase,new Promise((_,rechazar)=>{limite=timerReal(()=>rechazar(Error('Inicio quedó esperando la base IBKR o el TC pendientes.')),1000);})]);
+        clearTimeout(limite);listo();
+        assert.equal(datos.transacciones[0][6],'tx-base-pendiente');assert.equal(el('balAmt').textContent,'125.50');
+        assert.ok(animaciones>antes,'la salida normal termina antes de liberar las consultas de fondo');
+        assert.equal(redActual.respuestasFondo,0,'toda la base y sus auxiliares siguen suspendidos');
+        assert.equal(redActual.respuestasFx,0,'el tipo de cambio sigue suspendido');
+        assert.deepEqual(portfolio.pfHistoricoCache,[],'Inicio se revela aunque el historial IBKR aún no haya llegado');
+        const fondo=portfolio.precargarPortafolio({esperarGraficos:true});
+        redActual.basePortafolio.resolve();
+        await esperar(()=>redActual.pedidosGraficos.length===4,'al completar la base se preparan sus curvas en segundo plano');
+        listo();assert.equal(redActual.respuestasFx,0,'las curvas tampoco requieren bloquear Inicio con el TC');
+        for(const gate of redActual.graficos.values())gate.resolve();redActual.fx.resolve();await fondo;
+        listo();assert.equal(datos.transacciones[0][6],'tx-base-pendiente','el fondo no reemplaza los movimientos de Inicio');
+      }finally{
+        clearTimeout(limite);redActual.core.resolve();redActual.basePortafolio.resolve();redActual.fx.resolve();
+        for(const gate of redActual.graficos.values())gate.resolve();await inicioBase;
+        portfolio.limpiarCachePortafolio();reducirMovimiento=true;
+      }
+    }
 
     // El resumen abre aunque día, semana y mes sigan pendientes. Todos los
     // pedidos nacen en Inicio y se completan sin tocar Portafolio.
@@ -174,6 +253,6 @@ function listo(){assert.equal(el('appContent').inert,false,'se habilita el conte
         salidaBoot.resolve();await Promise.all([primerBoot,segundoBoot]);listo();assert.equal(datos.transacciones[0][6],'tx-boot-salida');
       }finally{salidaBoot.resolve();pantalla.animate=animarOriginal;pantalla.getAnimations=animacionesOriginales;}
     }
-    console.log('PASS: Inicio sin esperar curvas, precarga de tres períodos sin cancelarla al revelar, carga compartida, fallo/reintento, sesión, doble login y salida cancelable.');
-  }finally{console.error=consoleError;red?.core.resolve();red?.login.resolve();for(const gate of red?.graficos.values()||[])gate.resolve();market.stopPfYahoo();globalThis.setTimeout=timerReal;}
+    console.log('PASS: Inicio sin pintar páginas ocultas, navegación con datos actuales y actualización visible; base/auxiliares IBKR, TC y curvas independientes, fallo/reintento, sesión, doble login y salida cancelable.');
+  }finally{console.error=consoleError;red?.core.resolve();red?.login.resolve();red?.basePortafolio.resolve();red?.fx.resolve();for(const gate of red?.graficos.values()||[])gate.resolve();market.stopPfYahoo();globalThis.setTimeout=timerReal;}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -4,7 +4,7 @@
 import {renderAnalisis} from '../modules/analytics.js';
 import {renderCardsPage} from '../modules/cards/cards-ui.js';
 import {render} from '../modules/dashboard.js';
-import {abrirModalDeuda} from '../modules/debts.js';
+import {abrirModalDeuda, renderDeb} from '../modules/debts.js';
 import {renderPortafolio} from '../modules/portfolio/portfolio.js';
 import {abrirM} from '../modules/transactions.js';
 import {stopPfYahoo} from '../services/market-data.js';
@@ -103,7 +103,9 @@ export function setPg(p,b){
     renderPortafolio().then(()=>{if(document.getElementById('p-ana').classList.contains('active'))window.scrollTo(0,0);}).catch(()=>{});
   }
   if(p==='card')renderCardsPage();
+  if(p==='deb')renderDeb();
   if(p==='bud')renderAnalisis();
+  if(p==='dash')render();
   if(p!=='ana'&&saliendoDelPortafolio)stopPfYahoo({preservarConsulta:true});
 }
 

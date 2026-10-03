@@ -63,11 +63,14 @@ export function renderBase(){
   renderBal();
   renderCat();
   renderTx();
-  renderCardsPage();
-  renderDeb();
+  // Las otras páginas se pintan al abrirlas. Sus cálculos recorren el
+  // historial completo y no deben retrasar el primer resumen de Inicio.
+  const pagina=document.querySelector('.page.active')?.id;
+  if(pagina==='p-card')renderCardsPage();
+  if(pagina==='p-deb')renderDeb();
   llenarSel();
   renderFilterPill();
-  renderAnalisis();
+  if(pagina==='p-bud')renderAnalisis();
 }
 
 function renderFilterPill(){
