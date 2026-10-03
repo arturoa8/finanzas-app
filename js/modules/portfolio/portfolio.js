@@ -122,6 +122,7 @@ function pfCargarDatos({force=false}={}){
     // evita depender de la pestaña o del período que el usuario seleccione.
     solicitud.graficos=pfPrepararGraficos();
     pfProgramarPrecarga();
+    globalThis.dispatchEvent?.(new Event('finanzas:portafolio'));
     return {historial:pfHistoricoCache,posiciones:pfPosicionesCache,ledger:pfLedgerCache};
   }).catch(e=>{
     if(!pfSolicitudVigente(solicitud))return null;

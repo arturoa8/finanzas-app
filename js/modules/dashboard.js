@@ -34,7 +34,13 @@ let modoBalance='periodo';
 
 // Patrimonio: se carga solo al elegir el modo, sin depender de Análisis.
 // estado: idle | loading | ok | sin_datos | sin_tc | error
-export let patrimonio={estado:'idle',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:''};
+export let patrimonio={estado:'idle',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'',enVivo:false};
+// Último cierre leído directo de la base, solo mientras el portafolio no
+// terminó de precargarse.
+let cierreDirecto=null;
+
+// Precios nuevos de Yahoo o una base nueva del portafolio cambian el valor.
+globalThis.addEventListener?.('finanzas:portafolio',()=>{if(modoBalance==='patrimonio'&&patrimonio.estado!=='idle'&&patrimonio.estado!=='loading')renderBal();});
 
 let acumuladoMode=false;
 
@@ -204,14 +210,15 @@ export function renderBal(){
 
   // Patrimonio = Neto + valor del portafolio en soles. El valor_total de
   // IBKR ya incluye su efectivo, así que no se suma nada aparte.
-  const neto=balance;
   let textoAlterno=null;
   const nota=document.getElementById('balNota');
   if(nota){
     if(modoBalance==='patrimonio'){
+      if(patrimonio.estado!=='idle'&&patrimonio.estado!=='loading'&&patrimonio.estado!=='error')patrimonio=calcularPatrimonio();
       if(patrimonio.estado==='ok'){
         balance+=patrimonio.soles;
-        nota.textContent='Neto '+fmt(neto)+' + IBKR al '+patrimonio.fechaCorta+' '+fmt(patrimonio.soles)+(patrimonio.detalle?' ('+patrimonio.detalle+')':'');
+        // Una sola línea: el detalle (dólares × TC) cambiaba el alto de Inicio.
+        nota.textContent='+ IBKR '+fmt(patrimonio.soles)+' · '+(patrimonio.enVivo?'Yahoo en vivo':'cierre '+patrimonio.fechaCorta);
       }else{
         textoAlterno='—';
         nota.textContent=patrimonio.mensaje||'Cargando el valor de IBKR…';
@@ -359,47 +366,44 @@ export function toggleSearch(){
 
 export function filtrarBusqueda(){busqueda=document.getElementById('searchInp').value;render();}
 
-// Lee la última fila de portafolio_historial. Si algo falla, el modo
-// Patrimonio muestra '—' con el motivo, sin romper la pantalla.
+// Valor de IBKR en soles para Patrimonio. Con el portafolio ya cargado (se
+// precarga al abrir la app) es EXACTAMENTE el valor actual de Portafolio:
+// Yahoo cuando cuadra con el cierre IBKR (mismo snapshot, sin operaciones ni
+// aportes pendientes) y, si no, el cierre oficial. Se recalcula en cada
+// pintado: antes se calculaba una vez y, si Yahoo aún no había respondido,
+// Patrimonio se quedaba con el cierre rezagado.
+function calcularPatrimonio(){
+  let row,valor,enVivo=false;
+  if(pfHistoricoCache.length){
+    const v=obtenerValorActualPortafolio();
+    row=pfCierreAnterior();valor=v.valor;enVivo=v.fuente==='YAHOO';
+  }else{row=cierreDirecto;valor=row?Number(row.valor_total):NaN;}
+  if(!row||!Number.isFinite(valor))
+    return{estado:'sin_datos',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',enVivo:false,mensaje:'Todavía no hay un cierre de IBKR que sumar.'};
+  const f=parseDateOnly(row.fecha_valoracion);
+  const fechaCorta=f?String(f.getDate()).padStart(2,'0')+'/'+String(f.getMonth()+1).padStart(2,'0'):'';
+  const moneda=row.moneda_base||'USD';
+  // Tipo de cambio de mercado de hoy; el de Configuración solo sin red.
+  const tc=moneda==='PEN'?1:tcMercado>0?tcMercado:tcUsdPen;
+  if(!(tc>0))
+    return{estado:'sin_tc',soles:null,valorBase:valor,moneda,fechaCorta,detalle:'',enVivo,mensaje:'Falta el tipo de cambio: configúralo en Configuración.'};
+  return{estado:'ok',soles:valor*tc,valorBase:valor,moneda,fechaCorta,detalle:moneda==='PEN'?'':fmtMoneda(valor,moneda)+' × '+tc,enVivo,mensaje:''};
+}
+
+// Prepara lo que Patrimonio necesita: el tipo de cambio y, si el portafolio
+// todavía no está precargado, el último cierre de IBKR. Si algo falla, el
+// modo muestra '—' con el motivo, sin romper la pantalla.
 export async function cargarPatrimonio(forzar){
  if(patrimonio.estado==='loading')return;
- if(patrimonio.estado==='ok'&&!forzar)return;
+ if(patrimonio.estado!=='idle'&&patrimonio.estado!=='error'&&!forzar){if(modoBalance==='patrimonio')renderBal();return;}
  patrimonio={...patrimonio,estado:'loading',mensaje:'Cargando el valor de IBKR…'};
  try{
-  // Si ya visitaste Portafolio en esta sesión (pfHistoricoCache poblado), se
-  // reutiliza EXACTAMENTE el mismo valor que ves ahí — Yahoo en vivo si hay
-  // cotización completa, si no el cierre oficial de IBKR — en vez de
-  // recalcularlo aparte. Así Patrimonio y Portafolio nunca pueden mostrar
-  // números distintos. Si todavía no visitaste Portafolio esta sesión, se
-  // hace la consulta directa de siempre (el cierre oficial más reciente).
-  let row,valorActual,fuenteActual;
-  if(pfHistoricoCache.length){
-   const v=obtenerValorActualPortafolio();
-   row=pfCierreAnterior();valorActual=v.valor;fuenteActual=v.fuente;
-  }else{
-   const hist=await sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
-   row=(hist||[])[0];valorActual=row?Number(row.valor_total):NaN;fuenteActual='IBKR';
-  }
-  // El patrimonio se valora al tipo de cambio de mercado de hoy, el mismo que
-  // se propone en los gastos con tarjeta. El de Configuración solo se usa si
-  // no hay uno de mercado (sin red y sin ninguno guardado).
+  const cierre=pfHistoricoCache.length?null:sbFetch('portafolio_historial?select=fecha_valoracion,moneda_base,valor_total&order=fecha_valoracion.desc&limit=1');
   await Promise.all([leerTipoCambio(),cargarTcMercado()]);
-  const tc=tcMercado>0?tcMercado:tcUsdPen,tcOrigen=tcMercado>0?'mercado':'configurado';
-  const f=row?parseDateOnly(row.fecha_valoracion):null;
-  const fechaCorta=f?String(f.getDate()).padStart(2,'0')+'/'+String(f.getMonth()+1).padStart(2,'0'):'';
-  const enVivo=fuenteActual==='YAHOO';
-  if(!row||!Number.isFinite(valorActual)){
-   patrimonio={estado:'sin_datos',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'Todavía no hay un cierre de IBKR que sumar.'};
-  }else if((row.moneda_base||'')==='PEN'){
-   // Ya está en soles: no se convierte.
-   patrimonio={estado:'ok',soles:valorActual,valorBase:valorActual,moneda:'PEN',fechaCorta,detalle:enVivo?'Con precio en vivo de Yahoo':'',mensaje:''};
-  }else if(!(tc>0)){
-   patrimonio={estado:'sin_tc',soles:null,valorBase:valorActual,moneda:row.moneda_base||'USD',fechaCorta,detalle:'',mensaje:'No hay tipo de cambio de mercado disponible. Configura el USD → PEN en Configuración para ver tu patrimonio.'};
-  }else{
-   patrimonio={estado:'ok',soles:valorActual*tc,valorBase:valorActual,moneda:row.moneda_base||'USD',fechaCorta,detalle:fmtMoneda(valorActual,row.moneda_base||'USD')+' × '+tc+' ('+tcOrigen+')'+(enVivo?' · con precio en vivo de Yahoo':''),mensaje:''};
-  }
+  if(cierre)cierreDirecto=((await cierre)||[])[0]||null;
+  patrimonio=calcularPatrimonio();
  }catch(e){
-  patrimonio={estado:'error',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',mensaje:'No se pudo cargar el valor de IBKR. Vuelve a intentarlo.'};
+  patrimonio={estado:'error',soles:null,valorBase:null,moneda:null,fechaCorta:'',detalle:'',enVivo:false,mensaje:'No se pudo cargar el valor de IBKR. Vuelve a intentarlo.'};
  }
  if(modoBalance==='patrimonio')renderBal();
 }

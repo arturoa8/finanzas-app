@@ -260,7 +260,9 @@ async function pfConsultarYahoo(){
     pfYahoo.quotes=quotes;
     pfYahoo.day=pfLondonDay();pfYahoo.status='ok';pfYahoo.message='';pfYahoo.fetchedAt=Date.now();
   }catch(e){if(vigente()){pfYahoo.status='error';pfYahoo.message=controller.signal.aborted?'La consulta tardó demasiado. Se conserva el cierre IBKR.':e.message;}}
-  finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;if(vigente()&&pfYahooVisible())renderPfYahoo();pfProgramarYahoo();}}
+  finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;if(vigente()&&pfYahooVisible())renderPfYahoo();pfProgramarYahoo();
+    // Inicio (Patrimonio) usa el mismo valor actual: avisarle de precios nuevos.
+    if(vigente())globalThis.dispatchEvent?.(new Event('finanzas:portafolio'));}}
 }
 
 // ── Historia intradía de varios días (1S / 1M) ─────────────────────────────
