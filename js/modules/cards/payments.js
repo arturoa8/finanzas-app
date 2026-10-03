@@ -3,7 +3,7 @@
 
 import {cuentasApp, validarCuentasDisponibles} from '../accounts.js';
 import {renderCardDetail, renderCardsPage} from './cards-ui.js';
-import {deudaTarjetaUSD, equivalenteReconocido, getSelectedCardAndData, modeloCreditoTarjetaUSD, tarjetaConCreditoUSD} from './cards.js';
+import {deudaTarjetaUSD, equivalenteReconocido, getSelectedCardAndData, modeloCreditoTarjetaUSD, pendienteEnSoles, pendienteUSDEnSoles, tarjetaConCreditoUSD} from './cards.js';
 import {notaCreditoUSD, serializarCreditoUSD} from './usd-credit.js';
 import {getCycleKey, normCycleKey} from './cycles.js';
 import {costoPromedioUSD, elv, getCuentaBalanceMoneda, monedaCuenta} from '../currencies.js';
@@ -110,8 +110,12 @@ export const guardarPagoTarjeta=guardedOnce(guardarPagoTarjeta__base);
 async function pagarSaldoCompleto__base(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(ctx.data.pendiente<=0){toast('No hay saldo pendiente','success');return;}
+  // La parte en dólares se paga en dólares: pagarla aquí en soles dejaba la
+  // tarjeta como pagada y la deuda en dólares intacta.
+  const soles=pendienteEnSoles(ctx.card,ctx.data);
+  if(soles<=0){toast('Lo pendiente de este ciclo está en dólares: usa Pagar en dólares.','error');return;}
   const cuenta=document.getElementById('cardPayCuenta')?.value||defaultCuentaOrigen(ctx.card);
-  await addCardPaymentRecord(ctx.card,ctx.data.cycle,ctx.data.pendiente,hoyISO(),'Pago de saldo completo',cuenta);
+  await addCardPaymentRecord(ctx.card,ctx.data.cycle,soles,hoyISO(),'Pago de saldo completo',cuenta);
   renderBal(); renderCardsPage(); renderCardDetail(); toast('Saldo completo registrado','success');
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -194,14 +198,15 @@ export function renderPaymentHistory(card,cycle){
   return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.meta?.tipo==='conversion'?escHtml('Conversión de US$ '+fmtN(p.meta.usd)+' a soles · TC del banco '+Number(p.meta.tc).toFixed(4)):p.moneda==='USD'?escHtml('Pago en dólares · costó '+fmt(p.soles)+' · TC '+Number(p.tc).toFixed(4)+(p.cuentaOrigen?' · desde '+p.cuentaOrigen:'')):escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions">${p.moneda==='USD'||p.meta?'':`<button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button>`}<button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${p.moneda==='USD'?'US$ '+fmtN(p.usd):fmt(p.amount)}</div></div>`).join('')}</div>`;
 }
 
-export function renderPaymentForm(pendiente,card){
+export function renderPaymentForm(card,data){
+  const soles=pendienteEnSoles(card,data),conDolares=pendienteUSDEnSoles(card,data)>0;
   // Cualquier cuenta de efectivo en soles puede pagar la tarjeta. La habitual
   // va preseleccionada si aún existe con ese nombre (puede haberse renombrado).
   const def=defaultCuentaOrigen(card);
   const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
   const elegida=cuentas.find(c=>sameAccount(c,def))||cuentas[0];
   const opts=cuentas.map(c=>`<option value="${escAttr(c)}"${c===elegida?' selected':''}>${escHtml(c)}</option>`).join('');
-  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>${renderPagoUSD(card)}${renderCreditoUSD(card)}`;
+  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row">${soles>0?`<button class="btn btn-s" onclick="pagarSaldoCompleto()">${conDolares?'Pagar saldo en soles':'Pagar saldo completo'} (${fmt(soles)})</button>`:''}<button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>${renderPagoUSD(card)}${renderCreditoUSD(card)}`;
 }
 
 // ── Pagar la tarjeta en dólares ────────────────────────────────────────────

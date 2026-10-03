@@ -1,7 +1,7 @@
 // Pantallas de tarjetas.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cardStats, chipUSD, deudaUSDTotal, getCardData, getCardOutstandingTotal, refSolesHoy, usdCiclo} from './cards.js';
+import {cardStats, chipUSD, deudaUSDTodas, getCardData, getCardOutstandingTotal, pendienteCiclosAnteriores, usdCiclo} from './cards.js';
 import {CREDIT_CARDS, getCardGoalPct, getCreditGoalPct, getCreditLimit, renderCreditLineBlock, renderLineProgress} from './config.js';
 import {cardCycleOffset, clearTxCycleOverride, getCardCycle, getCycleKey, getTxCycleOverride, isCardExpenseFor, setTxCycleOverride, txBelongsToCycle, updateCardCycleQuickUI} from './cycles.js';
 import {actualizarPagoUSD, renderPaymentForm, renderPaymentHistory} from './payments.js';
@@ -30,17 +30,19 @@ export function abrirCardDetail(cuenta){selectedCardCuenta=cuenta;renderCardDeta
 
 export function cerrarCardDetail(){document.getElementById('cardDetailModal').classList.remove('active');selectedCardCuenta=null;}
 
-function bannerDeudaUSD(){
-  const total=deudaUSDTotal();
-  return total>0?`<div class="line-summary-card" style="margin-bottom:12px"><div class="line-summary-title">Debes en dólares · todas las tarjetas</div><div class="line-summary-main">US$ ${fmtN(total)}${refSolesHoy(total)}</div><p class="hint">Consumos en dólares menos pagos en dólares. Lo que costó en soles se fija al pagar.</p></div>`:'';
+// Lo que ya está dentro de la línea usada y conviene ver aparte. Informa,
+// no suma: el total de arriba ya lo incluye.
+function renderLineaIncluye(){
+  const anteriores=Math.round(CREDIT_CARDS.reduce((s,card)=>s+pendienteCiclosAnteriores(card),0)*100)/100;
+  const usd=deudaUSDTodas();
+  const filas=[];
+  if(anteriores>0)filas.push(`<div class="line-includes-row"><span>De ciclos anteriores sin pagar</span><strong>${fmt(anteriores)}</strong></div>`);
+  if(usd.usd>0)filas.push(`<div class="line-includes-row"><span>Consumos en dólares</span><strong>US$ ${fmtN(usd.usd)}</strong></div><div class="line-includes-sub">Cuentan como ${fmt(usd.pen)} al tipo de cambio de cada compra. Lo que cuestan en soles se fija al pagarlos en dólares.</div>`);
+  return filas.length?`<div class="line-includes"><div class="line-includes-title">Incluye</div>${filas.join('')}</div>`:'';
 }
 
 function renderCreditLineSummary(){
   const cont=document.getElementById('cardsLineSummary'); if(!cont)return;
-  const currentItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset)}));
-  const nextItems=CREDIT_CARDS.map(card=>({card,data:getCardData(card,cardCycleOffset+1)}));
-  const usedCurrent=currentItems.reduce((s,x)=>s+x.data.pendiente,0);
-  const usedNext=nextItems.reduce((s,x)=>s+x.data.pendiente,0);
   const used=CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
   const limit=CREDIT_CARDS.reduce((s,card)=>s+getCreditLimit(card),0);
   // Meta total = suma de (limite_i * meta_i / 100) por tarjeta (no aplicar % global al total)
@@ -53,24 +55,21 @@ function renderCreditLineSummary(){
   else if(used>goalAmount)cls='bad';
   else if(used>=goalAmount*.8)cls='warn';
   const advice=remaining>=0?`Te quedan ${fmt(remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(remaining))} sobre la meta recomendada`;
+  // Actual y siguiente ya están en la barra de ciclos de arriba; aquí va
+  // solo la línea. Editar tarjetas está en el encabezado de la página.
   cont.innerHTML=`<div class="line-summary-card">
     <div class="line-summary-top">
       <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
-      <button class="line-edit-btn" onclick="abrirLineasCredito()">Editar tarjetas</button>
     </div>
     ${renderLineProgress(pct,cls)}
-    <div class="line-summary-breakdown"><span>Actual: <strong>${fmt(usedCurrent)}</strong></span><span>Siguiente: <strong>${fmt(usedNext)}</strong></span></div>
     <div class="line-summary-meta"><span><strong>${pct.toFixed(1)}%</strong> usado · meta ponderada ${effectiveGoalPct.toFixed(1)}% = <strong>${fmt(goalAmount)}</strong></span><span class="line-advice ${cls}">${advice}</span></div>
+    ${renderLineaIncluye()}
   </div>`;
 }
 
-function renderCardMiniList(gastos,limit=3,card=null){
-  if(!gastos.length)return '<div class="empty" style="padding:18px 8px">Sin consumos en este ciclo</div>';
-  return `<div class="card-mini-list">${gastos.slice(0,limit).map(t=>{
-    const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const cta=card?card.cuenta:(t[5]||'');
-    return `<div class="card-mini-item" onclick="event.stopPropagation();abrirCardTxDetail('${String(cta).replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-mini-desc">${em.e} ${escHtml(t[1]||'Sin descripción')}</div><div class="card-mini-meta">${escHtml(cleanName(t[2]))} · ${fmtDateShort(pf(t[0]))}</div></div><div class="card-mini-amt">− ${fmt(t[4])}</div></div>`;
-  }).join('')}</div>`;
-}
+// Un consumo en dólares se guarda en soles al TC de la compra; se muestran
+// ambos importes para reconocerlo.
+const montoConsumo=t=>`− ${fmt(t[4])}${t[9]==='USD'&&Number(t[10])>0?chipUSD(Number(t[10])):''}`;
 
 export function renderCardsPage(){
   updateCardCycleQuickUI();
@@ -78,7 +77,7 @@ export function renderCardsPage(){
   const cont=document.getElementById('cardsPage'); if(!cont)return;
 
   if(cardPageTab==='resumen'){
-    cont.innerHTML=bannerDeudaUSD()+CREDIT_CARDS.map(card=>{
+    cont.innerHTML=CREDIT_CARDS.map(card=>{
       const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
       const pct=total>0?Math.min((pagado/total)*100,100):0; const usd=usdCiclo(card,data);
       return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
@@ -87,12 +86,12 @@ export function renderCardsPage(){
           <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
           <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}${usd?chipUSD(usd.total):''}</span></div>
           <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
-          <div class="credit-row"><span>Pendiente</span><span style="color:var(--red)">${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente):''}</span></div>
+          <div class="credit-row"><span>Pendiente</span><span${pendiente>0?' style="color:var(--red)"':''}>${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente):''}</span></div>
           ${data.saldoFavorUSD>0?`<div class="credit-row"><span>A favor en dólares</span><strong style="color:var(--green)">+US$ ${fmtN(data.saldoFavorUSD)}</strong></div>`:''}
           ${data.saldoFavor>0?`<div class="credit-row"><span>A favor en soles</span><strong style="color:var(--green)">+${fmt(data.saldoFavor)}</strong></div>`:''}
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>
           <div class="credit-row"><span>Estado</span><span><span class="status-pill ${status.cls}">${status.text}</span></span></div>
-        </div>${renderCreditLineBlock(card,pendiente)}<div class="hint">Toca para ver pago y resumen</div></div>`;
+        </div>${renderCreditLineBlock(card,getCardOutstandingTotal(card))}<div class="hint">Toca para ver pago y resumen</div></div>`;
     }).join('');
     return;
   }
@@ -105,7 +104,7 @@ export function renderCardsPage(){
             const em=getEmoji(cleanName(t[2]));
             const override=getTxCycleOverride(card,t);
             const row=String(getTxRow(t)).replace(/'/g,"\\'");
-            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><span class="card-tx-amt">− ${fmt(t[4])}</span><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
+            return `<div class="card-tx-item"><div onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${row}')" style="flex:1;cursor:pointer"><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')}${override?' <span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))}</div></div><div style="display:flex;align-items:center;gap:6px"><span class="card-tx-amt">${montoConsumo(t)}</span><button class="mini-action" onclick="event.stopPropagation();editarTx('${row}')">Editar</button></div></div>`;
           }).join('')
         :'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
       return `<div class="credit-card" style="cursor:default"><div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${data.gastos.length} consumo${data.gastos.length===1?'':'s'} · ${fmtDateShort(data.cycle.start)} – ${fmtDateShort(data.cycle.end)}</div></div><div class="credit-amount">${fmt(data.total)}</div></div><div class="card-tx-list">${txRows}</div></div>`;
@@ -144,6 +143,7 @@ function renderCardTxDetail(){
   cont.innerHTML=`<div class="card-detail-head"><div class="card-detail-name">${em.e} ${escHtml(tx[1]||'Sin descripción')}</div><div class="card-detail-sub">${escHtml(card.nombre)} · ${fmtDateLong(pf(tx[0]))}</div></div>
     <div class="tx-detail-grid">
       <div class="tx-detail-row"><span>Monto</span><span style="color:var(--red)">− ${fmt(tx[4])}</span></div>
+      ${tx[9]==='USD'&&Number(tx[10])>0?`<div class="tx-detail-row"><span>En dólares</span><span>US$ ${fmtN(Number(tx[10]))}${Number(tx[11])>0?' · TC '+Number(tx[11]).toFixed(3):''}</span></div>`:''}
       <div class="tx-detail-row"><span>Categoría</span><span>${cleanName(tx[2])}</span></div>
       <div class="tx-detail-row"><span>Cuenta</span><span>${tx[5]||card.nombre}</span></div>
       <div class="tx-detail-row"><span>Ciclo visible</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
@@ -160,7 +160,7 @@ function renderManualMovedSection(card,cycle){
   if(!moved.length)return '';
   return `<div class="manual-section-title">Movidos manualmente fuera de este ciclo</div>`+moved.map(t=>{
     const em=getEmoji(cleanName(t[2])); const row=getTxRow(t); const key=getTxCycleOverride(card,t);
-    return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+    return `<div class="card-tx-item recovery" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} <span class="manual-tag">ajustado</span></div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))} · ciclo ${key}</div></div><div class="card-tx-amt">${montoConsumo(t)}</div></div>`;
   }).join('');
 }
 
@@ -175,7 +175,7 @@ export async function moverConsumoCiclo(row,targetOffset){
 function renderCardTxList(card,gastos,cycle){
   const list=gastos.length?gastos.map(t=>{
     const em=getEmoji(cleanName(t[2])); const override=getTxCycleOverride(card,t); const row=getTxRow(t);
-    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} ${override?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))}</div></div><div class="card-tx-amt">− ${fmt(t[4])}</div></div>`;
+    return `<div class="card-tx-item" onclick="abrirCardTxDetail('${card.cuenta.replace(/'/g,"\\'")}','${String(row).replace(/'/g,"\\'")}')"><div><div class="card-tx-desc">${em.e} ${escHtml(t[1]||'Sin descripción')} ${override?'<span class="manual-tag">ajustado</span>':''}</div><div class="card-tx-meta">${escHtml(cleanName(t[2]))} · ${fmtDateLong(pf(t[0]))}</div></div><div class="card-tx-amt">${montoConsumo(t)}</div></div>`;
   }).join(''):'<div class="empty" style="padding:24px 10px">Sin consumos en este ciclo</div>';
   return list+renderManualMovedSection(card,cycle);
 }
@@ -198,9 +198,9 @@ export function renderCardDetail(){
   cont.innerHTML=head+`
     <div class="credit-pay-grid"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val red">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pendiente</div><div class="credit-mini-val ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Estado</div><div class="credit-mini-val"><span class="status-pill ${status.cls}">${status.text}</span></div></div></div>
     ${data.saldoFavor>0?`<div class="card-pen-credit">Saldo a favor en soles <strong>+${fmt(data.saldoFavor)}</strong></div>`:''}
-    ${renderCreditLineBlock(card,pendiente)}
+    ${renderCreditLineBlock(card,getCardOutstandingTotal(card))}
     <div class="bbar" style="margin-top:12px"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div>
-    ${renderPaymentForm(pendiente,card)}
+    ${renderPaymentForm(card,data)}
     ${renderPaymentHistory(card,cycle)}`;
   actualizarPagoUSD();
 }

@@ -137,14 +137,19 @@ html{scroll-behavior:auto;}
 .card-cycle-next{min-width:150px;}
 .card-cycle-next .card-cycle-value{justify-content:space-between;}
 .card-cycle-arrow{color:var(--dim);font-size:.9rem;}
-.line-summary-breakdown{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.7rem;color:var(--muted);}
-.line-summary-breakdown strong{color:var(--text);}
+/* Lo que ya está dentro de la línea usada: informa, no suma. */
+.line-includes{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.06);}
+.line-includes-title{font-size:.66rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.line-includes-row{display:flex;justify-content:space-between;gap:12px;font-size:.74rem;color:var(--dim);font-variant-numeric:tabular-nums;}
+.line-includes-row+.line-includes-row,.line-includes-sub+.line-includes-row{margin-top:6px;}
+.line-includes-row strong{color:var(--text);font-weight:800;white-space:nowrap;}
+.line-includes-sub{font-size:.66rem;color:var(--muted);line-height:1.4;margin-top:3px;}
 .tx-detail-grid{display:grid;gap:10px;margin:12px 0;}
 .tx-detail-row{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;font-size:.8rem;}
 .tx-detail-row span:first-child{color:var(--muted);font-weight:700;}
 .tx-detail-row span:last-child{color:var(--text);font-weight:800;text-align:right;}
 .stat-delta-pos{color:var(--green)!important}.stat-delta-neg{color:var(--red)!important}.stat-delta-flat{color:var(--dim)!important}
-@media(max-width:460px){.card-cycle-bar{grid-template-columns:1fr}.card-cycle-next{min-width:0}.line-summary-meta{flex-direction:column}.line-summary-breakdown{flex-direction:column;gap:4px}}
+@media(max-width:460px){.card-cycle-bar{grid-template-columns:1fr}.card-cycle-next{min-width:0}.line-summary-meta{flex-direction:column}}
 
 
 /* === Ajustes finales Arturo: carrusel de ciclos y recuperación === */

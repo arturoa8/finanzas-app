@@ -7,10 +7,9 @@ import {cardCycleOffset, cardTxCycleKey, getCardCycle, getCycleKey, isCardExpens
 import {getCardPaymentRecords, getPaymentStatus, pagoEnSoles, pagoEsUSD} from './payments.js';
 import {calcularCreditoUSD, notaCreditoUSD} from './usd-credit.js';
 import {sameAccount} from '../transactions.js';
-import {tcMercado} from '../../services/exchange-rate.js';
 import {datos} from '../../state.js';
 import {endOfDay, pf} from '../../utils/dates.js';
-import {cleanName, fmt, fmtN} from '../../utils/formatters.js';
+import {cleanName, fmtN} from '../../utils/formatters.js';
 
 // Deuda en dólares de una tarjeta y los soles ya reconocidos por ella. Es la
 // misma cuenta que hace pagar_tarjeta_usd() en el servidor, para que lo que se
@@ -64,10 +63,6 @@ export function cardStats(gastos,total){
   return{topCat:top?top[0]:'—',topCatVal:top?top[1]:0,avg:gastos.length?total/gastos.length:0,maxTx,cats};
 }
 
-// Deuda en dólares. Se muestra en dólares; el equivalente en soles de hoy es solo
-// una referencia con el tipo de cambio de mercado y no se suma a nada.
-export function refSolesHoy(usd){return tcMercado>0?' <small style="color:var(--dim)">≈ '+fmt(usd*tcMercado)+' hoy</small>':'';}
-
 // Dólares de UN ciclo: consumos menos devoluciones y pagos en dólares de ese
 // ciclo. Se muestran junto al importe en soles, sin fila aparte. Devuelve null
 // si el ciclo no tiene consumos en dólares.
@@ -86,6 +81,37 @@ export function usdCiclo(card,data){
     return{total:c(total),pagado:c(Math.min(cubierto,total)),pendiente:c(Math.max(0,total-reemb-cubierto)),creditoAplicado:(b?.creditoAplicado||0)/100};
   }
   return{total:c(total),pagado:c(Math.min(pagado,total)),pendiente:c(Math.max(0,total-reemb-pagado))};
+}
+
+// Soles (al TC de cada compra) de la parte en dólares que sigue pendiente en
+// el ciclo. Esa parte se paga en dólares: un pago en soles no la descuenta.
+export function pendienteUSDEnSoles(card,data){
+  const key=getCycleKey(data.cycle),c=v=>Math.round(v*100)/100;
+  if(tarjetaConCreditoUSD(card))
+    return c(modeloCreditoTarjetaUSD(card).deuda.filter(l=>l.ciclo===key&&l.usd>0).reduce((s,l)=>s+l.pen,0)/100);
+  let pen=0;const ids=new Set();
+  data.gastos.forEach(t=>{if(t[9]==='USD'){pen+=Number(t[4])||0;ids.add(String(t[6]));}});
+  if(!(pen>0))return 0;
+  (datos.transacciones||[]).forEach(t=>{if(t[3]==='Reembolso'&&t[9]==='USD'&&sameAccount(t[5]||'',card.cuenta)&&ids.has(String(t[8])))pen-=Number(t[4])||0;});
+  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p)&&normCycleKey(p[2])===key)pen-=pagoEnSoles(p);});
+  return c(Math.max(0,pen));
+}
+
+// Lo que se paga en soles de un ciclo: el pendiente sin su parte en dólares.
+export function pendienteEnSoles(card,data){return Math.max(0,Math.round((data.pendiente-pendienteUSDEnSoles(card,data))*100)/100);}
+
+// Deuda en dólares de todas las tarjetas y los soles con que ya cuenta en la
+// línea usada (al TC de cada compra).
+export function deudaUSDTodas(){
+  const d=CREDIT_CARDS.reduce((s,card)=>{const x=deudaTarjetaUSD(card);return{usd:s.usd+x.usd,pen:s.pen+x.pen};},{usd:0,pen:0});
+  return{usd:Math.round(d.usd*100)/100,pen:Math.round(d.pen*100)/100};
+}
+
+// Pendiente de ciclos que cerraron antes del actual (vencido o por pagar).
+export function pendienteCiclosAnteriores(card){
+  const actual=getCycleKey(getCardCycle(card,0));
+  let s=0;for(const [key,b] of cardLedger(card).buckets)if(key<actual)s+=b.pendiente;
+  return Math.round(s*100)/100;
 }
 
 export function chipUSD(usd){return usd>0?` <small style="color:var(--dim)">· US$ ${fmtN(usd)}</small>`:'';}
