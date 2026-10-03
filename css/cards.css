@@ -10,6 +10,9 @@
 .credit-name{font-size:1rem;font-weight:800;letter-spacing:-0.01em;}
 .credit-sub{font-size:0.72rem;color:var(--muted);margin-top:4px;}
 .credit-amount{font-size:1.25rem;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.credit-amount.green{color:var(--green);}
+.credit-amount-label{font-size:.66rem;font-weight:700;letter-spacing:0;text-align:right;margin-top:3px;}
+.card-credit-applied{color:var(--green);}
 .credit-info{display:grid;gap:8px;}
 .credit-row{display:flex;justify-content:space-between;gap:12px;font-size:0.78rem;}
 .credit-row span:first-child{color:var(--muted);}
@@ -129,19 +132,19 @@ html{scroll-behavior:auto;}
 
 /* Tarjetas refinamiento: selector rápido, línea + siguiente ciclo, consumo detalle */
 .card-cycle-bar{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch;margin:0 0 12px;}
-.card-cycle-main,.card-cycle-next{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;cursor:pointer;transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .25s ease,background .25s ease;}
+.card-cycle-main,.card-cycle-next{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:11px 13px;text-align:left;cursor:pointer;transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .25s ease,background .25s ease;}
 .card-cycle-main:active,.card-cycle-next:active{transform:scale(.98);}
 .card-cycle-title{font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
 .card-cycle-value{font-size:.95rem;color:var(--text);font-weight:900;display:flex;align-items:center;gap:6px;}
 .card-cycle-amount{font-size:.85rem;color:var(--red);font-weight:900;font-variant-numeric:tabular-nums;margin-top:4px;}
 .card-cycle-usd{display:block;font-size:.92em;margin-top:1px;}
 .card-cycle-next{min-width:150px;}
-.card-cycle-next .card-cycle-value{justify-content:space-between;}
+.card-cycle-next .card-cycle-value{justify-content:flex-start;}
 .card-cycle-arrow{color:var(--dim);font-size:.9rem;}
 /* Desglose de la línea por ciclo y moneda. */
 .line-breakdown{display:grid;gap:5px;margin-top:10px;}
-.line-breakdown-row{display:flex;justify-content:space-between;gap:12px;font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums;}
-.line-breakdown-row strong{color:var(--text);font-weight:800;text-align:right;}
+.line-breakdown-row{display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+.line-breakdown-row strong{color:var(--text);font-weight:800;text-align:left;overflow-wrap:anywhere;}
 .tx-detail-grid{display:grid;gap:10px;margin:12px 0;}
 .tx-detail-row{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;font-size:.8rem;}
 .tx-detail-row span:first-child{color:var(--muted);font-weight:700;}
@@ -230,6 +233,8 @@ html{scroll-behavior:auto;}
 #cardDetailContent .credit-mini{padding:13px 14px;}
 #cardDetailContent .credit-mini-lbl{font-size:.67rem;color:var(--dim);margin-bottom:6px;}
 #cardDetailContent .credit-mini-val{font-size:1rem;}
+.credit-mini-note{font-size:.66rem;line-height:1.5;color:var(--dim);margin-top:6px;}
+.card-detail-credit-note{font-size:.73rem;color:var(--dim);line-height:1.5;margin-top:10px;}
 .card-detail-progress{margin:16px 2px 18px;}
 .card-detail-progress .bbar{height:5px;}
 .card-detail-progress .bpct{margin-top:7px;color:var(--dim);font-size:.7rem;}
@@ -246,6 +251,7 @@ html{scroll-behavior:auto;}
 .pay-item-meta{font-size:.72rem;color:var(--dim);margin-top:5px;line-height:1.5;overflow-wrap:anywhere;}
 #cardDetailContent .pay-item-note{color:var(--dim);font-size:.72rem;line-height:1.5;margin-top:5px;white-space:normal;overflow-wrap:anywhere;}
 #cardDetailContent .pay-item-amt{font-size:.95rem;line-height:1.4;}
+#cardDetailContent .pay-item-credit{background:rgba(0,214,143,.045);border-color:rgba(0,214,143,.16);}
 #cardDetailContent .pay-item-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
 #cardDetailContent .pay-small-btn{min-height:36px;background:var(--card2);color:var(--text);font-size:.7rem;padding:8px 12px;}
 #cardDetailContent .pay-small-btn.danger{color:var(--red);background:rgba(255,59,107,.045);}

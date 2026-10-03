@@ -11,7 +11,7 @@ export const serializarCreditoUSD=meta=>NOTA_CREDITO_USD+JSON.stringify(meta);
 // Lotes de deuda y de crédito en céntimos. El crédito USD solo cubre USD;
 // convertirse a PEN exige un movimiento bancario explícito.
 export function calcularCreditoUSD(gastos,pagos){
-  const deuda=[],credito=[],porCiclo=new Map(),porTx=new Map(),cambios=[];
+  const deuda=[],credito=[],porCiclo=new Map(),porTx=new Map(),porPago=new Map(),cambios=[];
   const ciclo=k=>{if(!porCiclo.has(k))porCiclo.set(k,{cubierto:0,usdPagado:0,creditoAplicado:0});return porCiclo.get(k);};
   const parte=(pen,usados,usd)=>!usados?0:usados===usd?pen:Math.round(pen*usados/usd);
   function consumirCredito(usd){
@@ -76,11 +76,16 @@ export function calcularCreditoUSD(gastos,pagos){
         for(const lote of restantes){const pen=parte(nuevo,lote.pen,base);base-=lote.pen;nuevo-=pen;lote.pen=pen;}
       }
       const aFavor=extra+falta;
-      if(aFavor){credito.push({id:e.id,usd:aFavor,pen:e.meta&&aFavor===extra?centimosUSD(e.meta.costoCredito):parte(costo,aFavor,importe)});aplicarCreditoPendiente(e.fecha);}
+      const costoCredito=e.meta&&aFavor===extra?centimosUSD(e.meta.costoCredito):parte(costo,aFavor,importe);
+      // El costo original del excedente no se pierde cuando el lote ya se
+      // consumió. En unidades de moneda, útil para reponer el pago histórico
+      // desde una cuenta USD sin tratar ese crédito como otro retiro PEN.
+      porPago.set(String(e.id),{creditoUSD:aFavor/100,costoCreditoPEN:costoCredito/100});
+      if(aFavor){credito.push({id:e.id,usd:aFavor,pen:costoCredito});aplicarCreditoPendiente(e.fecha);}
     }
   }
   const pendiente=deuda.reduce((s,l)=>s+l.usd,0),penPendiente=deuda.reduce((s,l)=>s+l.pen,0);
   const favor=credito.reduce((s,l)=>s+l.usd,0),costoFavor=credito.reduce((s,l)=>s+l.pen,0);
   return{usd:pendiente/100,pen:penPendiente/100,saldoFavor:favor/100,costoFavor:costoFavor/100,
-    porCiclo,deuda,credito,porTx,cambios,consumirCredito};
+    porCiclo,deuda,credito,porTx,porPago,cambios,consumirCredito};
 }

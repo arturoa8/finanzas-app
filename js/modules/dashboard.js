@@ -4,7 +4,7 @@
 import {aportesNetosInversion, esCuentaInversion, esCuentaUSDNoInversion, fueraDePerimetro} from './accounts.js';
 import {renderAnalisis} from './analytics.js';
 import {renderCardsPage} from './cards/cards-ui.js';
-import {favorTarjetaEnSoles, getCardOutstandingTotal, modeloCreditoTarjetaUSD, tarjetaConCreditoUSD} from './cards/cards.js';
+import {favorTarjetaEnSoles, getCardOutstandingTotal, modeloCreditoTarjetaUSD} from './cards/cards.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {pagoEnSoles, pagoEsUSD} from './cards/payments.js';
 import {notaCreditoUSD} from './cards/usd-credit.js';
@@ -184,9 +184,9 @@ export function renderBal(){
   // Al usar crédito USD comprado antes, reconocer su costo histórico. La
   // diferencia frente al gasto estimado pertenece a la fecha de consumo.
   const idsBalance=new Set(txBalance.map(t=>String(t[6]))),idsPeriodo=new Set(txPeriodo.map(t=>String(t[6])));
+  const modelosUSD=new Map(CREDIT_CARDS.map(card=>[norm(card.cuenta),modeloCreditoTarjetaUSD(card)]));
   for(const card of CREDIT_CARDS){
-    if(!tarjetaConCreditoUSD(card))continue;
-    for(const ajuste of modeloCreditoTarjetaUSD(card).cambios){
+    for(const ajuste of modelosUSD.get(norm(card.cuenta)).cambios){
       if(idsBalance.has(ajuste.id)){if(ajuste.monto>0)iBal+=ajuste.monto;else gBal-=ajuste.monto;}
       if(idsPeriodo.has(ajuste.id)){if(ajuste.monto>0)iPeriodo+=ajuste.monto;else gPeriodo-=ajuste.monto;}
     }
@@ -203,7 +203,12 @@ export function renderBal(){
     // Si se pagó desde dólares ya comprados, no hubo otra salida de soles.
     // El pago redujo la deuda anterior; se repone solo su equivalente
     // reconocido. Su ajuste de cambio se excluyó arriba por la misma razón.
-    balance+=pagosDesdeUSD.reduce((sum,p)=>sum+pagoEnSoles(p)+(Number(notaCreditoUSD(p)?.costoCredito)||0),0);
+    balance+=pagosDesdeUSD.reduce((sum,p)=>{
+      const meta=notaCreditoUSD(p);
+      const costoCredito=meta?.tipo==='pago'?Number(meta.costoCredito)||0
+        :modelosUSD.get(norm(p[1]))?.porPago.get(String(p[0]))?.costoCreditoPEN||0;
+      return sum+pagoEnSoles(p)+costoCredito;
+    },0);
     // El crédito a favor pertenece a la tarjeta; aún no es efectivo en banco.
     balance-=CREDIT_CARDS.reduce((sum,card)=>sum+favorTarjetaEnSoles(card,hoy),0);
   }

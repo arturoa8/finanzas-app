@@ -67,6 +67,19 @@ function renderCreditLineSummary(){
 // ambos importes para reconocerlo.
 const montoConsumo=t=>`− ${fmt(t[4])}${t[9]==='USD'&&Number(t[10])>0?chipUSD(Number(t[10])):''}`;
 
+function saldoFavorCiclo(data){
+  return{soles:Math.max(0,Number(data.saldoFavor)||0),usd:Math.max(0,Number(data.saldoFavorUSD)||0)};
+}
+
+function creditoAplicadoCiclo(data){
+  return{soles:Math.max(0,Number(data.creditoAplicadoPEN??data.creditoAplicado)||0),usd:Math.max(0,Number(data.creditoAplicadoUSD)||0)};
+}
+
+function saldoPrincipal(data){
+  const favor=saldoFavorCiclo(data),aFavor=data.pendiente<=0&&(favor.soles>0||favor.usd>0);
+  return{aFavor,favor,monto:aFavor?(favor.soles>0?`+${fmt(favor.soles)}`:`+US$ ${fmtN(favor.usd)}`):fmt(data.pendiente)};
+}
+
 export function renderCardsPage(){
   updateCardCycleQuickUI();
   renderCreditLineSummary();
@@ -76,12 +89,14 @@ export function renderCardsPage(){
     cont.innerHTML=CREDIT_CARDS.map(card=>{
       const data=getCardData(card,cardCycleOffset); const {cycle,gastos,total,pagado,pendiente,status}=data;
       const pct=total>0?Math.min((pagado/total)*100,100):0; const usd=usdCiclo(card,data);
+      const principal=saldoPrincipal(data),aplicado=creditoAplicadoCiclo(data);
       return `<div class="credit-card" onclick="abrirCardDetail('${card.cuenta.replace(/'/g,"\\'")}')">
-        <div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
+        <div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount${principal.aFavor?' green':''}">${principal.monto}${principal.aFavor?'<div class="credit-amount-label">A favor</div>':''}</div></div>
         <div class="credit-info">
           <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
           <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}${usd?chipUSD(usd.total,'incl. '):''}</span></div>
           <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
+          ${aplicado.soles>0||aplicado.usd>0?`<div class="credit-row"><span>Saldo a favor aplicado</span><strong class="card-credit-applied">${fmtMonedas(aplicado)}</strong></div>`:''}
           <div class="credit-row"><span>Pendiente</span><span${pendiente>0?' style="color:var(--red)"':''}>${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente,'incl. '):''}</span></div>
           ${data.saldoFavorUSD>0?`<div class="credit-row"><span>A favor en dólares</span><strong style="color:var(--green)">+US$ ${fmtN(data.saldoFavorUSD)}</strong></div>`:''}
           ${data.saldoFavor>0?`<div class="credit-row"><span>A favor en soles</span><strong style="color:var(--green)">+${fmt(data.saldoFavor)}</strong></div>`:''}
@@ -185,24 +200,25 @@ export function renderCardDetail(){
   const deltaTxt=`${delta>0?'+':delta<0?'−':''}${fmt(Math.abs(delta))} · ${pctDelta>0?'+':''}${pctDelta.toFixed(0)}%`;
   const head=`<div class="card-detail-head card-account-head"><div class="card-detail-icon" aria-hidden="true">${escHtml(card.emoji)}</div><div class="card-detail-heading"><div class="card-detail-name">${escHtml(card.nombre)}</div><div class="card-detail-sub">${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</div></div><span class="status-pill ${status.cls}">${status.text}</span></div>`;
   if(cardPageTab==='consumos'){
-    cont.innerHTML=head+`<div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>${renderPaymentHistory(card,cycle)}`; return;
+    cont.innerHTML=head+`<div class="card-tx-list card-detail-scroll"><div class="card-tx-title">Gastos del ciclo</div>${renderCardTxList(card,gastos,cycle)}</div>${renderPaymentHistory(card,cycle,data)}`; return;
   }
   if(cardPageTab==='stats'){
     const catRows=Object.entries(st.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="credit-row"><span>${getEmoji(k).e} ${k}</span><span>${fmt(v)}</span></div>`).join('');
-    cont.innerHTML=head+`<div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Este ciclo</div><div class="card-stat-val">${fmt(total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${deltaCls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${escHtml(st.topCat)} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${escHtml(st.maxTx[1])} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>${renderPaymentHistory(card,cycle)}`; return;
+    cont.innerHTML=head+`<div class="card-stat-grid"><div class="card-stat"><div class="card-stat-lbl">Este ciclo</div><div class="card-stat-val">${fmt(total)}</div></div><div class="card-stat"><div class="card-stat-lbl">Ciclo anterior</div><div class="card-stat-val">${fmt(prev.total)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Variación</div><div class="card-stat-val ${deltaCls}">${deltaTxt}</div></div><div class="card-stat"><div class="card-stat-lbl">Consumos</div><div class="card-stat-val">${gastos.length}</div></div><div class="card-stat"><div class="card-stat-lbl">Promedio</div><div class="card-stat-val">${fmt(st.avg)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor categoría</div><div class="card-stat-val">${topEmoji.e} ${escHtml(st.topCat)} · ${fmt(st.topCatVal)}</div></div><div class="card-stat full"><div class="card-stat-lbl">Mayor consumo</div><div class="card-stat-val">${st.maxTx?`${escHtml(st.maxTx[1])} · ${fmt(st.maxTx[4])}`:'—'}</div></div></div><div class="credit-card" style="cursor:default;margin-top:12px"><div class="card-tx-title">Categorías</div>${catRows||'<div class="empty" style="padding:16px">Sin datos</div>'}</div>${renderPaymentHistory(card,cycle,data)}`; return;
   }
   const usd=usdCiclo(card,data);
+  const principal=saldoPrincipal(data),aplicado=creditoAplicadoCiclo(data);
   cont.innerHTML=head+`
     <section class="card-detail-balance">
-      <div class="card-detail-label">Pendiente del ciclo</div>
-      <div class="card-detail-amount ${pendiente>0?'red':'green'}">${fmt(pendiente)}</div>
-      ${usd&&usd.pendiente>0?`<div class="card-detail-currency">${chipUSD(usd.pendiente,'incl. ')}</div>`:''}
-      <div class="card-detail-due"><span>Pagar hasta</span><strong>${fmtDateLong(cycle.pay)}</strong></div>
+      <div class="card-detail-label">${principal.aFavor?'Saldo a favor del ciclo':'Pendiente del ciclo'}</div>
+      <div class="card-detail-amount ${pendiente>0?'red':'green'}">${principal.monto}</div>
+      ${principal.aFavor&&principal.favor.soles>0&&principal.favor.usd>0?`<div class="card-detail-currency card-credit-applied">+US$ ${fmtN(principal.favor.usd)}</div>`:usd&&usd.pendiente>0?`<div class="card-detail-currency">${chipUSD(usd.pendiente,'incl. ')}</div>`:''}
+      ${principal.aFavor?'<div class="card-detail-credit-note">Se arrastra al siguiente ciclo</div>':`<div class="card-detail-due"><span>Pagar hasta</span><strong>${fmtDateLong(cycle.pay)}</strong></div>`}
     </section>
-    <div class="credit-pay-grid card-detail-totals"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div></div></div>
-    <div class="card-detail-progress"><div class="bbar"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div></div>
-    ${data.saldoFavor>0?`<div class="card-pen-credit">Saldo a favor en soles <strong>+${fmt(data.saldoFavor)}</strong></div>`:''}
-    ${data.saldoFavorUSD>0?`<div class="card-pen-credit">Saldo a favor en dólares <strong>+US$ ${fmtN(data.saldoFavorUSD)}</strong></div>`:''}
-    ${renderPaymentHistory(card,cycle)}
+    ${total>0?`<div class="credit-pay-grid card-detail-totals"><div class="credit-mini"><div class="credit-mini-lbl">Facturado</div><div class="credit-mini-val">${fmt(total)}</div></div><div class="credit-mini"><div class="credit-mini-lbl">Pagado</div><div class="credit-mini-val green">${fmt(pagado)}</div>${aplicado.soles>0||aplicado.usd>0?`<div class="credit-mini-note">Incluye ${fmtMonedas(aplicado)} de saldo a favor</div>`:''}</div></div>
+    <div class="card-detail-progress"><div class="bbar"><div class="bfill ${pct>=100?'ok':pct>0?'warn':'over'}" style="width:${pct}%"></div></div><div class="bpct">${pct.toFixed(0)}% pagado</div></div>`:''}
+    ${!principal.aFavor&&data.saldoFavor>0?`<div class="card-pen-credit">Saldo a favor en soles <strong>+${fmt(data.saldoFavor)}</strong></div>`:''}
+    ${!principal.aFavor&&data.saldoFavorUSD>0?`<div class="card-pen-credit">Saldo a favor en dólares <strong>+US$ ${fmtN(data.saldoFavorUSD)}</strong></div>`:''}
+    ${renderPaymentHistory(card,cycle,data)}
     <div class="card-detail-line">${renderCreditLineBlock(card,getCardOutstandingTotal(card))}</div>`;
 }

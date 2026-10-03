@@ -139,6 +139,14 @@ const esperar=async(pred)=>{
   ui.abrirCardDetail('MC demo');const original=datos.pagosTarjetas[0].slice();
   const historial=pagos.renderPaymentHistory({cuenta:'MC demo'},ciclos.getCardCycle({finDia:24,inicioDia:25,pagoDia:15},0));
   assert.match(historial,/editarPagoTarjeta/);
+  const cicloVacio=ciclos.getCardCycle({finDia:24,inicioDia:25,pagoDia:15},3);
+  const antesCredito=JSON.stringify(datos.pagosTarjetas),pedidosAntesCredito=pedidos.length;
+  const historialCredito=pagos.renderPaymentHistory({cuenta:'MC demo'},cicloVacio,{creditoAplicado:20,creditoAplicadoUSD:0.58});
+  assert.match(historialCredito,/Saldo a favor aplicado/);
+  assert.match(historialCredito,/20\.00/);assert.match(historialCredito,/US\$ 0\.58/);
+  assert.doesNotMatch(historialCredito,/editarPagoTarjeta|eliminarPagoTarjeta|Aún no hay pagos/);
+  assert.match(historialCredito,/pay-history-count">0</,'el arrastre no aumenta el número de pagos reales');
+  assert.equal(JSON.stringify(datos.pagosTarjetas),antesCredito);assert.equal(pedidos.length,pedidosAntesCredito);
   pagos.editarPagoTarjeta(String(original[0]));
   assert.equal(el('payEditModal').classList.contains('active'),true);assert.equal(el('payEditCuenta').value,'Yape');
   el('payEditAmount').value='20.25';el('payEditDate').value='2026-10-02';el('payEditNote').value='Nota corregida';el('payEditCuenta').value='Plin';
@@ -202,11 +210,22 @@ const esperar=async(pred)=>{
   // USD mantiene campos y preview; PEN y USD siguen siendo importes distintos.
   pagos.abrirPagoTarjeta();pagos.seleccionarTarjetaPago('Visa demo');
   assert.match(el('cardPaymentContent').innerHTML,/cardUsdMonto/);
+  assert.equal(el('cardUsdCuenta').value,'BCP Dólares','los pagos en USD usan BCP Dólares por defecto');
+  assert.equal(el('cardPayCuenta').value,'Plin','el origen de pagos en soles conserva su preferencia');
+  assert.equal(el('cardUsdSolesRow').hidden,true,'con una cuenta USD no se pide costo manual en soles');
   el('cardUsdMonto').value='10';el('cardUsdCuenta').value='Plin';el('cardUsdSoles').value='38';el('cardUsdFecha').value='2026-10-03';
   pagos.actualizarPagoUSD();
   assert.equal(el('cardUsdSolesRow').hidden,false);assert.match(el('cardUsdPreview').textContent,/38\.00/);
   el('cardUsdCuenta').value='BCP Dólares';pagos.actualizarPagoUSD();
   assert.equal(el('cardUsdSolesRow').hidden,true);assert.match(el('cardUsdPreview').textContent,/compras de dólares/);
+  datos.cuentas.find(c=>c[0]==='BCP Dólares')[3]=true;
+  datos.cuentas.push(['Otra cuenta USD','banco','USD',false,'otra-usd']);
+  pagos.seleccionarTarjetaPago('Visa demo');
+  assert.equal(el('cardUsdCuenta').value,'Otra cuenta USD','una cuenta archivada no queda como predeterminada');
+  datos.cuentas=datos.cuentas.filter(c=>c[0]!=='Otra cuenta USD');
+  pagos.seleccionarTarjetaPago('Visa demo');
+  assert.equal(el('cardUsdCuenta').value,'Plin','sin cuenta USD disponible todavía se puede pagar desde soles');
+  datos.cuentas.find(c=>c[0]==='BCP Dólares')[3]=false;
   pagos.cerrarPagoTarjeta();assert.equal(el('cardPaymentModal').classList.contains('active'),false);
   pagina='p-dash';nav.handleFab();assert.equal(el('modal').classList.contains('active'),true,'Inicio conserva Nueva transacción');
   assert.equal(el('cardPaymentModal').classList.contains('active'),false);

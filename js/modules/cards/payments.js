@@ -315,11 +315,13 @@ async function eliminarPagoTarjeta__base(id){
 // llamadas internas queden igual de protegidas que en el monolito.
 export const eliminarPagoTarjeta=guardedOnce(eliminarPagoTarjeta__base);
 
-export function renderPaymentHistory(card,cycle){
+export function renderPaymentHistory(card,cycle,data=null){
   const pagos=getCardPaymentRecords(card,cycle).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const creditoSoles=Number(data?.creditoAplicado)||0,creditoUSD=Number(data?.creditoAplicadoUSD)||0;
+  const aplicado=creditoSoles>0||creditoUSD>0?`<article class="pay-item pay-item-credit"><div class="pay-item-main"><div class="pay-item-date">Saldo a favor aplicado</div><div class="pay-item-meta">Se descuenta de los consumos de este ciclo</div></div><div class="pay-item-amt">${[creditoSoles>0?fmt(creditoSoles):'',creditoUSD>0?'US$ '+fmtN(creditoUSD):''].filter(Boolean).join('<br>')}</div></article>`:'';
   const head=`<div class="pay-history-head"><div class="pay-history-title">Historial de pagos</div><span class="pay-history-count">${pagos.length}</span></div>`;
-  if(!pagos.length)return `<section class="pay-history">${head}<div class="empty">Aún no hay pagos en este ciclo</div></section>`;
-  return `<section class="pay-history">${head}${pagos.map(p=>{
+  if(!pagos.length)return `<section class="pay-history">${head}${aplicado||'<div class="empty">Aún no hay pagos en este ciclo</div>'}</section>`;
+  return `<section class="pay-history">${head}${aplicado}${pagos.map(p=>{
     const detalle=p.meta?.tipo==='conversion'?'Conversión de US$ '+fmtN(p.meta.usd)+' · TC '+Number(p.meta.tc).toFixed(4):p.moneda==='USD'?'Costó '+fmt(p.soles)+' · TC '+Number(p.tc).toFixed(4):'';
     const origen=p.cuentaOrigen?'Desde '+p.cuentaOrigen:p.meta?.tipo==='conversion'?'Conversión del banco':'Pago en soles';
     const id=escAttr(p.id);
@@ -354,7 +356,9 @@ function renderPagoUSD(card,mostrar=false){
   if(!(d.usd>0))return '';
   const def=defaultCuentaOrigen(card);
   const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion');
-  const elegida=cuentas.find(c=>sameAccount(c[0],def))?.[0]||cuentas[0]?.[0];
+  const elegida=cuentas.find(c=>c[2]==='USD'&&sameAccount(c[0],'BCP Dólares'))?.[0]
+    ||cuentas.find(c=>c[2]==='USD')?.[0]
+    ||cuentas.find(c=>sameAccount(c[0],def))?.[0]||cuentas[0]?.[0];
   const opts=cuentas.map(c=>`<option value="${escAttr(c[0])}"${c[0]===elegida?' selected':''}>${escHtml(c[0])} · ${c[2]}</option>`).join('');
   const sug=tcMercado>0?(Math.round(d.usd*tcMercado*100)/100).toFixed(2):'';
   return `<div id="cardPayUsd"${mostrar?'':' hidden'}>
@@ -411,7 +415,8 @@ async function guardarPagoTarjetaUSD__base(){
   try{
     validarCuentasDisponibles();
     const hayConsumosPosteriores=datos.transacciones.some(t=>sameAccount(t[5],ctx.card.cuenta)&&t[9]==='USD'&&pf(t[0])>endOfDay(pf(fecha)));
-    if(r.exceso>0||tarjetaConCreditoUSD(ctx.card)||hayConsumosPosteriores){
+    const huboCreditoUSD=modeloCreditoTarjetaUSD(ctx.card).credito.length>0;
+    if(r.exceso>0||tarjetaConCreditoUSD(ctx.card)||huboCreditoUSD||hayConsumosPosteriores){
       const id=crypto.randomUUID(),momento=fecha+'T23:59:59-05:00';
       const ajuste=ajusteCambioTarjeta(ctx.card,momento,r.dif,'Pago en dólares');
       const pago={id,tarjeta:ctx.card.cuenta,ciclo_key:getCycleKey(ctx.data.cycle),monto:usd,fecha:momento,cuenta_origen:cuenta,
