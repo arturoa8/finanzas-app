@@ -193,11 +193,14 @@ export function editarTx(row){
   const enDivisa=t[9]==='USD'&&Number(t[10])>0;
   document.getElementById('iMon').value=enDivisa?t[10]:t[4];
   document.getElementById('iDes').value=t[1];
-  const mon=document.getElementById('iMoneda');if(mon)mon.value=enDivisa?'USD':'PEN';
-  const campoTc=document.getElementById('iTc');if(campoTc)campoTc.value=enDivisa&&t[11]?t[11]:'';
+  const mon=document.getElementById('iMoneda');if(mon){mon.value=enDivisa?'USD':'PEN';mon.disabled=false;}
+  const campoTc=document.getElementById('iTc');
+  if(campoTc){campoTc.value=enDivisa&&t[11]?t[11]:'';delete campoTc.dataset.tcHistoricoId;}
   const mdest=document.getElementById('iMonDestino');if(mdest)mdest.value=Number(t[14])>0?t[14]:'';
   setTcFuente(t[12]||'manual');
-  setTipo(t[3]||'Gasto');
+  // Sincronizar una sola vez, cuando estén las cuentas de esta fila: el
+  // formulario anterior puede tener otra moneda y borrar el TC o el destino.
+  setTipo(t[3]||'Gasto',false);
   if(t[3]==='Reembolso')llenarGastosReembolso(t[8]||'');
   const matchedCard=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,t[5]||''));
   llenarCuentas(matchedCard?matchedCard.cuenta:(t[5]||''),t[7]||'');
@@ -214,7 +217,7 @@ export function editarTx(row){
 
 export function cerrarM(){document.getElementById('modal').classList.remove('active');editando=null;editandoFecha=null;}
 
-export function setTipo(t){
+export function setTipo(t,sincronizar=true){
   tipoA=t;
   document.getElementById('tg').classList.toggle('active',t==='Gasto');
   document.getElementById('ti').classList.toggle('active',t==='Ingreso');
@@ -227,7 +230,7 @@ export function setTipo(t){
   document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':'Cuenta';
   llenarCuentas();
   llenarSel();
-  sincronizarCamposMoneda();
+  if(sincronizar)sincronizarCamposMoneda();
 }
 
 async function eliminar__base(){

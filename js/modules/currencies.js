@@ -254,8 +254,9 @@ export function sincronizarCamposMoneda(){
   document.querySelectorAll('#modalBtns button[onclick="guardar()"]').forEach(b=>b.disabled=incompletas);
   const aviso=document.getElementById('accountStatus');if(aviso)aviso.hidden=!incompletas;
   if(incompletas)return;
+  const original=editando?datos.transacciones.find(t=>String(t[6])===String(editando)):null;
   const transferencia=tipoA==='Transferencia';
-  selMon.hidden=cuentasUSDGastables().length===0;
+  selMon.hidden=cuentasUSDGastables().length===0&&original?.[9]!=='USD';
   if(selMon.hidden)selMon.value='PEN';
   // Hay dos casos en los que la moneda no se elige sino que se hereda: una
   // transferencia la toma de su cuenta de origen, y una cuenta en dólares solo
@@ -270,19 +271,33 @@ export function sincronizarCamposMoneda(){
   div.hidden=!enDivisa;
   const campo=document.getElementById('iTc'),nota=document.getElementById('divisaEquiv');
   const filaTc=document.getElementById('iTcRow');
+  const tcOriginal=Number(original?.[11]);
+  const historico=original?.[9]==='USD'&&original[3]===tipoA&&Number.isFinite(tcOriginal)&&tcOriginal>0;
+  if(campo&&(!enDivisa||!historico))delete campo.dataset.tcHistoricoId;
   if(enDivisa){
     const derivado=tcDerivadoTransferencia();
     if(derivado){
       // Con los dos importes el tipo de cambio es un hecho, no una estimación.
-      if(campo){campo.value=derivado;campo.readOnly=true;}
+      if(campo){campo.value=derivado;campo.readOnly=true;delete campo.dataset.tcHistoricoId;}
       tcFuenteActual='transferencia';
       if(filaTc)filaTc.hidden=false;
       if(nota)nota.dataset.nota='Sale de los dos importes de esta operación.';
+    }else if(historico){
+      // La valoración automática es una propuesta para registros nuevos.
+      // Editar fecha, descripción o importe no cambia la tasa efectiva de una
+      // operación guardada. Se muestra para poder corregirla explícitamente.
+      if(campo){
+        if(campo.dataset.tcHistoricoId!==String(editando)){
+          campo.value=original[11];tcFuenteActual=original[12]||'manual';
+          campo.dataset.tcHistoricoId=String(editando);
+        }
+        campo.readOnly=false;
+      }
+      if(filaTc)filaTc.hidden=false;
+      if(nota)nota.dataset.nota='Tipo de cambio de esta operación; se conserva al editar y puedes corregirlo.';
     }else if(!transferencia){
-      // Un Gasto o Ingreso registrado directo en una cuenta en dólares nunca
-      // pide el tipo de cambio: se valora solo (ver valoracionAutomaticaUSD).
-      // El campo solo reaparece cuando de verdad no hay con qué calcularlo,
-      // para no inventar una tasa.
+      // Los registros nuevos se valoran automáticamente. Sin una tasa válida
+      // se muestra el campo para escribirla, sin inventar una cotización.
       const auto=valoracionAutomaticaUSD(tipoA,elv('iFec'),editando);
       if(campo)campo.readOnly=true;
       if(auto.tc){
