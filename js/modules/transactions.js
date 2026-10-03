@@ -9,11 +9,12 @@ import {filaPago} from './cards/payments.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
 import {render} from './dashboard.js';
 import {cargarTcMercado} from '../services/exchange-rate.js';
+import {sessionUserId} from '../services/auth.js';
 import {sbDelete, sbInsert, sbSelect, sbSelectTodo, sbUpdate} from '../services/supabase.js';
 import {datos} from '../state.js';
 import {getMesActivo, vista} from '../ui/navigation.js';
 import {toast} from '../ui/toast.js';
-import {guardedOnce} from '../utils/async.js';
+import {guardedOnce, singleFlight} from '../utils/async.js';
 import {buildFechaISO, fmtDateShort, pf, toDateInput} from '../utils/dates.js';
 import {EMOJIS, cleanName, escAttr, escHtml, fmt, getEmoji, norm} from '../utils/formatters.js';
 import {equivalenteSoles} from '../utils/numbers.js';
@@ -45,6 +46,8 @@ function filaTx(t){
 }
 
 async function cargar__base(){
+  const usuario=sessionUserId();
+  const comprobarSesion=()=>{if(sessionUserId()!==usuario){const e=new Error('La sesión cambió durante la carga.');e.sessionChanged=true;throw e;}};
   const b=document.getElementById('refreshBtn');b.classList.add('loading');
   cargarTcMercado();   // sin esperar: solo alimenta el tipo de cambio propuesto
   // Aparte del Promise.all: si la migración de cuentas todavía no está
@@ -59,6 +62,7 @@ async function cargar__base(){
   try{
     await recuperarAbonosPendientes();
     await recuperarPagosTarjetaPendientes();
+    comprobarSesion();
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),
@@ -70,6 +74,8 @@ async function cargar__base(){
       sbSelectTodo('presupuestos','?select=id,categoria,monto_limite,mes&order=id.asc'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
+    const cuentasRes=await cuentasReq;
+    comprobarSesion();
     datos.transacciones=tx.map(filaTx);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
     datos.pagosTarjetas=pagos.map(filaPago);
@@ -80,7 +86,6 @@ async function cargar__base(){
     datos.deudasAbonos=abonos.map(a=>[a.id,a.deuda_id,a.monto,a.fecha,a.nota,a.tx_id]);
     datos.presupuestos=pres.map(p=>[p.categoria,p.monto_limite,p.mes]);
     datos.recurrentes=rec.map(r=>[r.descripcion,r.categoria,r.tipo,r.monto,r.dia_mes,r.activo]);
-    const cuentasRes=await cuentasReq;
     const sinTabla=cuentasRes?.falla&&(['PGRST205','42P01'].includes(cuentasRes.falla.code)||/relation .*cuentas.* does not exist/i.test(cuentasRes.falla.message||''));
     if(cuentasRes&&cuentasRes.falla&&!sinTabla){
       setEstadoCuentas('error');
@@ -100,13 +105,17 @@ async function cargar__base(){
     if(advertencia){advertencia.hidden=!(cuentasRes?.falla&&!sinTabla);advertencia.textContent='La carga de cuentas está incompleta. Pulsa Actualizar antes de guardar.';}
     if(!primeraCarga&&!(cuentasRes?.falla&&!sinTabla))toast('Actualizado','success');
     primeraCarga=false;
+    return {ok:true};
   }
-  catch(e){console.error(e);const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=e.pending?e.message:'No se pudo completar la actualización. Se muestran los últimos datos cargados.';}toast(e.incompleto||e.pending?e.message:'Error al cargar','error');}
+  catch(e){
+    if(!e.sessionChanged){console.error(e);const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=e.pending?e.message:'No se pudo completar la actualización. Se muestran los últimos datos cargados.';}toast(e.incompleto||e.pending?e.message:'Error al cargar','error');}
+    return {ok:false,error:e};
+  }
   finally{b.classList.remove('loading');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
-export const cargar=guardedOnce(cargar__base);
+export const cargar=singleFlight(cargar__base);
 
 function validarTransferencia({origen,destino,monto},cards=CREDIT_CARDS){
   if(!Number.isFinite(monto)||monto<=0)throw new Error('Ingresa un importe mayor que cero');

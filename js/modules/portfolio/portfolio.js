@@ -11,7 +11,8 @@ import {pfFlujos, pfRendimientoEntrePuntos, pfRendimientoPortafolio, pfResumenPo
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
 import {escalaGrafico} from '../settings.js';
-import {pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, startPfYahoo} from '../../services/market-data.js';
+import {limpiarCachePfYahoo, pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, precargarPfYahoo, startPfYahoo} from '../../services/market-data.js';
+import {sessionUserId} from '../../services/auth.js';
 import {sbFetch, sbFetchTodo} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
 import {diasEntre, fmtDateLong, fmtDateShort, hoyLocal, parseDateOnly} from '../../utils/dates.js';
@@ -33,27 +34,70 @@ let pfLoadSequence=0;
 
 export let pfUltimaSyncCache=null;
 
-// Carga sin layout shift (Parte A, sección 1-2): si ya había datos en caché
-// de esta sesión, se quedan en pantalla tal cual — nada se oculta, nada
-// mueve el layout — y solo gira el ícono de refresh mientras se refresca en
-// segundo plano. El texto largo "Cargando portafolio…" y el spinner chico
-// SOLO existen para la primera carga de la sesión, cuando todavía no hay
-// nada que mostrar.
-export async function renderPortafolio(){
-  const sequence=++pfLoadSequence;
-  const estadoEl=document.getElementById('pfEstado');
-  const teniaCache=pfHistoricoCache.length>0;
-  if(teniaCache){
-    estadoEl.innerHTML='';
-    pfSetActualizando(true);
-  }else{
-    ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
-    estadoEl.innerHTML='<div class="pf-spinner" role="status" aria-label="Cargando"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8" fill="none" stroke="var(--dim)" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
-  }
+// La entrada y la precarga comparten datos y consultas. El caché vive solo
+// en memoria, pertenece a una cuenta de la app y se renueva tras un minuto.
+const PF_DATOS_TTL_MS=60*1000;
+let pfCacheUsuario='',pfDatosCarga=null,pfCacheSequence=0;
+const PF_PRECARGA_COMPROBACION_MS=30*1000;
+let pfPrecargaTimer=null;
 
-  // Comparación, diagnóstico y datos de sincronización cargan en paralelo,
-  // pero no retrasan la curva ni el inicio de la consulta de precios.
-  const auxiliares=Promise.all([
+export function detenerPrecargaPortafolio(){
+  if(pfPrecargaTimer!==null)clearTimeout(pfPrecargaTimer);
+  pfPrecargaTimer=null;
+}
+
+// Mantener los períodos listos también mientras se usa Inicio. Cada capa
+// conserva su cadencia y comparte las consultas pendientes; esta revisión
+// no vuelve a pedir la base IBKR ni trabaja con la app en segundo plano.
+function pfPrepararGraficos(){
+  if(document.hidden||!sessionUserId())return Promise.resolve([]);
+  return Promise.allSettled([
+    precargarPfYahoo(),
+    ...[...PF_PERIODOS_INTRADIA].map(periodo=>pfCargarIntradiaPeriodo(periodo)),
+  ]);
+}
+
+function pfProgramarPrecarga(){
+  detenerPrecargaPortafolio();
+  if(document.hidden||!sessionUserId()||!pfHistoricoCache.length||!pfPosicionesCache.length)return;
+  const usuario=sessionUserId(),cacheSequence=pfCacheSequence;
+  pfPrecargaTimer=setTimeout(()=>{
+    pfPrecargaTimer=null;
+    if(document.hidden||sessionUserId()!==usuario||pfCacheSequence!==cacheSequence)return;
+    pfPrepararGraficos();
+    pfProgramarPrecarga();
+  },PF_PRECARGA_COMPROBACION_MS);
+}
+
+export function limpiarCachePortafolio(){
+  detenerPrecargaPortafolio();
+  pfLoadSequence++;
+  pfCacheSequence++;
+  pfCacheUsuario='';pfDatosCarga=null;
+  pfHistoricoCache=[];pfPosicionesCache=[];pfLedgerCache=[];
+  pfSnapshotsHoyCache=[];pfUltimaSyncCache=null;pfBenchCache=[];
+  pfPosHistCache=null;pfPosHistFetchedAt=0;pfPosHistCarga=null;pfIntradiaCarga.clear();
+  limpiarCachePfYahoo();
+}
+
+function pfPrepararUsuario(){
+  const usuario=sessionUserId();
+  if(usuario!==pfCacheUsuario){limpiarCachePortafolio();pfCacheUsuario=usuario;}
+  return usuario;
+}
+
+function pfSolicitudVigente(solicitud){
+  return pfDatosCarga===solicitud&&sessionUserId()===solicitud.usuario;
+}
+
+function pfCargarDatos({force=false}={}){
+  const usuario=pfPrepararUsuario();
+  if(!usuario)return null;
+  if(pfDatosCarga&&(pfDatosCarga.pendiente||(!force&&Date.now()-pfDatosCarga.fetchedAt<PF_DATOS_TTL_MS)))return pfDatosCarga;
+  const snapshotsAlEntrar=new Set(pfSnapshotsHoyCache);
+  const solicitud={usuario,pendiente:true,fetchedAt:0};
+  pfDatosCarga=solicitud;
+  solicitud.auxiliares=Promise.all([
     sbFetch('configuracion_integraciones?select=cuenta_ibkr,token_expira_en&servicio=eq.ibkr_flex&limit=1').catch(()=>null),
     sbFetch('sincronizaciones_portafolio?select=*&order=iniciado_en.desc&limit=1').catch(()=>null),
     sbFetch('sincronizaciones_portafolio?select=estado,finalizado_en,iniciado_en&estado=in.(ok,ok_historico)&order=finalizado_en.desc.nullslast&limit=1').catch(()=>null),
@@ -61,32 +105,112 @@ export async function renderPortafolio(){
     sbFetch('reconciliaciones_portafolio?select=*&order=fecha.desc,creado_en.desc&limit=1').catch(()=>[]),
     sbFetchTodo('portafolio_snapshots?select=capturado_en,valor_calculado,fuente_precio&fecha=eq.'+pfIso(new Date())+'&order=capturado_en.asc,id.asc').catch(()=>[]),
   ]);
-  let historial,posiciones,ledger;
-  const baseAnterior=pfComputeBaseId(),scopeAnterior=pfComputeScope();
-  const snapshotsAlEntrar=new Set(pfSnapshotsHoyCache);
+  solicitud.base=Promise.all([
+    sbFetchTodo('portafolio_historial?select=*&order=fecha_valoracion.asc,id.asc'),
+    sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
+    sbFetchTodo('operaciones_ibkr?select=id,cuenta_ibkr,fecha_hora&order=fecha_hora.desc,id.desc').catch(()=>[]),
+  ]).then(([historial,posiciones,ledger])=>{
+    if(!pfSolicitudVigente(solicitud))return null;
+    const baseAnterior=pfComputeBaseId(),scopeAnterior=pfComputeScope();
+    pfHistoricoCache=historial||[];pfPosicionesCache=posiciones||[];pfLedgerCache=ledger||[];
+    if(baseAnterior!==pfComputeBaseId()||scopeAnterior!==pfComputeScope()){
+      pfBenchCache=[];pfSnapshotsHoyCache=[];pfPosHistCache=null;pfPosHistFetchedAt=0;pfPosHistCarga=null;pfIntradiaCarga.clear();
+    }
+    pfValidarCacheYahoo();
+    solicitud.pendiente=false;solicitud.fetchedAt=Date.now();
+    // Una base nueva puede invalidar las tres curvas. Prepararlas aquí
+    // evita depender de la pestaña o del período que el usuario seleccione.
+    solicitud.graficos=pfPrepararGraficos();
+    pfProgramarPrecarga();
+    return {historial:pfHistoricoCache,posiciones:pfPosicionesCache,ledger:pfLedgerCache};
+  }).catch(e=>{
+    if(!pfSolicitudVigente(solicitud))return null;
+    pfDatosCarga=null;throw e;
+  });
+  // Los datos auxiliares pueden tardar más sin retrasar la base ni Yahoo.
+  solicitud.completa=Promise.all([solicitud.base,solicitud.auxiliares]).then(([base,extras])=>{
+    if(!base||!pfSolicitudVigente(solicitud))return null;
+    const [,,lastSuccess,bench,,snapshotsHoy]=extras;
+    pfBenchCache=bench||[];
+    const nuevosSnapshots=pfSnapshotsHoyCache.filter(s=>!snapshotsAlEntrar.has(s));
+    const snapshots=new Map([...snapshotsHoy,...nuevosSnapshots].map(s=>[s.capturado_en,s]));
+    pfSnapshotsHoyCache=[...snapshots.values()].sort((a,b)=>a.capturado_en.localeCompare(b.capturado_en));
+    pfUltimaSyncCache=lastSuccess?.[0]||null;
+    return extras;
+  }).catch(()=>null);
+  return solicitud;
+}
+
+// Se invoca después de validar la sesión, durante la transición de acceso.
+// Por defecto resuelve la base y continúa preparando las tres curvas.
+// El arranque puede esperar también esas curvas, compartiendo los pedidos.
+export function precargarPortafolio({esperarGraficos=false}={}){
+  const solicitud=pfCargarDatos();
+  if(!solicitud)return Promise.resolve(null);
+  return solicitud.base.then(async base=>{
+    if(!base||!pfSolicitudVigente(solicitud))return null;
+    // También revalidar una base reutilizada: la última preparación pudo
+    // fallar o sus curvas haber vencido mientras el usuario estaba en Inicio.
+    const graficos=pfPrepararGraficos();
+    pfProgramarPrecarga();
+    if(esperarGraficos)await Promise.allSettled([graficos,solicitud.completa]);
+    if(!pfSolicitudVigente(solicitud))return null;
+    return base;
+  });
+}
+
+function pfPintarBase(ultimoHistorial){
+  startPfYahoo();
+  renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
+  document.getElementById('pfResumenCard').style.display='';
+  document.getElementById('pfChartCard').style.display='';
+  pintarValorPrincipal();renderPfChart();
+  document.getElementById('pfDistCard').style.display='';
+  renderPfDistribucion(ultimoHistorial);
+  document.getElementById('pfPosicionesCard').style.display='';
+  renderPfPosiciones(pfPosicionesCache);
+  renderPfDiagnosticoYahoo();pfMostrarSubTabs(true);pfAplicarSubvista();
+}
+
+// Carga sin layout shift (Parte A, sección 1-2): si ya había datos en caché
+// de esta sesión, se quedan en pantalla tal cual — nada se oculta, nada
+// mueve el layout — y solo gira el ícono de refresh mientras se refresca en
+// segundo plano. El texto largo "Cargando portafolio…" y el spinner chico
+// SOLO existen para la primera carga de la sesión, cuando todavía no hay
+// nada que mostrar.
+export async function renderPortafolio(opts={}){
+  const solicitud=pfCargarDatos(opts);
+  if(!solicitud)return;
+  const sequence=++pfLoadSequence;
+  const estadoEl=document.getElementById('pfEstado');
+  const teniaCache=pfHistoricoCache.length>0;
+  const actualizando=teniaCache&&solicitud.pendiente;
+  if(teniaCache){
+    estadoEl.innerHTML='';
+    // La primera visita también puede pintar lo que se preparó en Inicio,
+    // incluso si toca renovar la base por antigüedad.
+    if(actualizando)pfPintarBase(pfHistoricoCache.at(-1));
+    if(actualizando)pfSetActualizando(true);
+  }else{
+    ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
+    estadoEl.innerHTML='<div class="pf-spinner" role="status" aria-label="Cargando"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8" fill="none" stroke="var(--dim)" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
+  }
+
+  let ledger;
   try{
-    [historial,posiciones,ledger]=await Promise.all([
-      sbFetchTodo('portafolio_historial?select=*&order=fecha_valoracion.asc,id.asc'),
-      sbFetch('posiciones?select=*&order=valor_mercado_base.desc.nullslast'),
-      sbFetchTodo('operaciones_ibkr?select=id,fecha_hora&order=fecha_hora.desc,id.desc').catch(()=>[]),
-    ]);
+    const base=await solicitud.base;
+    if(!base)return;
+    ledger=base.ledger;
   }catch(e){
-    if(sequence!==pfLoadSequence)return;
-    pfSetActualizando(false);
+    if(sequence!==pfLoadSequence||sessionUserId()!==solicitud.usuario)return;
     if(teniaCache)toast('No se pudo actualizar el portafolio ahora. Se conservan los últimos datos.','error');
     else estadoEl.innerHTML=`<div class="empty">No se pudo conectar con el servidor para cargar tu portafolio.<br>${esc(e.message||'Error de red')}<br><span style="font-size:.68rem">Si tenías datos antes, no se han borrado — vuelve a intentarlo en un momento.</span></div>`;
     return;
+  }finally{
+    if(actualizando)pfSetActualizando(false);
   }
 
-  if(sequence!==pfLoadSequence)return;
-  pfSetActualizando(false);
-  pfHistoricoCache=historial||[];
-  pfPosicionesCache=posiciones||[];
-  pfLedgerCache=ledger||[];
-  if(baseAnterior!==pfComputeBaseId()||scopeAnterior!==pfComputeScope()){
-    pfBenchCache=[];pfSnapshotsHoyCache=[];
-    pfPosHistCache=null;pfIntradiaCarga.clear();
-  }
+  if(sequence!==pfLoadSequence||!pfSolicitudVigente(solicitud))return;
   const ultimoHistorial=pfHistoricoCache.length?pfHistoricoCache[pfHistoricoCache.length-1]:null;
 
   // Coherencia de caché Yahoo/IBKR: invalidar ANTES del primer pintado del
@@ -115,8 +239,8 @@ export async function renderPortafolio(){
 
   if(!ultimoHistorial){
     ['pfResumenCard','pfChartCard','pfDistCard','pfPosicionesCard'].forEach(id=>document.getElementById(id).style.display='none');
-    const [config]=await auxiliares;
-    if(sequence!==pfLoadSequence)return;
+    const [config]=await solicitud.auxiliares;
+    if(sequence!==pfLoadSequence||!pfSolicitudVigente(solicitud))return;
     estadoEl.innerHTML=config===null?'<div class="empty">Todavía no hay cierres de IBKR disponibles. Vuelve a actualizar en un momento.</div>':(config&&config[0])
       ? '<div class="empty">Todavía no hay ninguna sincronización exitosa con IBKR.<br>Se mostrará aquí en cuanto corra la primera.</div>'
       : '<div class="empty">La sincronización con IBKR aún no está configurada.</div>';
@@ -126,31 +250,11 @@ export async function renderPortafolio(){
 
   // Lanzar Yahoo antes de pintar: mientras llega el primer precio, el 1D
   // muestra carga en lugar de la línea provisional entre dos cierres.
-  startPfYahoo();
-  renderPfResumen(ultimoHistorial, pfUltimaSyncCache);
-  document.getElementById('pfResumenCard').style.display='';
+  pfPintarBase(ultimoHistorial);
 
-  document.getElementById('pfChartCard').style.display='';
-  pintarValorPrincipal();
-  renderPfChart();
-
-  document.getElementById('pfDistCard').style.display='';
-  renderPfDistribucion(ultimoHistorial);
-
-  document.getElementById('pfPosicionesCard').style.display='';
-  renderPfPosiciones(pfPosicionesCache);
-
-  renderPfDiagnosticoYahoo();
-  pfMostrarSubTabs(true);
-  pfAplicarSubvista();
-
-  const [,sync,lastSuccess,bench,reconciliacion,snapshotsHoy]=await auxiliares;
-  if(sequence!==pfLoadSequence)return;
-  pfBenchCache=bench||[];
-  const nuevosSnapshots=pfSnapshotsHoyCache.filter(s=>!snapshotsAlEntrar.has(s));
-  const snapshots=new Map([...snapshotsHoy,...nuevosSnapshots].map(s=>[s.capturado_en,s]));
-  pfSnapshotsHoyCache=[...snapshots.values()].sort((a,b)=>a.capturado_en.localeCompare(b.capturado_en));
-  pfUltimaSyncCache=(lastSuccess&&lastSuccess[0])||null;
+  const extras=await solicitud.completa;
+  if(sequence!==pfLoadSequence||!pfSolicitudVigente(solicitud)||!extras)return;
+  const [,sync,,,reconciliacion]=extras;
   const ultimaSync=sync?.[0];
   if(ultimaSync?.estado==='error'&&new Date(ultimaSync.iniciado_en)>new Date(ultimoHistorial.creado_en||0)){
     const dias=diasEntre(hoyLocal(),parseDateOnly(ultimoHistorial.fecha_valoracion));
@@ -308,28 +412,66 @@ export function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
 function pfEtiquetaFechaHora(t){const d=new Date(t);return fmtDateShort(d)+' '+d.toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'});}
 
 // ── 1S / 1M con detalle intradía ────────────────────────────────────────────
-// Se piden solo al abrir esos períodos: velas de Yahoo de varias sesiones y
-// las cantidades de cada día (posiciones_historial). Mientras llegan, o si
-// fallan, se muestra el gráfico de cierres diarios de siempre.
+// Se preparan en Inicio: las dos historias Yahoo comparten una consulta de
+// cantidades por día. La selección del usuario no interviene en la precarga.
 const PF_PERIODOS_INTRADIA=new Set(['1S','1M']);
 const pfIntradiaCarga=new Map();
-let pfPosHistCache=null;
+const PF_DETALLE_TTL_MS=5*60*1000,PF_DETALLE_REINTENTO_MS=30000;
+let pfPosHistCache=null,pfPosHistFetchedAt=0,pfPosHistCarga=null;
+
+function pfCargarPosicionesHistorial(){
+  if(pfPosHistCache&&Date.now()-pfPosHistFetchedAt<PF_DETALLE_TTL_MS)return Promise.resolve(pfPosHistCache);
+  if(pfPosHistCarga)return pfPosHistCarga;
+  const cacheSequence=pfCacheSequence,usuario=sessionUserId(),baseId=pfComputeBaseId(),scope=pfComputeScope();
+  const vigente=()=>pfCacheSequence===cacheSequence&&sessionUserId()===usuario&&baseId===pfComputeBaseId()&&scope===pfComputeScope();
+  const desde=new Date();desde.setDate(desde.getDate()-45);
+  const promesa=sbFetchTodo('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc,id.asc')
+    .then(pos=>{if(!vigente())return null;pfPosHistCache=pos||[];pfPosHistFetchedAt=Date.now();return pfPosHistCache;})
+    .finally(()=>{if(pfPosHistCarga===promesa)pfPosHistCarga=null;});
+  pfPosHistCarga=promesa;
+  return promesa;
+}
+
+function pfCargarIntradiaPeriodo(periodo){
+  if(!PF_PERIODOS_INTRADIA.has(periodo)||!sessionUserId()||!pfHistoricoCache.length||!pfPosicionesCache.length)return Promise.resolve(null);
+  const previa=pfIntradiaCarga.get(periodo);
+  if(previa?.promesa)return previa.promesa;
+  if(previa?.error&&Date.now()-previa.fetchedAt<PF_DETALLE_REINTENTO_MS)return Promise.resolve(null);
+  if(pfHistoriaYahooEnCache(periodo)&&pfPosHistCache&&Date.now()-pfPosHistFetchedAt<PF_DETALLE_TTL_MS)return Promise.resolve(true);
+  const cacheSequence=pfCacheSequence,usuario=sessionUserId(),baseId=pfComputeBaseId(),scope=pfComputeScope();
+  const vigente=()=>pfCacheSequence===cacheSequence&&sessionUserId()===usuario&&baseId===pfComputeBaseId()&&scope===pfComputeScope();
+  const carga={};
+  carga.promesa=Promise.all([pfConsultarHistoriaYahoo(periodo),pfCargarPosicionesHistorial()])
+    .then(([,pos])=>{
+      if(!vigente()||pos===null)return null;
+      pfIntradiaCarga.delete(periodo);
+      if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+      return true;
+    }).catch(()=>{
+      if(vigente()){
+        pfIntradiaCarga.set(periodo,{error:true,fetchedAt:Date.now()});
+        if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+      }
+      return null;
+    });
+  pfIntradiaCarga.set(periodo,carga);
+  // Un reintento automático también comunica que está preparando detalle,
+  // sin necesitar que el usuario vuelva a pulsar el período.
+  if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))queueMicrotask(()=>{
+    if(vigente()&&pfIntradiaCarga.get(periodo)===carga&&pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+  });
+  return carga.promesa;
+}
 
 function pfIntradiaDelPeriodo(per){
   if(!PF_PERIODOS_INTRADIA.has(pfPeriodo)||!per.filas.length)return null;
-  const periodo=pfPeriodo,h=pfHistoriaYahooEnCache(periodo);
+  const periodo=pfPeriodo,h=pfHistoriaYahooEnCache(periodo,{aceptarVencido:true});
+  // Conservar una historia coherente mientras se renueva; no volver a la
+  // curva de cierres solo por haber vencido el plazo de actualización.
+  pfCargarIntradiaPeriodo(periodo);
   if(h&&pfPosHistCache){
     const s=construirSerieSesiones(h.quotes,pfPosHistCache,pfHistoricoCache,per.filas[0].fecha_valoracion);
     return s.ok?s:null;
-  }
-  if(!pfIntradiaCarga.has(periodo)){
-    pfIntradiaCarga.set(periodo,'cargando');
-    const desde=new Date();desde.setDate(desde.getDate()-45);
-    Promise.all([
-      pfConsultarHistoriaYahoo(periodo),
-      pfPosHistCache?Promise.resolve(pfPosHistCache):sbFetchTodo('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc,id.asc'),
-    ]).then(([,pos])=>{pfPosHistCache=pos||[];pfIntradiaCarga.delete(periodo);if(pfPeriodo===periodo)renderPfChart();})
-      .catch(()=>{pfIntradiaCarga.set(periodo,'error');});
   }
   return null;
 }
@@ -383,6 +525,11 @@ export function renderPfChart(){
   const iBase=intradia?pfHistoricoCache.findIndex(r=>r.fecha_valoracion===intradia.fechaBase):-1;
   const filas=pfFilasConVivo(iBase>=0?pfHistoricoCache.slice(iBase):per.filas);
   const conIntradia=intradia&&iBase>=0;
+  if(!conIntradia&&PF_PERIODOS_INTRADIA.has(pfPeriodo)&&pfIntradiaCarga.get(pfPeriodo)?.promesa){
+    area.setAttribute('aria-busy','true');titulo.textContent='';hint.textContent='';
+    area.innerHTML='<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Preparando gráfica…</div>';
+    return;
+  }
   if(pfVista==='rendimiento'){
     const r=pfRendimientoPortafolio(filas,pfFlujos());
     titulo.textContent=r.ok?(pfFechaCorta(r.desde)+' – '+pfFechaCorta(r.hasta)):'';
@@ -461,5 +608,6 @@ export function renderPfChart(){
     const detalle=conIntradia?' Precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';
     hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.'+(conIntradia?'':recorte)+truncado+detalle;
   }
+  if(!conIntradia&&PF_PERIODOS_INTRADIA.has(pfPeriodo))hint.textContent+=' Detalle intradía no disponible. Mostrando cierres diarios.';
   renderPfBenchmark(filas);
 }

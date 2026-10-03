@@ -14,3 +14,13 @@ export function guardedOnce(fn){
     finally{ busy=false; }
   };
 }
+
+// Las lecturas sí deben compartir su resultado: una segunda entrada espera
+// la carga en curso en vez de confundir un clic ignorado con datos listos.
+export function singleFlight(fn){
+  let pending=null;
+  return function(...args){
+    if(!pending)pending=Promise.resolve().then(()=>fn.apply(this,args)).finally(()=>{pending=null;});
+    return pending;
+  };
+}

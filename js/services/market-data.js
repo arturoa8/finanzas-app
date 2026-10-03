@@ -5,7 +5,7 @@ import {renderPfDiagnosticoYahoo} from '../modules/portfolio/diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from '../modules/portfolio/hero.js';
 import {pfPintarPosicion} from '../modules/portfolio/portfolio-ui.js';
 import {pfHistoricoCache, pfLedgerCache, pfPeriodo, pfPosicionesCache, pfSnapshotsHoyCache, renderPfChart} from '../modules/portfolio/portfolio.js';
-import {authHeader, getSession} from './auth.js';
+import {authHeader, getSession, sessionUserId} from './auth.js';
 import {SUPABASE_ANON_KEY, SUPABASE_URL} from './supabase-config.js';
 import {sbFetch} from './supabase.js';
 import {pfNumber} from '../utils/numbers.js';
@@ -14,11 +14,13 @@ import {pfNumber} from '../utils/numbers.js';
 // valorEnVivo/pnlEstimado/completo/momento: única fuente de verdad del
 // "valor actual estimado" — los calcula renderPfYahoo() y los leen sin
 // recalcular pintarValorPrincipal(), pintarPfHeroHoy() y construirSerieIntradia().
-export const pfYahoo = {quotes:[],timer:null,controller:null,promise:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',valorEnVivo:null,pnlEstimado:null,completo:false,momento:null,baseId:null,fetchedAt:null};
+export const pfYahoo = {quotes:[],timer:null,controller:null,promise:null,requestId:0,lastAttempt:0,day:'',message:'',status:'idle',scope:'',usuario:null,valorEnVivo:null,pnlEstimado:null,completo:false,momento:null,baseId:null,fetchedAt:null};
+let pfYahooCacheSequence=0;
 
 // Refresco automático de Yahoo (IBKR/Flex NO entra en estos ciclos: es la
 // estructura, y se actualiza solo por su cron o con el botón Actualizar).
-//  · Sesión regular abierta + Portafolio visible + app activa → cada 2 min.
+//  · Sesión regular abierta + app activa → cada 2 min. El mantenimiento
+//    de Portafolio también revisa esta cadencia mientras se usa Inicio.
 //  · Mercado cerrado → sin refresco periódico de precios: una consulta al
 //    abrir la próxima sesión conocida (session_start de Yahoo). Si todavía
 //    no se conoce (tarde/fin de semana), una comprobación cada 30 min solo
@@ -34,7 +36,7 @@ const PF_YAHOO_MIN_ENTRE_CONSULTAS_MS=20*1000;
 
 export function pfLondonDay(date=new Date()) {const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const part=t=>parts.find(p=>p.type===t).value;return part('year')+'-'+part('month')+'-'+part('day');}
 
-function pfYahooVisible(){return !document.hidden&&document.getElementById('p-ana').classList.contains('active')&&getSession()!==null;}
+function pfYahooVisible(){return !document.hidden&&!!document.getElementById('p-ana')?.classList.contains('active')&&getSession()!==null;}
 
 export function pfQuoteKey(p){return String(p.cuenta_ibkr)+'|'+String(p.contract_id);}
 
@@ -137,10 +139,21 @@ export function pfIntervaloIntradia(){
   return{etiqueta:intervalos.map(nombre).join(' / ')+(fallback?' · fallback':''),fallback,motivo};
 }
 
-export function stopPfYahoo(){
+export function stopPfYahoo({preservarConsulta=false}={}){
   if(pfYahoo.timer)clearTimeout(pfYahoo.timer);pfYahoo.timer=null;
+  // Cambiar de sección detiene el refresco visible, pero la descarga del
+  // día sigue preparando Portafolio. Ocultar la app o cerrar sesión sí la
+  // aborta mediante el comportamiento predeterminado.
+  if(preservarConsulta)return;
   if(pfYahoo.controller){pfYahoo.controller.abort();pfYahoo.controller=null;pfYahoo.promise=null;pfYahoo.lastAttempt=0;pfYahoo.status='idle';}
   pfYahoo.requestId++;
+}
+
+export function limpiarCachePfYahoo(){
+  stopPfYahoo();
+  pfYahooCacheSequence++;
+  Object.assign(pfYahoo,{quotes:[],promise:null,lastAttempt:0,day:'',message:'',status:'idle',scope:'',usuario:null,valorEnVivo:null,pnlEstimado:null,completo:false,momento:null,baseId:null,fetchedAt:null});
+  pfHistoriaYahoo.clear();pfUltimoSnapshotIntento=0;
 }
 
 function pfYahooProximaApertura(now=Date.now()){
@@ -182,14 +195,17 @@ function pfProgramarYahoo(){
 // pintar. Se llama desde renderPortafolio() antes del primer pintado del
 // día, y desde startPfYahoo() para el caso de pestaña reactivada.
 export function pfValidarCacheYahoo(){
+  const usuario=sessionUserId();
+  if(pfYahoo.usuario!==usuario)limpiarCachePfYahoo();
   const scopeActual=pfComputeScope(),baseIdActual=pfComputeBaseId(),diaEsperado=pfLondonDay();
   const coherente=pfYahoo.quotes.length>0&&baseIdActual!==null
     &&pfYahoo.day===diaEsperado&&pfYahoo.scope===scopeActual&&pfYahoo.baseId===baseIdActual;
-  if(!coherente&&pfYahoo.quotes.length){
+  const cambioBase=pfYahoo.scope!==scopeActual||pfYahoo.baseId!==baseIdActual||(pfYahoo.day&&pfYahoo.day!==diaEsperado);
+  if(!coherente&&(pfYahoo.quotes.length||(pfYahoo.controller&&cambioBase))){
     stopPfYahoo();
     pfYahoo.quotes=[];pfYahoo.lastAttempt=0;pfYahoo.status='idle';pfYahoo.message='';
   }
-  pfYahoo.scope=scopeActual;pfYahoo.baseId=baseIdActual;
+  pfYahoo.scope=scopeActual;pfYahoo.baseId=baseIdActual;pfYahoo.usuario=usuario;
   return coherente;
 }
 
@@ -200,15 +216,23 @@ export function startPfYahoo(){
   if(pfYahooDatosViejos())refreshPfYahoo();else pfProgramarYahoo();
 }
 
+// Consulta anticipada que el mantenimiento reutiliza desde Inicio. No
+// pinta la página oculta ni instala el timer de la vista Portafolio.
+export function precargarPfYahoo(){
+  if(document.hidden||!sessionUserId())return Promise.resolve();
+  pfValidarCacheYahoo();
+  return pfYahooDatosViejos()?refreshPfYahoo({background:true}):Promise.resolve();
+}
+
 // force:true lo usa solo el botón Actualizar (pfRefrescarTodo): salta el
 // anti-ráfaga. Si ya hay una consulta en curso, se devuelve ESA misma promesa
 // (nunca dos pedidos simultáneos). Al terminar, reprograma la siguiente.
 export function refreshPfYahoo(opts={}){
-  const force=!!opts.force;
-  if(!pfYahooVisible())return Promise.resolve();
+  const force=!!opts.force,background=!!opts.background;
+  if(background?!sessionUserId():!pfYahooVisible())return Promise.resolve();
   if(pfYahoo.promise)return pfYahoo.promise;
   if(!force&&pfYahoo.lastAttempt&&Date.now()-pfYahoo.lastAttempt<PF_YAHOO_MIN_ENTRE_CONSULTAS_MS){pfProgramarYahoo();return Promise.resolve();}
-  if(!pfPosicionesCache.length){pfYahoo.quotes=[];pfYahoo.status='empty';renderPfYahoo();return Promise.resolve();}
+  if(!pfPosicionesCache.length){pfYahoo.quotes=[];pfYahoo.status='empty';if(pfYahooVisible())renderPfYahoo();return Promise.resolve();}
   const prom=pfConsultarYahoo();
   pfYahoo.promise=prom;
   prom.finally(()=>{if(pfYahoo.promise===prom)pfYahoo.promise=null;});
@@ -217,37 +241,46 @@ export function refreshPfYahoo(opts={}){
 
 async function pfConsultarYahoo(){
   const controller=new AbortController(),id=++pfYahoo.requestId;
-  pfYahoo.controller=controller;pfYahoo.lastAttempt=Date.now();pfYahoo.status='loading';pfYahoo.message='Consultando precios de mercado…';renderPfYahoo();
+  const usuario=sessionUserId(),scope=pfComputeScope(),baseId=pfComputeBaseId();
+  const vigente=()=>id===pfYahoo.requestId&&usuario===sessionUserId()&&scope===pfComputeScope()&&baseId===pfComputeBaseId();
+  pfYahoo.controller=controller;pfYahoo.lastAttempt=Date.now();pfYahoo.status='loading';pfYahoo.message='Consultando precios de mercado…';if(pfYahooVisible())renderPfYahoo();
   const timeout=setTimeout(()=>controller.abort(),35000);
   try{
-    const authorization=await authHeader();if(controller.signal.aborted)return;
+    const authorization=await authHeader();if(controller.signal.aborted||!vigente())return;
     const r=await fetch(SUPABASE_URL+'/functions/v1/cotizaciones-yahoo',{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:authorization},signal:controller.signal});
     if(!r.ok)throw new Error(r.status===404?'La consulta Yahoo está preparada, pero falta desplegarla en Supabase.':r.status===401?'Inicia sesión nuevamente para consultar Yahoo.':'Yahoo no está disponible en este momento.');
     const data=await r.json();if(!Array.isArray(data.quotes))throw new Error('Respuesta de cotizaciones inválida.');
-    if(id!==pfYahoo.requestId||!pfYahooVisible())return;
+    if(!vigente())return;
     // Solo asociar contratos existentes; ignorar cualquier símbolo extra del servidor.
     const known=new Map(pfPosicionesCache.map(p=>[pfQuoteKey(p),p]));
-    pfYahoo.quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo;});
+    const quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo;});
+    // Un HTTP 200 con todos los activos unavailable también necesita un
+    // reintento. Conservar las últimas cotizaciones coherentes hasta lograrlo.
+    if(!quotes.some(q=>q.status==='ok'&&pfNumber(q.price)>0))throw new Error('No hay cotizaciones de mercado disponibles por ahora.');
+    pfYahoo.quotes=quotes;
     pfYahoo.day=pfLondonDay();pfYahoo.status='ok';pfYahoo.message='';pfYahoo.fetchedAt=Date.now();
-  }catch(e){if(id===pfYahoo.requestId){pfYahoo.status='error';pfYahoo.message=controller.signal.aborted?'La consulta tardó demasiado. Se conserva el cierre IBKR.':e.message;}}
-  finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;renderPfYahoo();pfProgramarYahoo();}}
+  }catch(e){if(vigente()){pfYahoo.status='error';pfYahoo.message=controller.signal.aborted?'La consulta tardó demasiado. Se conserva el cierre IBKR.':e.message;}}
+  finally{clearTimeout(timeout);if(id===pfYahoo.requestId){pfYahoo.controller=null;if(vigente()&&pfYahooVisible())renderPfYahoo();pfProgramarYahoo();}}
 }
 
 // ── Historia intradía de varios días (1S / 1M) ─────────────────────────────
-// Velas reales de Yahoo de las últimas sesiones, pedidas solo al abrir 1S o
-// 1M. Caché de 5 min por período y por conjunto de posiciones; nunca pisa
+// Velas reales de Yahoo de las últimas sesiones, preparadas desde Inicio.
+// Caché de 5 min por período y por conjunto de posiciones; nunca pisa
 // pfYahoo (el 1D y el valor en vivo siguen su propio ciclo).
 const pfHistoriaYahoo=new Map();
 const PF_HISTORIA_TTL_MS=5*60*1000;
 
-export function pfHistoriaYahooEnCache(periodo){
+export function pfHistoriaYahooEnCache(periodo,{aceptarVencido=false}={}){
   const c=pfHistoriaYahoo.get(periodo);
-  return c&&c.scope===pfComputeScope()&&Date.now()-c.fetchedAt<PF_HISTORIA_TTL_MS?c:null;
+  return c?.quotes&&c.usuario===sessionUserId()&&c.scope===pfComputeScope()&&c.baseId===pfComputeBaseId()&&(aceptarVencido||Date.now()-c.fetchedAt<PF_HISTORIA_TTL_MS)?c:null;
 }
 
 export async function pfConsultarHistoriaYahoo(periodo){
   const enCache=pfHistoriaYahooEnCache(periodo);if(enCache)return enCache;
-  const previa=pfHistoriaYahoo.get(periodo);if(previa&&previa.promesa)return previa.promesa;
+  const usuario=sessionUserId(),scope=pfComputeScope(),baseId=pfComputeBaseId(),cacheSequence=pfYahooCacheSequence;
+  const previa=pfHistoriaYahoo.get(periodo);if(previa?.promesa&&previa.usuario===usuario&&previa.scope===scope&&previa.baseId===baseId)return previa.promesa;
+  const anteriorCoherente=previa?.quotes&&previa.usuario===usuario&&previa.scope===scope&&previa.baseId===baseId;
+  const vigente=()=>usuario===sessionUserId()&&scope===pfComputeScope()&&baseId===pfComputeBaseId()&&cacheSequence===pfYahooCacheSequence;
   const promesa=(async()=>{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),35000);
     try{
@@ -255,16 +288,18 @@ export async function pfConsultarHistoriaYahoo(periodo){
       const r=await fetch(SUPABASE_URL+'/functions/v1/cotizaciones-yahoo?historia='+encodeURIComponent(periodo),{method:'GET',headers:{apikey:SUPABASE_ANON_KEY,Authorization:authorization},signal:controller.signal});
       if(!r.ok)throw new Error('Historia intradía no disponible');
       const data=await r.json();if(!Array.isArray(data.quotes))throw new Error('Respuesta de historia inválida');
+      if(!vigente())throw new Error('La sesión o el portafolio cambió durante la consulta.');
       // Solo contratos que existen en la cartera (igual que pfConsultarYahoo).
       const known=new Map(pfPosicionesCache.map(p=>[pfQuoteKey(p),p]));
-      const quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo&&q.status==='ok'&&Array.isArray(q.points);});
-      const valor={periodo,quotes,scope:pfComputeScope(),fetchedAt:Date.now()};
+      const quotes=data.quotes.filter(q=>{const p=known.get(String(q.account)+'|'+String(q.contract_id));return p&&q.ibkr_symbol===p.simbolo&&q.status==='ok'&&Array.isArray(q.points)&&q.points.length>0;});
+      if(!quotes.length)throw new Error('Historia intradía no disponible');
+      const valor={periodo,quotes,usuario,scope,baseId,fetchedAt:Date.now()};
       pfHistoriaYahoo.set(periodo,valor);
       return valor;
-    }catch(e){pfHistoriaYahoo.delete(periodo);throw e;}
+    }catch(e){if(pfHistoriaYahoo.get(periodo)?.promesa===promesa){if(anteriorCoherente&&vigente())pfHistoriaYahoo.set(periodo,previa);else pfHistoriaYahoo.delete(periodo);}throw e;}
     finally{clearTimeout(timeout);}
   })();
-  pfHistoriaYahoo.set(periodo,{...(previa||{}),promesa});
+  pfHistoriaYahoo.set(periodo,{...(anteriorCoherente&&vigente()?previa:{}),usuario,scope,baseId,promesa});
   return promesa;
 }
 
@@ -309,6 +344,7 @@ async function guardarSnapshotCalculado(valorCalculado,pnlEstimado){
   if(Date.now()-pfUltimoSnapshotIntento<10*60*1000)return;
   const official=pfCierreAnterior();
   if(!official)return;
+  const usuario=sessionUserId(),baseId=pfComputeBaseId(),cacheSequence=pfYahooCacheSequence;
   pfUltimoSnapshotIntento=Date.now();
   try{
     const r=await sbFetch('rpc/guardar_snapshot_portafolio',{method:'POST',body:JSON.stringify({
@@ -320,7 +356,7 @@ async function guardarSnapshotCalculado(valorCalculado,pnlEstimado){
       p_fuente_precio:'YAHOO',
     })});
     const resultado=Array.isArray(r)?r[0]:r;
-    if(resultado&&resultado.estado==='ok'){
+    if(resultado&&resultado.estado==='ok'&&usuario===sessionUserId()&&baseId===pfComputeBaseId()&&cacheSequence===pfYahooCacheSequence){
       // Alimenta el 1D en vivo sin volver a pedirlo a Supabase. Esto es
       // SOLO la curva intradía calculada (sección 15): nunca se toca
       // portafolio_historial, que sigue siendo 100% el cierre oficial IBKR.

@@ -177,7 +177,7 @@ export async function pfRefrescarTodo(btn){
   }catch(e){
     toast(e.message||'No se pudo actualizar el portafolio','error');
   }
-  await renderPortafolio();
+  await renderPortafolio({force:true});
   pfSetActualizando(false);
 }
 

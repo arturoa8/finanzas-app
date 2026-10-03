@@ -2,6 +2,14 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.03.1
+
+- Inicio prepara movimientos y portafolio en paralelo. Precarga las curvas de 1 día, 1 semana y 1 mes antes de abrir esa pestaña.
+- La preparación se retira al terminar; si las cotizaciones tardan más de ocho segundos, permite usar Inicio y continúa descargándolas en segundo plano.
+- Los períodos se mantienen preparados mientras la app está visible. Las consultas simultáneas se comparten y se conserva la última curva válida durante una actualización.
+- Un gráfico pendiente muestra su estado de carga; no presenta cierres diarios provisionales como si fueran la curva intradía final.
+- Mitigación del desplazamiento inicial en iPhone instalado: antes de retirar la cubierta se desplaza un píxel y vuelve al origen para actualizar la vista de WebKit. Conserva las áreas seguras nativas y no interviene mientras se usa la aplicación. Pendiente de confirmar en el iPhone afectado.
+
 ## Versión 2026.10.02
 
 - Descarga de movimientos CSV y respaldo JSON desde Configuración.

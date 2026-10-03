@@ -3,17 +3,19 @@
 
 import {toast} from '../ui/toast.js';
 
+const textUpdates=new WeakMap();
 export function smoothSetText(el,newText,newValue=null){
   if(!el)return;
+  clearTimeout(textUpdates.get(el));
   const oldValue=el.dataset.value;
   const newValueStr=newValue===null?newText:String(Number(newValue||0).toFixed(2));
-  if(oldValue===newValueStr && el.textContent===newText)return;
+  const aplicar=()=>{el.textContent=newText;el.dataset.value=newValueStr;el.classList.remove('num-changing');textUpdates.delete(el);};
+  if(oldValue===newValueStr && el.textContent===newText){el.classList.remove('num-changing');return;}
+  // Mientras se prepara el inicio, los importes quedan terminados detrás de
+  // la pantalla de entrada. No revelar ceros durante un timeout de texto.
+  if(document.getElementById('appContent')?.inert||oldValue===undefined||globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){aplicar();return;}
   el.classList.add('num-changing');
-  setTimeout(()=>{
-    el.textContent=newText;
-    el.dataset.value=newValueStr;
-    el.classList.remove('num-changing');
-  },90);
+  textUpdates.set(el,setTimeout(aplicar,90));
 }
 
 let lastTouchEnd=0;

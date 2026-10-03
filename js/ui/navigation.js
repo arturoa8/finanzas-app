@@ -89,6 +89,7 @@ function renderMesPickerGrid(){
 function setVista(v){vista=v;mesOffset=0;render();}
 
 export function setPg(p,b){
+  const saliendoDelPortafolio=document.getElementById('p-ana').classList.contains('active');
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.getElementById('p-'+p).classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
@@ -99,11 +100,11 @@ export function setPg(p,b){
     // no donde se quedó. Se reafirma tras la carga async para que el cambio
     // de alto del contenido (spinner → datos) no la vuelva a mover.
     window.scrollTo(0,0);
-    renderPortafolio().then(()=>window.scrollTo(0,0)).catch(()=>{});
+    renderPortafolio().then(()=>{if(document.getElementById('p-ana').classList.contains('active'))window.scrollTo(0,0);}).catch(()=>{});
   }
   if(p==='card')renderCardsPage();
   if(p==='bud')renderAnalisis();
-  if(p!=='ana')stopPfYahoo();
+  if(p!=='ana'&&saliendoDelPortafolio)stopPfYahoo({preservarConsulta:true});
 }
 
 // ── FAB contextual ───────────────────────────────────────────────────────────

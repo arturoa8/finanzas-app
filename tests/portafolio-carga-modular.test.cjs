@@ -15,8 +15,8 @@ const historial=['2026-09-30','2026-10-01'].map((fecha,i)=>({id:'h'+i,fecha_valo
 const posiciones=[{id:'p1',cuenta_ibkr:'CUENTA_DEMO',contract_id:1,simbolo:'CSPX',nombre:'Activo de prueba',cantidad:10,precio_mercado:100,valor_mercado_base:1000,costo_promedio:100,multiplicador:1,moneda:'USD',moneda_base:'USD',tipo_activo:'STK',fecha_datos:'2026-10-01',pnl_no_realizado_base:0}];
 const quotes=[{status:'ok',account:'CUENTA_DEMO',contract_id:1,ibkr_symbol:'CSPX',currency:'USD',price:104,previous_close:100,price_at:'2026-10-02T09:58:00Z',session_start:'2026-10-02T07:00:00Z',session_end:'2026-10-02T15:30:00Z',intraday:{interval:'2m',points:[{t:now-10800000,price:100},{t:now-7200000,price:102},{t:now-120000,price:104}]}}];
 globalThis.fetch=async url=>{
-  const u=new URL(url),tabla=u.pathname.split('/').at(-1);let rows=[];
-  if(u.pathname.includes('/functions/')){preciosPedidos++;await actualizacion.promise;return new Response(JSON.stringify({quotes}),{status:200,headers:{'content-type':'application/json'}});}
+  const u=new URL(url),tabla=u.pathname.split('/').at(-1),historia=u.searchParams.get('historia');let rows=[];
+  if(u.pathname.includes('/functions/')){if(!historia)preciosPedidos++;await actualizacion.promise;return Response.json({quotes:historia?quotes.map(q=>({...q,points:q.intraday.points,interval:historia==='1S'?'5m':'15m'})):quotes});}
   if(tabla==='portafolio_historial')rows=historial;
   if(tabla==='posiciones')rows=posiciones;
   if(['configuracion_integraciones','posiciones_historial','reconciliaciones_portafolio','portafolio_snapshots','sincronizaciones_portafolio'].includes(tabla)){await extras.promise;extrasListos=true;if(fallarExtras)throw Error('Fallo auxiliar simulado');}
@@ -44,9 +44,9 @@ async function esperar(condicion){for(let i=0;i<100;i++){if(condicion())return;a
     actualizacion=aplazado();const actualizando=m.refreshPfYahoo({force:true});
     assert.equal(m.pfYahoo.status,'loading');assert.equal(area.innerHTML,curva,'mantener curva real durante actualización de precios');
     actualizacion.resolve();await actualizando;assert.equal(preciosPedidos,2);
-    fallarExtras=true;await p.renderPortafolio();assert.match(area.innerHTML,/<svg/,'una consulta auxiliar fallida no oculta la curva disponible');
+    fallarExtras=true;await p.renderPortafolio({force:true});assert.match(area.innerHTML,/<svg/,'una consulta auxiliar fallida no oculta la curva disponible');
     m.pfYahoo.quotes=[];m.pfYahoo.status='error';p.renderPfChart();
     assert.doesNotMatch(area.innerHTML,/Cargando rendimiento/);assert.match(document.getElementById('pfChartTitulo').textContent,/cierres IBKR/,'si Yahoo falla, mostrar cierre real identificado');
     console.log('PASS: curva sin línea provisional, consulta anticipada, caché al regresar y respaldo IBKR tras error.');
-  }finally{extras.resolve();precios.resolve();actualizacion.resolve();m.stopPfYahoo();}
+  }finally{extras.resolve();precios.resolve();actualizacion.resolve();p.limpiarCachePortafolio();m.stopPfYahoo();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

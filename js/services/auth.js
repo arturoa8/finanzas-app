@@ -3,6 +3,8 @@
 
 import {cargar} from '../modules/transactions.js';
 import {pfYahoo, stopPfYahoo} from './market-data.js';
+import {limpiarCachePortafolio, precargarPortafolio} from '../modules/portfolio/portfolio.js';
+import {mostrarAcceso, mostrarErrorInicio, prepararInicio, revelarInicio} from '../ui/startup.js';
 import {SUPABASE_ANON_KEY, SUPABASE_URL} from './supabase-config.js';
 
 // ── Auth (email + contraseña) ────────────────────────────────────────────
@@ -57,7 +59,7 @@ async function refreshSession(){
   try{return await sessionRefresh;}finally{sessionRefresh=null;}
 }
 
-export function signOut(){stopPfYahoo();pfYahoo.quotes=[];setSession(null);location.reload();}
+export function signOut(){stopPfYahoo();pfYahoo.quotes=[];limpiarCachePortafolio();setSession(null);location.reload();}
 
 export async function authHeader(){
   let s=getSession();
@@ -67,6 +69,39 @@ export async function authHeader(){
 
 // ── Arranque: exige sesión antes de mostrar la app ───────────────────────
 let authMode='signin';
+let authEnCurso=false;
+let inicioEnCurso=null;
+
+function iniciarApp(){
+  if(inicioEnCurso)return inicioEnCurso;
+  const usuario=sessionUserId();
+  if(!usuario){mostrarAcceso();return Promise.resolve();}
+  prepararInicio();
+  // Preparar 1 día, 1 semana y 1 mes antes de abrir las pestañas. Se espera
+  // trabajo real, hasta ocho segundos desde el inicio; si Yahoo tarda más,
+  // la preparación sigue en segundo plano y los movimientos pueden abrir.
+  let timerPortafolio;
+  const portafolio=Promise.race([
+    precargarPortafolio({esperarGraficos:true}).catch(()=>null),
+    new Promise(resolve=>{timerPortafolio=setTimeout(resolve,8000);}),
+  ]).finally(()=>clearTimeout(timerPortafolio));
+  inicioEnCurso=(async()=>{
+    const resultado=await cargar();
+    if(sessionUserId()!==usuario){mostrarAcceso();return;}
+    if(!resultado?.ok){
+      mostrarErrorInicio(resultado?.error,{reintentar:iniciarApp,cerrarSesion:signOut});
+      return;
+    }
+    await portafolio;
+    if(sessionUserId()!==usuario){mostrarAcceso();return;}
+    await revelarInicio();
+    if(sessionUserId()!==usuario)mostrarAcceso();
+  })().catch(error=>{
+    if(sessionUserId()!==usuario){mostrarAcceso();return;}
+    mostrarErrorInicio(error,{reintentar:iniciarApp,cerrarSesion:signOut});
+  }).finally(()=>{inicioEnCurso=null;});
+  return inicioEnCurso;
+}
 
 export function toggleAuthMode(){
   authMode=authMode==='signin'?'signup':'signin';
@@ -78,17 +113,21 @@ export function toggleAuthMode(){
 }
 
 export async function submitAuth(){
+  if(authEnCurso)return;
   const email=document.getElementById('authEmail').value.trim();
   const password=document.getElementById('authPassword').value;
   const errEl=document.getElementById('authError');
   errEl.style.color='var(--red)';
   errEl.textContent='';
   if(!email||!password){errEl.textContent='Completa correo y contraseña';return;}
+  authEnCurso=true;
+  const boton=document.getElementById('authSubmitBtn');
+  boton.disabled=true;
+  boton.textContent=authMode==='signin'?'Entrando…':'Creando cuenta…';
   try{
     if(authMode==='signin'){
       await signIn(email,password);
-      ocultarAuthGate();
-      cargar();
+      await iniciarApp();
     }else{
       await signUp(email,password);
       toggleAuthMode();
@@ -96,15 +135,19 @@ export async function submitAuth(){
       errEl.textContent='Cuenta creada. Revisa tu correo si te pide confirmarlo, luego inicia sesión.';
     }
   }catch(e){errEl.style.color='var(--red)';errEl.textContent=e.message||'Error de autenticación';}
+  finally{authEnCurso=false;boton.disabled=false;boton.textContent=authMode==='signin'?'Entrar':'Crear cuenta';}
 }
 
-function ocultarAuthGate(){document.getElementById('authGate').style.display='none';}
-
 export async function bootAuth(){
+  if(inicioEnCurso)return inicioEnCurso;
+  prepararInicio();
   try{
     let s=getSession();
     if(s&&s.expires_at-Date.now()<60000)s=await refreshSession();
-    if(s){ocultarAuthGate();await cargar();}
-  }catch(e){document.getElementById('authError').textContent=e.message;}
-  // si no hay sesión, se queda mostrando #authGate (visible por defecto)
+    if(s){await iniciarApp();}
+    else mostrarAcceso();
+  }catch(e){
+    if(getSession())mostrarErrorInicio(e,{reintentar:bootAuth,cerrarSesion:signOut});
+    else{mostrarAcceso();document.getElementById('authError').textContent=e.message;}
+  }
 }

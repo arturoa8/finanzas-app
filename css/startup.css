@@ -1,0 +1,17 @@
+/* El inicio cubre la carga real y se retira en cuanto el resumen está listo. */
+.app-startup{position:fixed;inset:0;z-index:10000;background:var(--bg);display:grid;place-items:center;padding:28px;}
+.app-startup[hidden]{display:none;}
+.startup-content{width:100%;max-width:340px;text-align:center;}
+.startup-mark{width:64px;height:64px;margin:0 auto 24px;border:1px solid color-mix(in srgb,var(--green) 35%,transparent);border-radius:20px;background:color-mix(in srgb,var(--green) 9%,var(--bg));display:grid;place-items:center;color:var(--green);}
+.startup-mark svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.startup-content .logo{font-size:1.5rem;}
+.startup-title{font-size:.88rem;font-weight:600;margin-top:26px;color:var(--text);}
+.startup-detail{font-size:.78rem;line-height:1.6;color:var(--dim);margin:9px auto 0;max-width:290px;min-height:40px;}
+.startup-track{height:3px;width:96px;margin:22px auto 0;background:var(--border);overflow:hidden;border-radius:999px;}
+.startup-track::after{content:'';display:block;height:100%;width:40%;border-radius:inherit;background:var(--green);animation:startupFlow 1.25s ease-in-out infinite;}
+@keyframes startupFlow{from{transform:translateX(-110%);}to{transform:translateX(360%);}}
+.startup-error .startup-track{display:none;}
+.startup-actions{display:flex;flex-direction:column;gap:10px;margin-top:24px;}
+.startup-actions[hidden]{display:none;}
+.startup-actions .btn-s{color:var(--dim);background:transparent;border:0;font-size:.78rem;padding:8px;}
+@media(prefers-reduced-motion:reduce){.startup-track::after{animation:none;width:100%;opacity:.6;}}
