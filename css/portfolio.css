@@ -9,6 +9,8 @@
 .pf-hero-valor{font-size:clamp(30px,7vw,44px);font-weight:800;letter-spacing:-.04em;margin-top:8px}
 .pf-hero-hoy{font-size:.85rem;font-weight:700;min-height:1.2em}
 .pf-hero-titulo{color:var(--dim)}
+/* La hora del punto tocado ocupa la misma línea que el estado del mercado. */
+#pfFrescura{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pf-view-icon[aria-pressed="true"]{border-color:var(--accent);background:var(--card2)}
 .pf-view-icon[aria-pressed="true"] svg{stroke:var(--accent)}
 .pf-desde-toggle{display:block;margin:10px 0 2px;padding:0;background:none;border:none;color:var(--dim);font:inherit;font-size:12px;cursor:pointer;text-align:left}

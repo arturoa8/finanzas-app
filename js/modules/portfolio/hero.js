@@ -137,11 +137,19 @@ export function pintarValorPrincipal(){
   // posición tenga sesión abierta — se dice así, sin sonar a advertencia.
   // Con el mercado cerrado se muestra la fecha Y hora reales del último precio
   // regular (p. ej. el viernes en un fin de semana), nunca la hora actual.
-  if(frescura)frescura.textContent=usaVivo
-    ?(pfYahooSessionOpen()
+  if(frescura){
+    const mercadoAbierto=usaVivo&&pfYahooSessionOpen();
+    const estadoPrecio=usaVivo
+    ?(mercadoAbierto
       ?'● Yahoo · en vivo · '+new Date(v.timestamp).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})
       :'Yahoo · mercado cerrado · último precio regular '+new Date(v.timestamp).toLocaleString('es-PE',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))
     :'IBKR cierre oficial · '+fmtDateShort(parseDateOnly(official.fecha_valoracion))+(v.aportesPendientes&&v.aportesPendientes.length?' · aporte del '+pfFechaCorta(v.aportesPendientes[0])+' aún no reflejado por IBKR':'');
+    frescura.textContent=usaVivo&&!mercadoAbierto
+      ?'Yahoo · mercado cerrado · '+new Date(v.timestamp).toLocaleString('es-PE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+      :estadoPrecio;
+    frescura.title=estadoPrecio;
+    frescura.setAttribute('aria-label',estadoPrecio);
+  }
   // P&L no realizado (sección 18): con Yahoo completo, el P&L PRINCIPAL pasa
   // a ser el calculado con precios Yahoo (renderPfResumen ya dejó ahí el
   // valor IBKR, que es el que se usa cuando Yahoo no está disponible); el

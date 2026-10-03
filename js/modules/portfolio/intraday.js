@@ -398,7 +398,7 @@ export function pfWireChartTooltip(container,grafico,opts){
     // lineaTexto: la vista Valor no muestra un %, que ahí mezclaría aportes
     // con rentabilidad; describe el punto con su propio texto.
     if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto!=null?d.lineaTexto:d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
-    if(frescuraEl)frescuraEl.textContent=hora;
+    if(frescuraEl){frescuraEl.textContent=hora;frescuraEl.title=hora;frescuraEl.setAttribute('aria-label',hora);}
     if(evt.cancelable)evt.preventDefault();
   }
   function ocultar(){
