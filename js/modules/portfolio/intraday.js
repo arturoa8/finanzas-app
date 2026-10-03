@@ -5,7 +5,7 @@ import {pfAssetColor} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico1D} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrincipal} from './hero.js';
-import {pfFlujos, pfModeloGanancia} from './performance.js';
+import {pfFlujos, pfModeloGanancia, pfRendimientoEntrePuntos, pfRendimientoPortafolio} from './performance.js';
 import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
 import {pfLondonDay, pfMarketEstimate, pfQuoteKey, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
 import {dominioY, lttb} from '../../ui/chart-scale.js';
@@ -346,6 +346,7 @@ export function construirGraficoIntradia(puntos,opts={}){
     if(texto===etiquetaAnterior)return;etiquetaAnterior=texto;
     svg+=`<text x="${x(p.t).toFixed(2)}" y="${baseline+18}" text-anchor="${anchor}" font-size="10">${esc(texto)}</text>`;});
   svg+=`<g id="pfIntraTip" style="display:none;pointer-events:none"><line id="pfIntraTipLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraTipDot" r="4" fill="${color}" stroke="var(--bg)" stroke-width="1.5"/></g>`;
+  svg+=`<g id="pfIntraRange" style="display:none;pointer-events:none"><rect id="pfIntraRangeFill" y="${PAD_T}" height="${innerH}" fill="var(--dim)" opacity=".08"/><line id="pfIntraRangeLine" x1="0" y1="${PAD_T}" x2="0" y2="${baseline}" stroke="var(--dim)" stroke-width="1"/><circle id="pfIntraRangeDot" r="4" stroke="var(--bg)" stroke-width="1.5"/></g>`;
   svg+='</svg>';
   return{svg,x,y,meta:{VB_W,VB_H,PAD_L,baseline,puntos:validos,etiqueta,dominio:[yMin,yMax]}};
 }
@@ -354,7 +355,7 @@ export function construirGraficoIntradia(puntos,opts={}){
 // arriba (pfHeroValor/pfHeroHoy/pfFrescura) pasa a mostrar el punto tocado
 // — el gráfico en sí solo aporta la guía visual (línea + punto + hora), ya
 // no repite valor/% en una caja flotante (eso ahora vive arriba, sección 5).
-// Un solo listener por SVG, Pointer Events (mouse y dedo). Lo usan todos
+// Una selección por pointerId permite comparar dos dedos. Lo usan todos
 // los períodos. Nunca recalcula el portafolio ni toca pfYahoo/Supabase/snapshots
 // (secciones 19-21): usa directamente los puntos ya construidos por
 // construirSerieIntradia y solo escribe texto en el DOM — instantáneo,
@@ -367,11 +368,17 @@ export function pfWireChartTooltip(container,grafico,opts){
   // página; el arrastre horizontal lo captura este listener (sección 6).
   svgEl.style.touchAction='pan-y';
   const tipG=svgEl.querySelector('#pfIntraTip'),tipLine=svgEl.querySelector('#pfIntraTipLine'),tipDot=svgEl.querySelector('#pfIntraTipDot');
+  const rangeG=svgEl.querySelector('#pfIntraRange'),rangeFill=svgEl.querySelector('#pfIntraRangeFill'),rangeLine=svgEl.querySelector('#pfIntraRangeLine'),rangeDot=svgEl.querySelector('#pfIntraRangeDot');
   let label=container.querySelector('.pf-intraday-tooltip');
   if(!label){label=document.createElement('div');label.className='pf-intraday-tooltip';container.appendChild(label);}
   label.style.display='none';
   const {puntos,VB_W,etiqueta}=grafico.meta;
-  const heroValorEl=document.getElementById('pfHeroValor'),heroHoyEl=document.getElementById('pfHeroHoy'),frescuraEl=document.getElementById('pfFrescura');
+  const heroValorEl=document.getElementById('pfHeroValor'),heroHoyEl=document.getElementById('pfHeroHoy'),heroSubEl=document.getElementById('pfHeroHoySub'),frescuraEl=document.getElementById('pfFrescura');
+  const activos=new Map();let subtituloOriginal='';
+  function posicionarEtiqueta(fraccion){
+    const ancho=container.clientWidth,mitad=label.offsetWidth/2;
+    label.style.left=Math.min(Math.max(fraccion*ancho,mitad+6),ancho-mitad-6)+'px';
+  }
   function puntoDesdeEvento(evt){
     const rect=svgEl.getBoundingClientRect();
     const fracX=(evt.clientX-rect.left)/rect.width;
@@ -388,31 +395,70 @@ export function pfWireChartTooltip(container,grafico,opts){
     tipDot.setAttribute('cx',xPix);tipDot.setAttribute('cy',yPix);
     tipDot.setAttribute('fill',color);
     tipG.style.display='';
+    rangeG.style.display='none';
     const hora=d.fechaTexto||etiqueta(p.t);
     label.textContent=hora;
+    label.title=hora;
     label.style.display='block';
-    label.style.left=Math.min(Math.max((xPix/VB_W)*100,10),90)+'%';
+    posicionarEtiqueta(xPix/VB_W);
     // Hero temporal (secciones 2-3, 14, 18): reemplaza valor/rendimiento/hora
     // mientras se arrastra. evt.preventDefault evita seleccionar texto.
     if(heroValorEl)heroValorEl.textContent=d.valorTexto;
     // lineaTexto: la vista Valor no muestra un %, que ahí mezclaría aportes
     // con rentabilidad; describe el punto con su propio texto.
     if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto!=null?d.lineaTexto:d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
+    if(heroSubEl)heroSubEl.textContent=subtituloOriginal;
     if(frescuraEl){frescuraEl.textContent=hora;frescuraEl.title=hora;frescuraEl.setAttribute('aria-label',hora);}
     if(evt.cancelable)evt.preventDefault();
   }
+  function mostrarRango(){
+    const [a,b]=[...activos.values()].slice(0,2).map(puntoDesdeEvento).sort((a,b)=>a.t-b.t);
+    const d=opts.comparar(a,b),color=pfColor(d.pctNum),xA=grafico.x(a.t),xB=grafico.x(b.t);
+    tipLine.setAttribute('x1',xA);tipLine.setAttribute('x2',xA);
+    tipDot.setAttribute('cx',xA);tipDot.setAttribute('cy',grafico.y(a.valor));tipDot.setAttribute('fill',color);
+    rangeLine.setAttribute('x1',xB);rangeLine.setAttribute('x2',xB);
+    rangeDot.setAttribute('cx',xB);rangeDot.setAttribute('cy',grafico.y(b.valor));rangeDot.setAttribute('fill',color);
+    rangeFill.setAttribute('x',xA);rangeFill.setAttribute('width',xB-xA);rangeFill.setAttribute('fill',color);
+    tipG.style.display='';rangeG.style.display='';
+    const fechas=etiqueta(a.t)+' – '+etiqueta(b.t);
+    label.textContent=fechas;label.title=fechas;label.style.display='block';posicionarEtiqueta((xA+xB)/2/VB_W);
+    if(heroValorEl)heroValorEl.textContent=d.valorTexto;
+    if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto;heroHoyEl.style.color=color;}
+    if(heroSubEl)heroSubEl.textContent=d.subTexto;
+    if(frescuraEl){frescuraEl.textContent=fechas;frescuraEl.title=fechas;frescuraEl.setAttribute('aria-label',fechas);}
+  }
+  function pintarSeleccion(){
+    if(activos.size>=2&&opts.comparar)mostrarRango();
+    else if(activos.size)mostrar([...activos.values()][0]);
+    else ocultar();
+  }
   function ocultar(){
-    tipG.style.display='none';label.style.display='none';
+    tipG.style.display='none';rangeG.style.display='none';label.style.display='none';
     // Sección 4: se restaura con las mismas funciones que pintan el hero
     // normal — nunca se duplica el cálculo acá, y nunca se escribe nada
     // fuera del DOM (sección 19: pfYahoo/Supabase quedan intactos).
     pintarValorPrincipal();
   }
-  svgEl.addEventListener('pointerdown',mostrar);
-  svgEl.addEventListener('pointermove',evt=>{if(evt.buttons||evt.pointerType==='touch')mostrar(evt);});
-  svgEl.addEventListener('pointerup',ocultar);
-  svgEl.addEventListener('pointercancel',ocultar);
-  svgEl.addEventListener('pointerleave',ocultar);
+  svgEl.addEventListener('pointerdown',evt=>{
+    if(!activos.size)subtituloOriginal=heroSubEl?.textContent||'';
+    activos.set(evt.pointerId,evt);
+    if(evt.isTrusted)svgEl.setPointerCapture(evt.pointerId);
+    pintarSeleccion();
+  });
+  svgEl.addEventListener('pointermove',evt=>{
+    if(!activos.has(evt.pointerId))return;
+    activos.set(evt.pointerId,evt);pintarSeleccion();
+  });
+  function terminar(evt){if(activos.delete(evt.pointerId))pintarSeleccion();}
+  svgEl.addEventListener('pointerup',terminar);
+  svgEl.addEventListener('pointercancel',terminar);
+  svgEl.addEventListener('lostpointercapture',terminar);
+  svgEl.addEventListener('pointerleave',evt=>{if(!svgEl.hasPointerCapture(evt.pointerId))terminar(evt);});
+  // Con dos dedos se compara el intervalo; con uno se conserva el scroll
+  // vertical nativo. Evitar que el navegador consuma el gesto multifinger.
+  const preservarComparacion=evt=>{if(evt.touches.length>=2&&evt.cancelable)evt.preventDefault();};
+  svgEl.addEventListener('touchstart',preservarComparacion,{passive:false});
+  svgEl.addEventListener('touchmove',preservarComparacion,{passive:false});
 }
 
 // ── Contribución por activo al rendimiento del día ─────────────────────────
@@ -465,12 +511,21 @@ export function renderPfChart1D(area,titulo,hint,res){
   titulo.textContent=s.dia.fuente==='IBKR_CIERRES'?'Últimos cierres IBKR':(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión · '+pfFechaCorta(s.sesion):'Hoy';
   const opcX=s.etiquetaX?{etiqueta:s.etiquetaX}:{};
   if(pfVista==='rendimiento'){
+    const fl=pfFlujos(),cierres=s.dia.fuente==='IBKR_CIERRES'?pfHistoricoCache.filter(r=>Number(r.valor_total)>0).slice(-2):null;
+    const intervaloCierres=cierres?pfRendimientoPortafolio(cierres,fl):null;
+    const aportesCierres=intervaloCierres?fl.flujos.filter(f=>f.fecha>intervaloCierres.desde&&f.fecha<=intervaloCierres.hasta).reduce((s,f)=>s+f.monto,0):0;
     // Referencia 0% = "dónde estaba el rendimiento al inicio" (siempre 0,
     // por definición). El coloreado por tramos y la línea punteada viven en
     // construirGraficoIntradia (referencia por defecto).
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX,...pfOpcionesEscala(s.serie,{vista:'rendimiento',intradia:true})});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{describir:p=>{
+    pfWireChartTooltip(area,grafico,{comparar:(a,b)=>{
+      const mismo=a.t===b.t;
+      const pct=mismo?0:intervaloCierres?intervaloCierres.pct:pfRendimientoEntrePuntos(a.valor,b.valor);
+      const ganancia=mismo?0:s.base*(b.valor-a.valor)/100-aportesCierres;
+      return{valorTexto:pfSignedPct(pct),lineaTexto:pct==null?'Aportes sin confirmar':pfSigned(ganancia,s.moneda),
+        subTexto:'Rendimiento del intervalo',pctNum:pct};
+    },describir:p=>{
       const valorAbs=s.base*(1+p.valor/100),ganancia=valorAbs-s.base;
       return{valorTexto:pfFmt(valorAbs,s.moneda),gananciaTexto:pfSigned(ganancia,s.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor};
     }});
@@ -480,7 +535,10 @@ export function renderPfChart1D(area,titulo,hint,res){
     // (con base Yahoo es el cierre anterior, no la primera vela)
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX,...pfOpcionesEscala(s.serie,{vista:'valor',intradia:true})});
     area.innerHTML=grafico.svg;
-    pfWireChartTooltip(area,grafico,{describir:p=>{
+    pfWireChartTooltip(area,grafico,{comparar:(a,b)=>({
+      valorTexto:pfSigned(b.valor-a.valor,s.moneda),lineaTexto:'Cambio de valor entre puntos',
+      subTexto:'Valor de la cuenta',pctNum:b.valor-a.valor,
+    }),describir:p=>{
       const pctNum=(p.valor/s.base-1)*100,ganancia=p.valor-s.base;
       return{valorTexto:pfFmt(p.valor,s.moneda),gananciaTexto:pfSigned(ganancia,s.moneda),pctTexto:pfSignedPct(pctNum),pctNum};
     }});

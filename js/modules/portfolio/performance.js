@@ -103,6 +103,16 @@ export function pfRendimientoPortafolio(filas,fl){
     serie:validas.map(r=>({fecha:r.fecha_valoracion,valor:(Number(r.valor_total)/inicial-1)*100}))};
 }
 
+// La curva de rendimiento ya excluye los aportes: se comparan sus factores
+// acumulados, no la diferencia en puntos porcentuales ni los saldos brutos.
+export function pfRendimientoEntrePuntos(inicial,final){
+  if(!Number.isFinite(inicial)||!Number.isFinite(final))return null;
+  const base=1+inicial/100,fin=1+final/100;
+  if(!(base>0)||fin<0)return null;
+  const pct=(fin/base-1)*100;
+  return Number.isFinite(pct)?pct:null;
+}
+
 // ── Posiciones ──────────────────────────────────────────────────────────────
 // Costo = cantidad × costo promedio (× multiplicador, × tipo de cambio a la
 // moneda base). P&L % = P&L no realizado / costo. Sin datos no se inventa.

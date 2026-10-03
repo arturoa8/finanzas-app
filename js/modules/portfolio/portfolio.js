@@ -7,7 +7,7 @@ import {renderPfBenchmark} from './benchmark.js';
 import {renderPfDiagnostico, renderPfDiagnosticoYahoo} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from './hero.js';
 import {construirGraficoIntradia, construirSerieSesiones, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
-import {pfFlujos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
+import {pfFlujos, pfRendimientoEntrePuntos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
 import {escalaGrafico} from '../settings.js';
@@ -422,9 +422,14 @@ export function renderPfChart(){
       // retirado entre medio: un depósito no es ganancia. En un cierre, los
       // flujos hasta ese día; dentro de una sesión, solo los de días previos
       // (los del día aún no están en la curva intradía).
-      pfWireChartTooltip(area,grafico,{describir:p=>{
+      const aportadoHasta=p=>fl.flujos.filter(f=>f.fecha>r.desde&&(conIntradia&&!p.cierre?f.fecha<p.fecha:f.fecha<=p.fecha)).reduce((s,f)=>s+f.monto,0);
+      pfWireChartTooltip(area,grafico,{comparar:(a,b)=>({
+        valorTexto:pfSignedPct(pfRendimientoEntrePuntos(a.valor,b.valor)),
+        lineaTexto:a.abs==null||b.abs==null?'—':pfSigned(b.abs-a.abs-aportadoHasta(b)+aportadoHasta(a),r.moneda),
+        subTexto:'Rendimiento del intervalo',pctNum:pfRendimientoEntrePuntos(a.valor,b.valor),
+      }),describir:p=>{
         const v=p.abs;
-        const aportado=fl.flujos.filter(f=>f.fecha>r.desde&&(conIntradia&&!p.cierre?f.fecha<p.fecha:f.fecha<=p.fecha)).reduce((s,f)=>s+f.monto,0);
+        const aportado=aportadoHasta(p);
         return{valorTexto:v!=null?pfFmt(v,r.moneda):'—',gananciaTexto:v==null?'':pfSigned(v-r.inicial-aportado,r.moneda),pctTexto:pfSignedPct(p.valor),pctNum:p.valor,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null};
       }});
       res.innerHTML='<div class="pf-rend-big">'+esc(pfEtiquetaPeriodo(r.desde))+'<strong style="color:'+pfColor(r.pct)+'">'+esc(pfSignedPct(r.pct))+'</strong></div>'+cifras;
@@ -447,7 +452,10 @@ export function renderPfChart(){
     area.innerHTML=grafico.svg;
     // Valor: fecha y valor, sin %: un cambio de valor aquí puede ser un
     // aporte, y mostrarlo como porcentaje lo haría pasar por rentabilidad.
-    pfWireChartTooltip(area,grafico,{describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null})});
+    pfWireChartTooltip(area,grafico,{comparar:(a,b)=>({
+      valorTexto:pfSigned(b.valor-a.valor,moneda),lineaTexto:'Cambio de valor entre puntos',
+      subTexto:'Incluye aportes y retiros',pctNum:b.valor-a.valor,
+    }),describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null})});
     const recorte=conValor.length<filas.length&&conValor.length?' Se muestra desde el primer día con valor en la cuenta ('+pfFechaCorta(conValor[0].fecha_valoracion)+').':'';
     const truncado=grafico.meta&&grafico.meta.dominio[0]>0?' El eje vertical se ajusta al rango del período y no empieza en 0.':'';
     const detalle=conIntradia?' Precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';
