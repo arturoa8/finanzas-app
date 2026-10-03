@@ -35,7 +35,7 @@ export function cerrarCardDetail(){document.getElementById('cardDetailModal').cl
 function renderDesgloseLinea(){
   const d=desgloseLineaPorMoneda(),hay=x=>x.soles>0||x.usd>0;
   const filas=[['Anteriores',d.anteriores,hay(d.anteriores)],['Actual',d.actual,true],['Siguiente',d.siguiente,true],['Más adelante',d.despues,hay(d.despues)]];
-  return `<div class="line-breakdown">${filas.filter(f=>f[2]).map(([nombre,monto])=>`<div class="line-breakdown-row"><span>${nombre}</span><strong>${fmtMonedas(monto)}</strong></div>`).join('')}</div>`;
+  return `<div class="line-breakdown">${filas.filter(f=>f[2]).map(([nombre,monto])=>`<div class="line-breakdown-row"><span>${nombre}:</span><strong>${fmtMonedas(monto)}</strong></div>`).join('')}</div>`;
 }
 
 function renderCreditLineSummary(){

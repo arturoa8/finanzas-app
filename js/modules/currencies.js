@@ -5,7 +5,7 @@ import {cuentaPorNombre, cuentasApp, cuentasSaldos, estadoCuentas} from './accou
 import {deudaUSDTotal} from './cards/cards.js';
 import {pagoEsUSD, pagoSalidaSoles} from './cards/payments.js';
 import {filtrar, render} from './dashboard.js';
-import {editando, efectoResultado, sameAccount, tipoA} from './transactions.js';
+import {editando, efectoResultado, sameAccount, seleccionarGastoReembolso, tipoA} from './transactions.js';
 import {tcMercado, tcMercadoFecha, tcUsdPen} from '../services/exchange-rate.js';
 import {datos} from '../state.js';
 import {endOfDay, formatISODate, hoyISO, pf} from '../utils/dates.js';
@@ -351,4 +351,5 @@ export function actualizarEquivalente(){
       ? 'Tipo de cambio de esta operación: '+d.toFixed(6)
       : 'Si aún no sabes cuánto llegó, déjalo vacío: queda pendiente de conciliar.';
   }
+  if(tipoA==='Reembolso')seleccionarGastoReembolso();
 }

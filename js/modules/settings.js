@@ -2,6 +2,7 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {renderCuentasConfig} from './accounts.js';
+import {cancelarCategoria, renderCategoriasConfig} from './categories.js';
 import {renderPfModalChart} from './portfolio/portfolio-ui.js';
 import {pfHistoricoCache, renderPfChart} from './portfolio/portfolio.js';
 import {leerTipoCambio, tcUsdPen} from '../services/exchange-rate.js';
@@ -13,7 +14,7 @@ const APP_PREFS_KEY='finanzas.appearance.v1';
 // usa la última. index.html repite el número en <meta name="version-app">
 // (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
 // una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
-export const VERSION_APP='2026.10.03.13';
+export const VERSION_APP='2026.10.03.14';
 
 function pintarVersion(){
   const el=document.getElementById('settingsVersion');if(!el)return;
@@ -47,10 +48,12 @@ export function abrirConfiguracion(seccion){
   leerTipoCambio().then(()=>{if(tcUsdPen>0&&document.activeElement!==tcEl&&!tcEl.value)tcEl.value=tcUsdPen;});
  }
  renderCuentasConfig();
+ cancelarCategoria();
+ renderCategoriasConfig();
  pintarVersion();
  document.getElementById('settingsModal').classList.add('active');
- if(seccion==='cuentas'){
-  const s=document.getElementById('cuentasConfigSection');
+ if(seccion==='cuentas'||seccion==='categorias'){
+  const s=document.getElementById(seccion==='cuentas'?'cuentasConfigSection':'categoriasConfigSection');
   if(s)setTimeout(()=>s.scrollIntoView({block:'start',behavior:'smooth'}),60);
  }
 }

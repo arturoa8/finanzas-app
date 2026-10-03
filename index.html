@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.03.13">
+<meta name="version-app" content="2026.10.03.14">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -58,6 +58,8 @@ try{
      modular-integridad.test.cjs exige que coincida con el grafo de app.js. -->
   <link rel="modulepreload" href="./js/app.js">
   <link rel="modulepreload" href="./js/bridge.js">
+  <link rel="modulepreload" href="./js/modules/categories.js">
+  <link rel="modulepreload" href="./js/services/refund-operations.js">
   <link rel="modulepreload" href="./js/modules/settings.js">
   <link rel="modulepreload" href="./js/services/auth.js">
   <link rel="modulepreload" href="./js/services/market-data.js">
@@ -497,7 +499,7 @@ try{
       <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso()"></select>
       <p class="transfer-note" id="refundAvailable"></p>
       <p class="transfer-note">La cuenta que elijas abajo es donde realmente llegó el dinero. Si te pagaron por Yape, selecciona Yape. Si el comercio devolvió el dinero a la tarjeta, selecciona la misma tarjeta.</p>
-      <p class="transfer-note">El reembolso reduce el gasto efectivo de su categoría en la fecha del gasto original, no cuenta como ingreso, y solo reduce la deuda de una tarjeta si esa es la cuenta que lo recibe.</p>
+      <p class="transfer-note">El reembolso reduce el gasto original. Si recibes más de lo pendiente, el excedente se guarda como ingreso adicional en esa cuenta. La deuda de la tarjeta baja cuando registres el pago o la devolución llegue directamente a la tarjeta.</p>
     </div>
     <div id="transferFields" hidden>
       <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><select class="sel" id="iDestino" onchange="cambiarCuentaSelect(this)"></select></div>
@@ -592,6 +594,21 @@ try{
           <button class="btn btn-p" style="align-self:end" onclick="agregarCuenta()">Agregar cuenta</button>
         </div>
         <p class="hint">Renombrar cambia también el nombre en todos los movimientos y pagos de esa cuenta, así que no se pierde ningún saldo. Las cuentas no se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p>
+      </section>
+      <section class="line-config-item" id="categoriasConfigSection" aria-busy="false">
+        <div class="category-config-header"><h3 class="line-config-name">Categorías</h3><button type="button" class="line-edit-btn" id="categoryAdd" onclick="agregarCategoria()">+ Agregar categoría</button></div>
+        <div id="categoriasLista"></div>
+        <div class="category-config-form" id="categoryForm" hidden>
+          <h4 id="categoryFormTitle">Nueva categoría</h4>
+          <div class="category-config-fields"><div class="line-field"><label for="categoryName">Nombre</label><input type="text" id="categoryName" maxlength="60" placeholder="Ej. Salud" autocomplete="off"></div><div class="line-field category-color-field"><label for="categoryColor">Color</label><input type="color" id="categoryColor" value="#00d68f"></div></div>
+          <p class="hint" id="categoryEditNote"></p><p class="category-config-error" id="categoryFormError" role="alert" hidden></p>
+          <div class="category-config-buttons"><button type="button" class="btn btn-s" onclick="cancelarCategoria()">Cancelar</button><button type="button" class="btn btn-p" id="categorySave" onclick="guardarCategoria()">Guardar categoría</button></div>
+        </div>
+        <div class="category-config-form category-delete-panel" id="categoryDeletePanel" hidden>
+          <h4>Eliminar <span id="categoryDeleteName"></span></h4><p class="hint" id="categoryDeleteNote"></p><p class="category-config-error" id="categoryDeleteError" role="alert" hidden></p>
+          <div class="category-config-buttons"><button type="button" class="btn btn-s" onclick="cancelarCategoria()">Cancelar</button><button type="button" class="btn btn-d" id="categoryDeleteConfirm" onclick="confirmarEliminarCategoria()">Eliminar categoría</button></div>
+        </div>
+        <p class="hint">Los cambios se aplican al catálogo para nuevos movimientos. Renombrar o eliminar una categoría conserva los movimientos, presupuestos y recurrentes existentes con su nombre original.</p>
       </section>
       <section class="line-config-item" id="tipoCambioSection"><h3 class="line-config-name">Tipo de cambio</h3>
         <div class="line-config-row" style="grid-template-columns:1fr auto">

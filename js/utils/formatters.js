@@ -1,6 +1,8 @@
 // Formato de importes, texto y emojis de categoria.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
+import {datos} from '../state.js';
+
 export const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 export const mesesC=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -18,6 +20,7 @@ export const EMOJIS={
   'Salario':{e:'💵',c:'rgba(0,214,143,0.18)',h:'#00d68f'},
   'Beca':{e:'🎓',c:'rgba(106,255,212,0.18)',h:'#6affd4'},
   'Otros ingresos':{e:'💰',c:'rgba(255,217,61,0.18)',h:'#ffd93d'},
+  'Compra Dólares':{e:'💱',c:'rgba(56,189,248,0.18)',h:'#38bdf8'},
   'Transferencias':{e:'↔',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'}
 };
 
@@ -28,7 +31,7 @@ export const escHtml=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 const EMOJI_NORM={};
 
-export const getEmoji=cat=>{
+const emojiBase=cat=>{
   if(!cat)return{e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
   if(EMOJIS[cat])return EMOJIS[cat];
   const f=EMOJI_NORM[norm(cat)];
@@ -37,8 +40,18 @@ export const getEmoji=cat=>{
   // la categoría histórica 'Inversiones' ni el resto de nombres.
   const n=norm(cat);
   if(n.startsWith('inversion ')||n.startsWith('retiro '))return EMOJIS['Inversiones'];
-  if(n==='compra dolares'||n==='venta de dolares')return EMOJIS['Transferencias'];
+  if(n==='venta de dolares')return EMOJIS['Transferencias'];
   return {e:'💼',c:'rgba(161,161,170,0.18)',h:'#a1a1aa'};
+};
+
+export const getEmoji=cat=>{
+  const base=emojiBase(cat),nombre=norm(cleanName(cat));
+  const categoria=(datos.categorias||[]).find(c=>Array.isArray(c)&&norm(cleanName(c[0]))===nombre);
+  const color=String(categoria?.[1]||'').trim();
+  if(!/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(color))return base;
+  const hex=color.length===4?color.slice(1).split('').map(c=>c+c).join(''):color.slice(1);
+  const rgb=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));
+  return{...base,h:'#'+hex.toLowerCase(),c:`rgba(${rgb.join(',')},0.18)`};
 };
 
 // Devuelve el nombre limpio (sin tildes raras), p.ej. "Comer afuéra" -> "Comer afuera"

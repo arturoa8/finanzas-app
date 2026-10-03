@@ -1,9 +1,10 @@
 // Movimientos: alta, edicion, borrado y reglas financieras.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cuentaPorNombre, llenarCuentas, setCuentasMigradas, setEstadoCuentas, validarCuentasDisponibles} from './accounts.js';
+import {cuentaPorNombre, cuentasApp, llenarCuentas, setCuentasMigradas, setEstadoCuentas, validarCuentasDisponibles} from './accounts.js';
 import {recuperarAbonosPendientes} from '../services/debt-operations.js';
 import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
+import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {filaPago} from './cards/payments.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -62,6 +63,7 @@ async function cargar__base(){
   try{
     await recuperarAbonosPendientes();
     await recuperarPagosTarjetaPendientes();
+    await recuperarReembolsosPendientes();
     comprobarSesion();
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
@@ -81,6 +83,7 @@ async function cargar__base(){
     datos.pagosTarjetas=pagos.map(filaPago);
     datos.ciclosOverride=ciclos.map(c=>[c.id,c.tarjeta,c.tx_id,c.ciclo_key]);
     datos.categorias=cats.map(c=>[c.nombre,c.color]);
+    datos.categoriasCargadas=true;
     datos.deudas=deu.filter(d=>!d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo]);
     datos.deudasArchivadas=deu.filter(d=>d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo,d.motivo_archivo,d.fecha_archivo]);
     datos.deudasAbonos=abonos.map(a=>[a.id,a.deuda_id,a.monto,a.fecha,a.nota,a.tx_id]);
@@ -129,7 +132,10 @@ export function llenarSel(){
   const c=document.getElementById('catChips');
   let cats=[];
   if(datos.categorias&&datos.categorias.length){cats=datos.categorias.map(x=>x[0]).filter(Boolean);}
-  if(cats.length===0)cats=Object.keys(EMOJIS);
+  if(cats.length===0&&!datos.categoriasCargadas&&!datos.cargados)cats=Object.keys(EMOJIS);
+  const anterior=datos.transacciones.find(t=>String(t[6])===String(editando));
+  const seleccion=getCatSeleccionada()||(anterior?.[2]||'');
+  if(anterior?.[2]&&!cats.some(cat=>norm(cleanName(cat))===norm(cleanName(anterior[2]))))cats.push(anterior[2]);
   // Filtrar según tipo: si es Gasto, mostrar primero las de gasto; si Ingreso, las de ingreso
   const tipos={Gasto:['Comer afuera','Compras','Estudios','Auto','Lujo','Suscripciones','Tecnología','Ocio'],Ingreso:['Salario','Beca','Otros ingresos','Inversiones']};
   const ordenadas=cats.sort((a,b)=>{
@@ -141,7 +147,7 @@ export function llenarSel(){
   c.innerHTML=ordenadas.map(cat=>{
     const cn=cleanName(cat);
     const em=getEmoji(cn);
-    return `<button type="button" class="cchip" data-cat="${escHtml(cn)}" onclick="seleccionarCat(this)"><span class="cchip-emoji">${em.e}</span>${escHtml(cn)}</button>`;
+    return `<button type="button" class="cchip${norm(cleanName(seleccion))===norm(cn)?' selected':''}" data-cat="${escAttr(cat)}" onclick="seleccionarCat(this)"><span class="cchip-emoji" style="color:${em.h};background:${em.c}">${em.e}</span>${escHtml(cn)}</button>`;
   }).join('');
 }
 
@@ -156,7 +162,10 @@ function getCatSeleccionada(){
 }
 
 export function abrirM(){
+  if(guardandoTx)return;
   editando=null;
+  editandoFecha=null;
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('selected'));
   document.getElementById('modalTitle').textContent='Nueva transacción';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   const hoy=new Date();
@@ -177,6 +186,7 @@ export function abrirM(){
 }
 
 export function editarTx(row){
+  if(guardandoTx)return;
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
   if(t[2]==='Diferencia de cambio'&&!String(t[5]||'').trim()){toast('Es la diferencia de cambio de un pago en dólares. Se quita eliminando ese pago en Tarjetas.');return;}
@@ -215,25 +225,44 @@ export function editarTx(row){
   document.getElementById('modal').classList.add('active');
 }
 
-export function cerrarM(){document.getElementById('modal').classList.remove('active');editando=null;editandoFecha=null;}
+export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active');editando=null;editandoFecha=null;}
 
 export function setTipo(t,sincronizar=true){
+  if(guardandoTx)return;
+  const original=sincronizar&&t==='Reembolso'&&editando
+    ?datos.transacciones.find(x=>String(x[6])===String(editando)&&x[3]==='Gasto'):null;
+  if(original){
+    // Cambiar a Reembolso desde un consumo inicia una devolución nueva.
+    // La compra original sigue existiendo y queda elegida como vínculo.
+    editando=null;editandoFecha=null;
+    document.getElementById('modalTitle').textContent='Registrar reembolso';
+    document.getElementById('modalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>';
+    document.getElementById('iFec').value=toDateInput(new Date());
+    document.getElementById('iDes').value='Reembolso · '+original[1];
+  }
   tipoA=t;
   document.getElementById('tg').classList.toggle('active',t==='Gasto');
   document.getElementById('ti').classList.toggle('active',t==='Ingreso');
   document.getElementById('tr').classList.toggle('active',t==='Transferencia');
   document.getElementById('tre').classList.toggle('active',t==='Reembolso');
   document.getElementById('refundFields').hidden=t!=='Reembolso';
-  if(t==='Reembolso')llenarGastosReembolso(document.getElementById('iGastoOrigen').value);
+  if(t==='Reembolso')llenarGastosReembolso(original?String(original[6]):document.getElementById('iGastoOrigen').value);
   document.getElementById('transferFields').hidden=t!=='Transferencia';
   document.getElementById('catChips').hidden=t==='Transferencia'||t==='Reembolso';
-  document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':'Cuenta';
+  document.getElementById('accountLabel').textContent=t==='Transferencia'?'Origen':t==='Reembolso'?'Recibido en':'Cuenta';
   llenarCuentas();
+  if(original&&CREDIT_CARDS.some(card=>sameAccount(card.cuenta,original[5]))){
+    const efectivo=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN');
+    const preferida=sameAccount(original[5],'Visa iO')?'Yape':'Plin';
+    llenarCuentas(efectivo.find(c=>sameAccount(c[0],preferida))?.[0]||efectivo[0]?.[0]||original[5]);
+  }
   llenarSel();
   if(sincronizar)sincronizarCamposMoneda();
+  if(t==='Reembolso')seleccionarGastoReembolso();
 }
 
 async function eliminar__base(){
+  if(guardandoTx)return;
   if(!confirm('¿Eliminar esta transacción?'))return;
   try{
     await sbDelete('transacciones',editando);
@@ -279,7 +308,8 @@ async function guardar__base(){
     try{validarTransferencia({origen:cu,destino,monto:m});}catch(e){toast(e.message,'error');return;}
     if(editando&&datos.deudasAbonos.some(a=>String(a[5])===String(editando))){toast('Este movimiento está vinculado a un abono de deuda','error');return;}
   }
-  if(tipoA==='Reembolso'){try{c=validarReembolso(origenReembolso,m,cu,fec,editando)[2];}catch(e){toast(e.message,'error');return;}}
+  let gastoOrigen=null;
+  if(tipoA==='Reembolso'){try{gastoOrigen=validarReembolso(origenReembolso,0,cu,fec,editando);c=gastoOrigen[2];}catch(e){toast(e.message,'error');return;}}
   if(!c){toast('Selecciona una categoría','error');return;}
   const[yy,mm,dd]=fec.split('-');
   const fmtHora=(h,min)=>{const ampm=h>=12?'p. m.':'a. m.';return `${h%12||12}:${String(min).padStart(2,'0')} ${ampm}`;};
@@ -336,7 +366,23 @@ async function guardar__base(){
   if(tipoA==='Transferencia'||anterior?.[3]==='Transferencia')body.cuenta_destino=tipoA==='Transferencia'?destino:null;
   const idGuardado=editando;
   if(tipoA==='Reembolso'||anterior?.[3]==='Reembolso')body.transaccion_origen_id=tipoA==='Reembolso'?origenReembolso:null;
+  let loteReembolso=null;
+  if(gastoOrigen){
+    const pendiente=pendienteReembolso(gastoOrigen,idGuardado);
+    if(Math.round(equivalente*100)>Math.round(pendiente*100)){
+      if(idGuardado){toast('La devolución supera el importe pendiente. Registra el dinero adicional como un nuevo ingreso.','error');return;}
+      if(CREDIT_CARDS.some(card=>sameAccount(card.cuenta,cu))){toast('Para el excedente, elige la cuenta donde recibiste el dinero. El pago a la tarjeta se registra en Tarjetas.','error');return;}
+      loteReembolso=dividirReembolso(body,pendiente);
+    }else{
+      try{validarReembolso(origenReembolso,equivalente,cu,fec,idGuardado);}catch(e){toast(e.message,'error');return;}
+    }
+  }
   guardandoTx=true;
+  const usuarioGuardado=sessionUserId();
+  const controles=[...document.querySelectorAll('#modal input,#modal select,#modal button')];
+  const estados=controles.map(el=>el.disabled);
+  controles.forEach(el=>{el.disabled=true;});
+  document.getElementById('modal').setAttribute('aria-busy','true');
   try{
     if(idGuardado){
       // Se relee la fila que devuelve el servidor: el equivalente en soles y el
@@ -344,18 +390,25 @@ async function guardar__base(){
       // en sitio en lugar de reemplazar el arreglo, porque hay código que
       // conserva la referencia a la fila.
       const row=await sbUpdate('transacciones',idGuardado,body);
+      if(sessionUserId()!==usuarioGuardado)throw new Error('La sesión cambió durante el guardado.');
       const t=datos.transacciones.find(x=>String(getTxRow(x))===String(idGuardado));
       if(t){const n=filaTx(row&&row.id?row:Object.assign({},body,{id:idGuardado}));for(let i=0;i<n.length;i++)t[i]=n[i];}
       toast('Actualizada','success');
+    } else if(loteReembolso){
+      const filas=await guardarReembolsoConExcedente(loteReembolso);
+      if(sessionUserId()!==usuarioGuardado)throw new Error('La sesión cambió durante el guardado.');
+      filas.forEach(row=>{if(!datos.transacciones.some(t=>String(t[6])===String(row.id)))datos.transacciones.push(filaTx(row));});
+      toast('Reembolso e ingreso adicional guardados','success');
     } else {
       const row=await sbInsert('transacciones',body);
+      if(sessionUserId()!==usuarioGuardado)throw new Error('La sesión cambió durante el guardado.');
       datos.transacciones.push(filaTx(row));
       toast('Guardada','success');
     }
-    cerrarM();render();
+    cerrarM(true);render();
   }
   catch(e){toast(/cuenta_destino|transaccion_origen_id|transacciones_tipo_check|schema cache/i.test(e.message||'')?'Falta activar movimientos en Supabase. Ejecuta el SQL de transferencias y reembolsos.':(e.message||'Error al guardar'),'error');}
-  finally{guardandoTx=false;}
+  finally{guardandoTx=false;controles.forEach((el,i)=>{el.disabled=estados[i];});document.getElementById('modal').setAttribute('aria-busy','false');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -429,13 +482,41 @@ function llenarGastosReembolso(selected=''){
 }
 
 export function seleccionarGastoReembolso(){
+ if(tipoA!=='Reembolso')return;
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
- document.getElementById('refundAvailable').textContent=original?'Pendiente de devolver: '+fmt(pendienteReembolso(original,editando)):'Selecciona un gasto para vincular la devolución.';
+ const pendiente=original?pendienteReembolso(original,editando):0;
+ let mensaje=original?'Pendiente de devolver: '+fmt(pendiente):'Selecciona un gasto para vincular la devolución.';
+ const monto=Number(elv('iMon')),tc=Number(elv('iTc'));
+ const equivalente=monedaTx()==='USD'?tc>0?equivalenteSoles(elv('iMon'),elv('iTc')):0:monto;
+ if(original&&!editando&&Number.isFinite(equivalente)&&equivalente>pendiente){
+   const reparto=dividirReembolso({monto:equivalente,moneda_original:monedaTx()==='USD'?'USD':null,monto_original:monto,tc},pendiente);
+   const devuelto=reparto.filter(r=>r.tipo==='Reembolso').reduce((s,r)=>s+r.monto,0),adicional=reparto.find(r=>r.tipo==='Ingreso')?.monto||0;
+   mensaje=`Se guardará ${fmt(devuelto)} como reembolso y ${fmt(adicional)} como ingreso adicional.`;
+ }
+ document.getElementById('refundAvailable').textContent=mensaje;
  // Solo propone la cuenta del gasto como punto de partida si todavía no hay
  // ninguna elegida: nunca pisa una cuenta receptora que el usuario ya marcó
  // (p. ej. Yape, para un gasto pagado con otra tarjeta).
  const cue=document.getElementById('iCue');
  if(original&&cue&&!cue.value)llenarCuentas(original[5]||'');
+}
+
+function dividirReembolso(body,pendiente){
+ const limite=Math.max(0,Math.round(pendiente*100));
+ let devuelto=Math.min(limite,Math.round(body.monto*100))/100,nominal=null,extraNominal=null;
+ if(body.moneda_original==='USD'){
+   const total=Math.round(body.monto_original*100);
+   let centimos=Math.min(total,Math.max(0,Math.floor(limite/body.tc)));
+   while(centimos>0&&Math.round(equivalenteSoles((centimos/100).toFixed(2),String(body.tc))*100)>limite)centimos--;
+   while(centimos<total&&Math.round(equivalenteSoles(((centimos+1)/100).toFixed(2),String(body.tc))*100)<=limite)centimos++;
+   nominal=centimos/100;extraNominal=(total-centimos)/100;
+   devuelto=equivalenteSoles(nominal.toFixed(2),String(body.tc));
+ }
+ const ingreso={...body,tipo:'Ingreso',categoria:'Otros ingresos',descripcion:'Excedente de '+(body.descripcion||'reembolso'),
+   monto:body.moneda_original==='USD'?equivalenteSoles(extraNominal.toFixed(2),String(body.tc)):Math.round((body.monto-devuelto)*100)/100,
+   monto_original:body.moneda_original==='USD'?extraNominal:null,transaccion_origen_id:null,cuenta_destino:null};
+ const refund={...body,tipo:'Reembolso',monto:devuelto,monto_original:body.moneda_original==='USD'?nominal:null,cuenta_destino:null};
+ return devuelto>0?[refund,ingreso]:[ingreso];
 }
 
 function validarReembolso(id,monto,cuenta,fecha,excluir=null){
