@@ -68,5 +68,22 @@ const faltan=[...usados].filter(n=>!nativas.has(n)&&(n in nuevos||n+'__base' in 
 assert.deepEqual(faltan,[],'funciones que el HTML invoca pero el puente no expone');
 for(const n of expuestas)assert.ok(n in nuevos||n+'__base' in nuevos,`el puente expone "${n}", que no existe`);
 
-console.log(`PASS: ${Object.keys(nuevos).length} definiciones sin duplicar, ${archivos.length} modulos sin imports rotos `+
- `y ${expuestas.size} handlers cubiertos por el puente.`);
+// ── 5. index.html precarga exactamente los modulos que importa app.js ─────
+// Un modulo nuevo sin precarga vuelve a encadenar descargas durante la
+// cubierta de entrada; uno que ya no se importa se bajaria sin usarse.
+const grafo=new Set(),pendientes=[path.join(MOD,'js','app.js')];
+while(pendientes.length){
+  const f=pendientes.shift();
+  if(grafo.has(f))continue;
+  grafo.add(f);
+  const ast=acorn.parse(fs.readFileSync(f,'utf8'),{ecmaVersion:2022,sourceType:'module'});
+  for(const n of ast.body)
+    if(n.source&&/^(Import|ExportNamed|ExportAll)Declaration$/.test(n.type))pendientes.push(path.resolve(path.dirname(f),n.source.value));
+}
+const precargados=[...indice.matchAll(/<link rel="modulepreload" href="\.\/([^"]+)">/g)].map(m=>m[1]);
+assert.equal(new Set(precargados).size,precargados.length,'modulepreload repetido en index.html');
+assert.deepEqual([...precargados].sort(),[...grafo].map(f=>path.relative(MOD,f).split(path.sep).join('/')).sort(),
+  'los modulepreload de index.html no coinciden con los modulos que importa app.js');
+
+console.log(`PASS: ${Object.keys(nuevos).length} definiciones sin duplicar, ${archivos.length} modulos sin imports rotos, `+
+ `${expuestas.size} handlers cubiertos por el puente y ${precargados.length} modulos precargados.`);

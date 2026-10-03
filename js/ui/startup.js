@@ -93,7 +93,7 @@ export async function revelarInicio(){
     // su contenido se contrarresta para que el nombre no suba con ella y
     // viaje por su cuenta hasta el logo del encabezado.
     const alto=pantalla.offsetHeight||globalThis.innerHeight||800;
-    const opciones={duration:720,easing:'cubic-bezier(.76,0,.24,1)',fill:'forwards'};
+    const opciones={duration:480,easing:'cubic-bezier(.76,0,.24,1)',fill:'forwards'};
     const recorrido=[[0,0],[.42,-.32*alto],[1,-1.06*alto]];
     const curvas=['0 0 0 0 / 0 0 0 0','0 0 44% 18% / 0 0 18% 10%','0 0 52% 24% / 0 0 24% 14%'];
     const salida=pantalla.animate(recorrido.map(([offset,y],i)=>({offset,transform:`translateY(${y}px)`,borderRadius:curvas[i]})),opciones);

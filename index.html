@@ -50,6 +50,57 @@ try{
   <link rel="stylesheet" href="./css/portfolio.css">
   <link rel="stylesheet" href="./css/responsive.css">
   <link rel="stylesheet" href="./css/startup.css">
+
+<!-- Todos los módulos se piden a la vez. Sin esta lista, el navegador
+     descubre cada import al terminar de bajar el anterior: unas diez
+     esperas encadenadas con la cubierta de entrada a la vista.
+     modular-integridad.test.cjs exige que coincida con el grafo de app.js. -->
+  <link rel="modulepreload" href="./js/app.js">
+  <link rel="modulepreload" href="./js/bridge.js">
+  <link rel="modulepreload" href="./js/modules/settings.js">
+  <link rel="modulepreload" href="./js/services/auth.js">
+  <link rel="modulepreload" href="./js/services/market-data.js">
+  <link rel="modulepreload" href="./js/utils/async.js">
+  <link rel="modulepreload" href="./js/utils/dom.js">
+  <link rel="modulepreload" href="./js/modules/backup.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/portfolio.js">
+  <link rel="modulepreload" href="./js/modules/accounts.js">
+  <link rel="modulepreload" href="./js/modules/analytics.js">
+  <link rel="modulepreload" href="./js/modules/cards/cards-ui.js">
+  <link rel="modulepreload" href="./js/modules/cards/config.js">
+  <link rel="modulepreload" href="./js/modules/cards/cycles.js">
+  <link rel="modulepreload" href="./js/modules/cards/payments.js">
+  <link rel="modulepreload" href="./js/modules/currencies.js">
+  <link rel="modulepreload" href="./js/modules/dashboard.js">
+  <link rel="modulepreload" href="./js/modules/debts.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/capital.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/diagnostics.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/hero.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/intraday.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/portfolio-ui.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/risk.js">
+  <link rel="modulepreload" href="./js/modules/reconciliation.js">
+  <link rel="modulepreload" href="./js/modules/transactions.js">
+  <link rel="modulepreload" href="./js/services/exchange-rate.js">
+  <link rel="modulepreload" href="./js/ui/charts.js">
+  <link rel="modulepreload" href="./js/ui/navigation.js">
+  <link rel="modulepreload" href="./js/ui/toast.js">
+  <link rel="modulepreload" href="./js/utils/formatters.js">
+  <link rel="modulepreload" href="./js/ui/startup.js">
+  <link rel="modulepreload" href="./js/services/supabase-config.js">
+  <link rel="modulepreload" href="./js/services/supabase.js">
+  <link rel="modulepreload" href="./js/utils/numbers.js">
+  <link rel="modulepreload" href="./js/state.js">
+  <link rel="modulepreload" href="./js/services/debt-operations.js">
+  <link rel="modulepreload" href="./js/services/card-operations.js">
+  <link rel="modulepreload" href="./js/utils/dates.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/allocation.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/benchmark.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/performance.js">
+  <link rel="modulepreload" href="./js/modules/cards/cards.js">
+  <link rel="modulepreload" href="./js/modules/cards/usd-credit.js">
+  <link rel="modulepreload" href="./js/ui/chart-scale.js">
+  <link rel="modulepreload" href="./js/ui/viewport.js">
 </head>
 <body>
 
@@ -524,7 +575,7 @@ try{
       </section>
       <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
       <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
-      <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p><p class="hint">Versión 2026.10.03.5</p></section>
+      <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p><p class="hint">Versión 2026.10.03.6</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Balances</h3><details class="balance-help"><summary>¿Qué incluye cada balance?</summary><p><strong>Período:</strong> ingresos menos gastos netos en la selección actual.</p><p><strong>Acumulado:</strong> efectivo registrado hasta hoy, ajustado por tarjetas y transferencias a inversión o dólares.</p><p><strong>Neto:</strong> balance de todos los registros, incluidos los futuros, después de los aportes fuera del efectivo en soles.</p><p><strong>Patrimonio:</strong> Neto más el valor estimado de IBKR convertido a soles. Las cuentas en dólares se consultan aparte con US$.</p></details></section>
     </div>
