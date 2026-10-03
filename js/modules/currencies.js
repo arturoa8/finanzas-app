@@ -191,7 +191,7 @@ export function aplicarVistaUSD(){
   smoothSetText(document.getElementById('kpiOut'),'− US$ '+fmtN(g),g);
   smoothSetText(document.getElementById('kpiIn'),'+ US$ '+fmtN(i),i);
   const nota=document.getElementById('balNota');
-  if(nota){const deuda=deudaUSDTotal();nota.textContent=(deuda>0?'Debes US$ '+fmtN(deuda)+' en tarjetas. ':'')+'Solo movimientos en dólares. Sin convertir a soles.';nota.hidden=false;}
+  if(nota){nota.textContent='';nota.hidden=true;}
 }
 
 // El tipo de cambio que se propone depende de quién hace la conversión. Si

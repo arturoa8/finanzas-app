@@ -3,6 +3,7 @@
 
 import {renderAnalisis} from '../modules/analytics.js';
 import {renderCardsPage} from '../modules/cards/cards-ui.js';
+import {abrirPagoTarjeta} from '../modules/cards/payments.js';
 import {render} from '../modules/dashboard.js';
 import {abrirModalDeuda, renderDeb} from '../modules/debts.js';
 import {renderPortafolio} from '../modules/portfolio/portfolio.js';
@@ -97,6 +98,8 @@ export function setPg(p,b){
   document.getElementById('p-'+p).classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
+  const fab=document.querySelector('.fab');
+  if(fab)fab.setAttribute('aria-label',p==='card'?'Registrar pago':p==='deb'?'Nueva deuda':'Nueva transacción');
   if(p==='ana'){
     // Las páginas comparten el scroll del documento: si Portafolio quedó
     // desplazado de una visita anterior, entrar de nuevo debe verse arriba,
@@ -122,5 +125,6 @@ export function setPg(p,b){
 export function handleFab(){
   const pg=document.querySelector('.page.active');
   if(pg&&pg.id==='p-deb')abrirModalDeuda();
+  else if(pg&&pg.id==='p-card')abrirPagoTarjeta();
   else abrirM();
 }

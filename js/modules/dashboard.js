@@ -212,19 +212,17 @@ export function renderBal(){
   // IBKR ya incluye su efectivo, así que no se suma nada aparte.
   let textoAlterno=null;
   const nota=document.getElementById('balNota');
+  if(modoBalance==='patrimonio'){
+    if(patrimonio.estado!=='idle'&&patrimonio.estado!=='loading'&&patrimonio.estado!=='error')patrimonio=calcularPatrimonio();
+    if(patrimonio.estado==='ok')balance+=patrimonio.soles;
+    else textoAlterno='—';
+  }
   if(nota){
-    if(modoBalance==='patrimonio'){
-      if(patrimonio.estado!=='idle'&&patrimonio.estado!=='loading'&&patrimonio.estado!=='error')patrimonio=calcularPatrimonio();
-      if(patrimonio.estado==='ok'){
-        balance+=patrimonio.soles;
-        // Una sola línea: el detalle (dólares × TC) cambiaba el alto de Inicio.
-        nota.textContent='+ IBKR '+fmt(patrimonio.soles)+' · '+(patrimonio.enVivo?'Yahoo en vivo':'cierre '+patrimonio.fechaCorta);
-      }else{
-        textoAlterno='—';
-        nota.textContent=patrimonio.mensaje||'Cargando el valor de IBKR…';
-      }
-      nota.hidden=false;
-    }else{nota.hidden=true;nota.textContent='';}
+    // Inicio solo muestra el estado cuando aún no hay un importe fiable.
+    // La composición del saldo y sus fuentes se explican en Estadísticas.
+    const estados={idle:'Cargando patrimonio…',loading:'Cargando patrimonio…',sin_datos:'Sin datos de portafolio',sin_tc:'Falta tipo de cambio',error:'No se pudo cargar'};
+    nota.hidden=!textoAlterno;
+    nota.textContent=textoAlterno?(estados[patrimonio.estado]||'Patrimonio no disponible'):'';
   }
 
   balance=Math.round(balance*100)/100;

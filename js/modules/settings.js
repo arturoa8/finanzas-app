@@ -13,7 +13,7 @@ const APP_PREFS_KEY='finanzas.appearance.v1';
 // usa la última. index.html repite el número en <meta name="version-app">
 // (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
 // una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
-export const VERSION_APP='2026.10.03.11';
+export const VERSION_APP='2026.10.03.12';
 
 function pintarVersion(){
   const el=document.getElementById('settingsVersion');if(!el)return;

@@ -25,3 +25,18 @@
 .ym-mes{font-size:0.62rem;color:var(--muted);text-transform:uppercase;}
 .ym-val{font-size:0.78rem;font-weight:700;font-variant-numeric:tabular-nums;margin-top:3px;}
 
+/* Las explicaciones de Inicio se consultan aquí, bajo demanda. */
+.balance-guide{padding:0;overflow:hidden;}
+.balance-guide .balance-help{font-size:.8rem;}
+.balance-guide summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;font-weight:650;list-style:none;}
+.balance-guide summary::-webkit-details-marker{display:none;}
+.balance-guide summary::after{content:'⌄';color:var(--dim);font-size:1rem;transition:transform .18s;}
+.balance-guide details[open] summary::after{transform:rotate(180deg);}
+.balance-guide summary:focus-visible{outline:2px solid var(--green);outline-offset:-4px;border-radius:14px;}
+.balance-guide-content{padding:0 18px 18px;}
+.balance-guide-content dl{display:grid;gap:14px;margin:0;}
+.balance-guide-content dt{color:var(--text);font-size:.8rem;font-weight:650;margin-bottom:3px;}
+.balance-guide-content dd{margin:0;color:var(--dim);line-height:1.65;}
+.balance-guide .balance-scope{border-top:1px solid var(--border);margin:18px 0 0;padding-top:14px;color:var(--dim);}
+.balance-guide .balance-scope strong{color:var(--text);}
+@media(min-width:700px){.balance-guide-content dl{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;}}

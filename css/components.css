@@ -59,6 +59,29 @@
 .btn-s{background:var(--card);color:var(--text);border:1px solid var(--border);flex:0 0 auto;padding:14px 18px;}
 .btn-d{background:var(--red);color:var(--text);flex:0 0 auto;padding:14px 18px;}
 
+/* Registro y edición de pagos comparten la hoja de Transferencia. */
+.card-payment-sheet .mt{font-size:1rem;color:var(--text)}
+.card-payment-target{margin-bottom:20px}
+.card-payment-target>label,.card-payment-label{display:block;font-size:.75rem;font-weight:600;color:var(--dim);margin-bottom:6px}
+.card-payment-target>.sel{width:100%;font-weight:700}
+.card-payment-cycle{color:var(--dim);font-size:.75rem;line-height:1.5;margin-top:7px}
+.card-payment-tabs .ttb{color:var(--dim)}
+.card-payment-tabs .ttb.active{background:#7aa2ff20;color:var(--blue)}
+.card-payment-amount{margin-bottom:18px;gap:12px}
+.card-payment-amount>span{font-size:1.4rem;color:var(--dim);font-weight:700}
+.card-payment-sheet .card-payment-amount>.big-input{font-size:2.4rem!important;padding:4px 0;font-weight:750;min-width:0}
+.card-payment-sheet .cuenta-lbl,.card-payment-destination>span{font-size:.78rem;color:var(--dim);min-width:44px}
+.card-payment-destination{display:flex;align-items:center;gap:8px;margin:0 0 20px;padding:11px 0;border-bottom:1px solid var(--border)}
+.card-payment-destination>strong{font-size:.9rem;overflow-wrap:anywhere}
+.card-payment-note{font-size:1rem!important;font-weight:500;margin:0 0 14px}
+.card-payment-note::placeholder,.card-payment-amount .big-input::placeholder{color:var(--dim)}
+.card-payment-fill{background:var(--card);border:1px solid var(--border);border-radius:12px;color:var(--blue);padding:10px 12px;margin:-4px 0 20px;min-height:42px;text-align:left;font:inherit;font-size:.78rem;cursor:pointer}
+.card-payment-sheet .card-payment-preview{color:var(--dim);font-size:.78rem;line-height:1.6;margin:0 0 16px}
+.card-payment-pending{margin:-6px 0 20px}
+.card-payment-sheet .brow{margin-top:16px}
+#cardPayPen[hidden],#cardPayUsd[hidden],#cardUsdSolesRow[hidden]{display:none}
+.card-payment-sheet .card-usd-credit{margin-top:20px}
+
 /* Toast */
 .toast{
   position:fixed;

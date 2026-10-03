@@ -1,6 +1,7 @@
 // Patrimonio usa el mismo valor actual que Portafolio y se recalcula al llegar
 // precios: antes se calculaba una vez y, si Yahoo aún no había respondido, se
-// quedaba con el cierre IBKR rezagado. La nota es una sola línea corta.
+// quedaba con el cierre IBKR rezagado. Inicio muestra solo el importe y las
+// explicaciones de composición quedan en Estadísticas.
 const assert=require('node:assert/strict');
 const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');
 entornoPrueba();process.env.TZ='America/Lima';
@@ -46,13 +47,17 @@ const pausa=()=>new Promise(r=>setTimeout(r,5));
     dashboard.setModoBalance('patrimonio');
     for(let i=0;i<50&&dashboard.patrimonio.estado==='loading';i++)await pausa();
     const nota=document.getElementById('balNota');
-    assert.equal(nota.textContent,'+ IBKR S/ 3,700.00 · cierre 01/10','sin Yahoo todavía: cierre IBKR');
+    assert.equal(dashboard.patrimonio.soles,3700,'sin Yahoo todavía: el cierre IBKR sigue entrando al patrimonio');
+    assert.equal(nota.hidden,true,'el desglose no ocupa espacio en Inicio');
+    assert.equal(nota.textContent,'','no se muestra + IBKR ni su fuente junto al saldo');
     liberarYahoo();
-    for(let i=0;i<100&&!/Yahoo/.test(nota.textContent);i++)await pausa();
+    for(let i=0;i<100&&!dashboard.patrimonio.enVivo;i++)await pausa();
     assert.equal(m.pfYahoo.status,'ok');
-    assert.equal(nota.textContent,'+ IBKR S/ 3,848.00 · Yahoo en vivo','al llegar Yahoo, Patrimonio se actualiza solo (US$ 1,040 × 3.7)');
+    assert.equal(dashboard.patrimonio.soles,3848,'al llegar Yahoo, Patrimonio se actualiza solo (US$ 1,040 × 3.7)');
+    assert.equal(nota.hidden,true,'el desglose sigue oculto al llegar precios en vivo');
+    assert.equal(nota.textContent,'');
     await new Promise(r=>setTimeout(r,120)); // el importe se anima 90 ms
     assert.equal(document.getElementById('balAmt').dataset.value,(500+3848).toFixed(2),'Neto 500 + IBKR 3,848');
-    console.log('PASS: Patrimonio con el cierre mientras Yahoo responde y con Yahoo en vivo al llegar, en una sola línea.');
+    console.log('PASS: Patrimonio mantiene el cálculo con el cierre y precios en vivo, sin explicaciones debajo del importe en Inicio.');
   }finally{liberarYahoo();p.limpiarCachePortafolio();m.stopPfYahoo();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.03.11">
+<meta name="version-app" content="2026.10.03.12">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -387,6 +387,21 @@ try{
       <div class="s-head" style="margin-bottom:14px"><div class="s-title">Vista anual</div></div>
       <div class="year-mini" id="yearMini"></div>
     </div>
+    <div class="chart-card balance-guide">
+      <details class="balance-help" id="balanceGuide">
+        <summary>Cómo se calculan los saldos</summary>
+        <div class="balance-guide-content">
+          <dl>
+            <div><dt>Este mes / Período</dt><dd>Ingresos menos gastos netos de tus cuentas en soles en el período elegido. Respeta los filtros de Inicio. Si seleccionas solo transferencias, muestra lo transferido.</dd></div>
+            <div><dt>Acumulado</dt><dd>Efectivo registrado en soles hasta hoy. Descuenta lo transferido a inversión o cuentas en dólares y ajusta los consumos de tarjetas según los pagos; una deuda pendiente aún no es una salida de efectivo.</dd></div>
+            <div><dt>Neto</dt><dd>Balance de todos los registros, incluidos los futuros, después de los aportes netos fuera de tus cuentas en soles. Los ingresos y gastos registrados directamente en cuentas en dólares o de inversión quedan fuera.</dd></div>
+            <div><dt>Patrimonio</dt><dd>Neto más el valor estimado de IBKR convertido a soles. Incluye el efectivo del portafolio; usa precios en vivo cuando están disponibles y, si no, el último cierre. Usa el tipo de cambio de mercado y el configurado como respaldo.</dd></div>
+            <div><dt>US$</dt><dd>Saldos y movimientos de tus cuentas en dólares, sin convertirlos a soles. Las deudas y el crédito a favor de tarjetas se consultan en Tarjetas.</dd></div>
+          </dl>
+          <p class="balance-scope"><strong>Alcance de Estadísticas.</strong> Los indicadores incluyen los ingresos y gastos netos equivalentes en soles de todas tus cuentas en el mes o año seleccionado. Por eso pueden diferir de Inicio, cuyo saldo en soles excluye movimientos registrados directamente en cuentas en dólares o de inversión. Las transferencias no cuentan como ingreso ni gasto.</p>
+        </div>
+      </details>
+    </div>
   </div>
 </div>
 
@@ -407,7 +422,7 @@ try{
 </div>
 
 <!-- FAB -->
-<button class="fab" onclick="handleFab()" aria-label="Nueva">+</button>
+<button class="fab" onclick="handleFab()" aria-label="Nueva transacción">+</button>
 
 <!-- MES PICKER MODAL -->
 <div class="modal centered" id="mesPicker">
@@ -529,6 +544,17 @@ try{
   </div>
 </div>
 
+<!-- REGISTRAR PAGO: misma hoja inferior que Transferencia -->
+<div class="modal" id="cardPaymentModal" role="dialog" aria-modal="true" aria-labelledby="cardPaymentTitle">
+  <div class="mc card-payment-sheet">
+    <div class="mc-top">
+      <div class="mt" id="cardPaymentTitle">Registrar pago</div>
+      <button type="button" class="mh-x" onclick="cerrarPagoTarjeta()" aria-label="Cerrar registro de pago">✕</button>
+    </div>
+    <div id="cardPaymentContent"></div>
+  </div>
+</div>
+
 <!-- CARD TRANSACTION DETAIL MODAL -->
 <div class="modal centered" id="cardTxDetailModal">
   <div class="mc compact-mc">
@@ -578,7 +604,6 @@ try{
       <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></section>
-      <section class="line-config-item"><h3 class="line-config-name">Balances</h3><details class="balance-help"><summary>¿Qué incluye cada balance?</summary><p><strong>Período:</strong> ingresos menos gastos netos en la selección actual.</p><p><strong>Acumulado:</strong> efectivo registrado hasta hoy, ajustado por tarjetas y transferencias a inversión o dólares.</p><p><strong>Neto:</strong> balance de todos los registros, incluidos los futuros, después de los aportes fuera del efectivo en soles.</p><p><strong>Patrimonio:</strong> Neto más el valor estimado de IBKR convertido a soles. Las cuentas en dólares se consultan aparte con US$.</p></details></section>
     </div>
   </div>
 </div>
@@ -594,17 +619,21 @@ try{
 </div>
 
 <!-- MODAL EDITAR PAGO TARJETA -->
-<div class="modal" id="payEditModal">
-  <div class="mc">
+<div class="modal" id="payEditModal" role="dialog" aria-modal="true" aria-labelledby="payEditTitle">
+  <div class="mc card-payment-sheet">
     <div class="mc-top">
       <div class="mt" id="payEditTitle">Editar pago</div>
-      <button class="mh-x" onclick="cerrarEditPago()">✕</button>
+      <button type="button" class="mh-x" onclick="cerrarEditPago()" aria-label="Cerrar edición de pago">✕</button>
     </div>
     <div class="pill-row">
-      <label class="mpill"><span>📅</span><input type="date" id="payEditDate"></label>
+      <label class="mpill" for="payEditDate"><span>Fecha</span><input type="date" id="payEditDate"></label>
     </div>
-    <input type="text" class="big-input" id="payEditNote" placeholder="Nota (opcional)">
-    <input type="number" class="big-input muto" id="payEditAmount" placeholder="Monto" step="0.01" inputmode="decimal">
+    <label class="card-payment-label" for="payEditAmount">Monto del pago</label>
+    <div class="monto-row card-payment-amount"><span>S/</span><input type="number" class="big-input muto" id="payEditAmount" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"></div>
+    <div class="cuenta-row"><label class="cuenta-lbl" for="payEditCuenta">Desde</label><select class="sel" id="payEditCuenta"></select></div>
+    <div class="card-payment-destination"><span>Para</span><strong id="payEditCard"></strong></div>
+    <label class="card-payment-label" for="payEditNote">Nota opcional</label>
+    <input type="text" class="big-input card-payment-note" id="payEditNote" placeholder="Añade una nota">
     <div class="brow">
       <button class="btn btn-d" onclick="confirmarEliminarPago()">Eliminar</button>
       <button class="btn btn-s" onclick="cerrarEditPago()">Cancelar</button>
