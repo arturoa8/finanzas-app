@@ -1,17 +1,19 @@
-/* El inicio cubre la carga real y se retira en cuanto el resumen está listo. */
-.app-startup{position:fixed;inset:0;z-index:10000;background:var(--bg);display:grid;place-items:center;padding:28px;}
+/* Entrada de marca: el nombre aparece sobre negro y, al revelar Inicio, la
+   cubierta sube con un borde curvo mientras el nombre viaja al encabezado. */
+.app-startup{position:fixed;inset:0;z-index:10000;background:var(--bg);display:grid;place-items:center;padding:28px;
+  /* Sin overflow:hidden: el nombre sigue visible fuera de la cubierta mientras
+     sube. El borde verde solo se ve cuando la cubierta sube y se curva. */
+  box-shadow:0 1px 0 color-mix(in srgb,var(--green) 55%,transparent),0 18px 48px -14px color-mix(in srgb,var(--green) 40%,transparent);}
 .app-startup[hidden]{display:none;}
 .startup-content{width:100%;max-width:340px;text-align:center;}
-.startup-mark{width:64px;height:64px;margin:0 auto 24px;border:1px solid color-mix(in srgb,var(--green) 35%,transparent);border-radius:20px;background:color-mix(in srgb,var(--green) 9%,var(--bg));display:grid;place-items:center;color:var(--green);}
-.startup-mark svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
-.startup-content .logo{font-size:1.5rem;}
+/* Misma tipografía que .logo para que el viaje termine exactamente en él. */
+.startup-brand.logo{display:inline-block;font-size:2.15rem;transform-origin:0 0;animation:brandEntrance .6s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes brandEntrance{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.startup-message{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+.startup-error .startup-message,.startup-slow .startup-message{position:static;width:auto;height:auto;overflow:visible;clip-path:none;white-space:normal;}
 .startup-title{font-size:.88rem;font-weight:600;margin-top:26px;color:var(--text);}
-.startup-detail{font-size:.78rem;line-height:1.6;color:var(--dim);margin:9px auto 0;max-width:290px;min-height:40px;}
-.startup-track{height:3px;width:96px;margin:22px auto 0;background:var(--border);overflow:hidden;border-radius:999px;}
-.startup-track::after{content:'';display:block;height:100%;width:40%;border-radius:inherit;background:var(--green);animation:startupFlow 1.25s ease-in-out infinite;}
-@keyframes startupFlow{from{transform:translateX(-110%);}to{transform:translateX(360%);}}
-.startup-error .startup-track{display:none;}
+.startup-detail{font-size:.78rem;line-height:1.6;color:var(--dim);margin:9px auto 0;max-width:290px;}
 .startup-actions{display:flex;flex-direction:column;gap:10px;margin-top:24px;}
 .startup-actions[hidden]{display:none;}
 .startup-actions .btn-s{color:var(--dim);background:transparent;border:0;font-size:.78rem;padding:8px;}
-@media(prefers-reduced-motion:reduce){.startup-track::after{animation:none;width:100%;opacity:.6;}}
+@media(prefers-reduced-motion:reduce){.startup-brand.logo{animation:none;}}

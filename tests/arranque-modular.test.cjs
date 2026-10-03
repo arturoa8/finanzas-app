@@ -41,17 +41,6 @@ const timerReal=setTimeout;
 globalThis.setTimeout=(fn,ms,...args)=>{const timer=timerReal(fn,ms,...args);if(ms>=1000)timer.unref?.();return timer;};
 function aplazado(){let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};}
 async function esperar(condicion,mensaje){for(let i=0;i<150;i++){if(condicion())return;await new Promise(r=>timerReal(r,2));}throw Error(mensaje||'No llegó el estado esperado.');}
-function plazoInicioVirtual(){
-  const setAnterior=globalThis.setTimeout,clearAnterior=globalThis.clearTimeout;
-  let timer=null;
-  globalThis.setTimeout=(fn,ms,...args)=>{
-    if(ms!==8000)return setAnterior(fn,ms,...args);
-    assert.equal(timer,null,'cada arranque programa un único plazo de portafolio');
-    timer={vencer:()=>fn(...args),cancelado:false,ejecutado:false};return timer;
-  };
-  globalThis.clearTimeout=id=>{if(id&&id===timer)timer.cancelado=true;else clearAnterior(id);};
-  return {get timer(){return timer;},vencer(){assert.ok(timer,'el arranque instala el plazo máximo');assert.equal(timer.cancelado,false);timer.ejecutado=true;timer.vencer();},restaurar(){globalThis.setTimeout=setAnterior;globalThis.clearTimeout=clearAnterior;}};
-}
 function sesion(id='usuario-demo'){localStorage.setItem('sb_session',JSON.stringify({user_id:id,access_token:'token-'+id,refresh_token:'refresh-'+id,expires_at:Date.now()+3600000}));}
 function respuesta(rows,status=200){return new Response(JSON.stringify(rows),{status,headers:{'content-type':'application/json','content-range':(Array.isArray(rows)&&rows.length?'0-'+(rows.length-1):'*')+'/'+(Array.isArray(rows)?rows.length:0)}});}
 let red=null;
@@ -115,42 +104,26 @@ function listo(){assert.equal(el('appContent').inert,false,'se habilita el conte
     assert.equal(datos.transacciones[0][6],'tx-demo');assert.equal(datos.cargados,true);assert.equal(el('balAmt').textContent,'125.50','el primer saldo ya contiene el importe real');
     assert.match(el('txs').innerHTML,/Ingreso real de prueba/);assert.equal(animaciones,0,'reduced motion evita las animaciones de JavaScript');
 
-    // El core puede estar listo antes de las curvas: la preparación espera
-    // día, semana, mes y cantidades, sin consumir su plazo artificialmente.
+    // El resumen abre aunque día, semana y mes sigan pendientes. Todos los
+    // pedidos nacen en Inicio y se completan sin tocar Portafolio.
     {
       startup.mostrarAcceso();datos.cargados=false;portfolio.limpiarCachePortafolio();sesion();redActual=configurarRed({prepararPortafolio:true,id:'tx-graficos'});
-      const plazo=plazoInicioVirtual();let inicioGraficos;
+      let inicioGraficos;
       try{
         inicioGraficos=auth.bootAuth();
-        await esperar(()=>redActual.pedidosCore===1&&redActual.pedidosGraficos.length===4,'el inicio debe empezar todos los períodos antes de abrir Portafolio');
+        await esperar(()=>redActual.pedidosCore===1&&redActual.pedidosGraficos.length===4,'Inicio debe empezar todos los períodos antes de abrir Portafolio');
         assert.deepEqual(redActual.pedidosGraficos.map(p=>p.periodo).sort(),['1D','1M','1S','cantidades']);
-        redActual.core.resolve();await esperar(()=>datos.cargados);pendiente();
-        assert.equal(datos.transacciones[0][6],'tx-graficos','los movimientos ya están preparados detrás de la animación');
-        redActual.graficos.get('1D').resolve();await esperar(()=>market.pfYahoo.status==='ok');pendiente();
-        redActual.graficos.get('1S').resolve();redActual.graficos.get('cantidades').resolve();await esperar(()=>market.pfHistoriaYahooEnCache('1S'));pendiente();
-        assert.equal(market.pfHistoriaYahooEnCache('1M'),null,'el mes todavía no ha terminado');
-        redActual.graficos.get('1M').resolve();await inicioGraficos;listo();
-        assert.ok(market.pfHistoriaYahooEnCache('1M'),'el mes está disponible al revelar Inicio');
-        assert.equal(plazo.timer.ejecutado,false,'no esperar ocho segundos si los datos ya están listos');assert.equal(plazo.timer.cancelado,true,'se limpia el plazo que ya no hace falta');
-      }finally{redActual.core.resolve();for(const gate of redActual.graficos.values())gate.resolve();await inicioGraficos;plazo.restaurar();portfolio.limpiarCachePortafolio();}
-    }
-
-    // Simular los ocho segundos sin esperar tiempo real: permite entrar
-    // con el core listo y conserva los mismos pedidos de fondo hasta acabar.
-    {
-      startup.mostrarAcceso();datos.cargados=false;portfolio.limpiarCachePortafolio();sesion();redActual=configurarRed({prepararPortafolio:true,id:'tx-plazo'});
-      const plazo=plazoInicioVirtual();let inicioLento;
-      try{
-        inicioLento=auth.bootAuth();await esperar(()=>redActual.pedidosCore===1&&redActual.pedidosGraficos.length===4);
-        redActual.core.resolve();await esperar(()=>datos.cargados);pendiente();
-        plazo.vencer();await inicioLento;listo();assert.equal(datos.transacciones[0][6],'tx-plazo');
-        assert.equal(market.pfHistoriaYahooEnCache('1S'),null,'el plazo no fabrica una historia que aún no ha llegado');
-        assert.ok(redActual.pedidosGraficos.filter(p=>p.signal).every(p=>!p.signal.aborted),'el plazo de Inicio no cancela las cotizaciones de fondo');
+        pendiente();redActual.core.resolve();
+        await inicioGraficos;listo();
+        assert.equal(datos.transacciones[0][6],'tx-graficos');
+        assert.equal(market.pfHistoriaYahooEnCache('1S'),null,'Inicio es usable antes de terminar la semana');
+        assert.equal(market.pfHistoriaYahooEnCache('1M'),null,'Inicio es usable antes de terminar el mes');
+        assert.ok(redActual.pedidosGraficos.filter(p=>p.signal).every(p=>!p.signal.aborted),'mostrar Inicio no cancela las cotizaciones');
         const fondo=portfolio.precargarPortafolio({esperarGraficos:true});
         for(const gate of redActual.graficos.values())gate.resolve();await fondo;
         assert.equal(redActual.pedidosGraficos.length,4,'la finalización de fondo comparte los pedidos originales');
         assert.ok(market.pfHistoriaYahooEnCache('1S'));assert.ok(market.pfHistoriaYahooEnCache('1M'));listo();
-      }finally{redActual.core.resolve();for(const gate of redActual.graficos.values())gate.resolve();await inicioLento;plazo.restaurar();portfolio.limpiarCachePortafolio();}
+      }finally{redActual.core.resolve();for(const gate of redActual.graficos.values())gate.resolve();await inicioGraficos;portfolio.limpiarCachePortafolio();}
     }
 
     // Un fallo inicial conserva la preparación y permite recuperar con Reintentar.
@@ -201,6 +174,6 @@ function listo(){assert.equal(el('appContent').inert,false,'se habilita el conte
         salidaBoot.resolve();await Promise.all([primerBoot,segundoBoot]);listo();assert.equal(datos.transacciones[0][6],'tx-boot-salida');
       }finally{salidaBoot.resolve();pantalla.animate=animarOriginal;pantalla.getAnimations=animacionesOriginales;}
     }
-    console.log('PASS: inicio con datos y períodos preparados, plazo de ocho segundos sin cancelar fondo, carga compartida, fallo/reintento, sesión, doble login y salida cancelable.');
+    console.log('PASS: Inicio sin esperar curvas, precarga de tres períodos sin cancelarla al revelar, carga compartida, fallo/reintento, sesión, doble login y salida cancelable.');
   }finally{console.error=consoleError;red?.core.resolve();red?.login.resolve();for(const gate of red?.graficos.values()||[])gate.resolve();market.stopPfYahoo();globalThis.setTimeout=timerReal;}
 })().catch(e=>{console.error(e);process.exitCode=1;});

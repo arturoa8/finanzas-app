@@ -5,7 +5,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Barra opaca: con black-translucent, iOS 26/27 a veces reencuadra la app
+     bajo la barra y vuelve a sumar el área segura (WebKit 301994/301108).
+     iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
@@ -50,15 +53,13 @@ try{
 </head>
 <body>
 
-<div id="appStartup" class="app-startup" aria-busy="true" aria-label="Preparación de la aplicación">
+<div id="appStartup" class="app-startup" aria-busy="true" aria-label="Entrando a Mis Finanzas">
   <div class="startup-content">
-    <div class="startup-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 25V16h5v9M14 25V11h5v14M23 25V6h5v19"/></svg></div>
-    <div class="logo">Mis <span>Finanzas</span></div>
-    <div role="status" aria-live="polite" aria-atomic="true">
-      <p id="startupTitle" class="startup-title">Preparando tus finanzas</p>
-      <p id="startupDetail" class="startup-detail">Conectando con tu cuenta.</p>
+    <div class="startup-brand logo" aria-hidden="true">Mis <span>Finanzas</span></div>
+    <div class="startup-message" role="status" aria-live="polite" aria-atomic="true">
+      <p id="startupTitle" class="startup-title">Mis Finanzas</p>
+      <p id="startupDetail" class="startup-detail"></p>
     </div>
-    <div class="startup-track" aria-hidden="true"></div>
     <div id="startupActions" class="startup-actions" hidden>
       <button id="startupRetry" class="btn btn-p">Volver a intentar</button>
       <button id="startupSignOut" class="btn btn-s">Cerrar sesión</button>
@@ -523,7 +524,7 @@ try{
       </section>
       <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
       <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
-      <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p><p class="hint">Versión 2026.10.03.1</p></section>
+      <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p><p class="hint">Versión 2026.10.03.3</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></section>
       <section class="line-config-item"><h3 class="line-config-name">Balances</h3><details class="balance-help"><summary>¿Qué incluye cada balance?</summary><p><strong>Período:</strong> ingresos menos gastos netos en la selección actual.</p><p><strong>Acumulado:</strong> efectivo registrado hasta hoy, ajustado por tarjetas y transferencias a inversión o dólares.</p><p><strong>Neto:</strong> balance de todos los registros, incluidos los futuros, después de los aportes fuera del efectivo en soles.</p><p><strong>Patrimonio:</strong> Neto más el valor estimado de IBKR convertido a soles. Las cuentas en dólares se consultan aparte con US$.</p></details></section>
     </div>

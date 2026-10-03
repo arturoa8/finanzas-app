@@ -77,14 +77,9 @@ function iniciarApp(){
   const usuario=sessionUserId();
   if(!usuario){mostrarAcceso();return Promise.resolve();}
   prepararInicio();
-  // Preparar 1 día, 1 semana y 1 mes antes de abrir las pestañas. Se espera
-  // trabajo real, hasta ocho segundos desde el inicio; si Yahoo tarda más,
-  // la preparación sigue en segundo plano y los movimientos pueden abrir.
-  let timerPortafolio;
-  const portafolio=Promise.race([
-    precargarPortafolio({esperarGraficos:true}).catch(()=>null),
-    new Promise(resolve=>{timerPortafolio=setTimeout(resolve,8000);}),
-  ]).finally(()=>clearTimeout(timerPortafolio));
+  // Las tres curvas empiezan junto al resumen, pero no retrasan Inicio.
+  // La caché y el mantenimiento siguen siendo propiedad del portafolio.
+  precargarPortafolio({esperarGraficos:true}).catch(()=>null);
   inicioEnCurso=(async()=>{
     const resultado=await cargar();
     if(sessionUserId()!==usuario){mostrarAcceso();return;}
@@ -92,8 +87,6 @@ function iniciarApp(){
       mostrarErrorInicio(resultado?.error,{reintentar:iniciarApp,cerrarSesion:signOut});
       return;
     }
-    await portafolio;
-    if(sessionUserId()!==usuario){mostrarAcceso();return;}
     await revelarInicio();
     if(sessionUserId()!==usuario)mostrarAcceso();
   })().catch(error=>{

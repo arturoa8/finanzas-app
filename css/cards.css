@@ -21,11 +21,13 @@
 
 
 /* Smoother motion */
-*{scroll-behavior:smooth;}
+/* Los cambios de sección y la restauración de iOS necesitan scroll inmediato.
+   Los saltos que sí lo requieren solicitan behavior:smooth explícitamente. */
+html{scroll-behavior:auto;}
 .icon-btn,.chip,.kpi,.ccard,.tx,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;}
 .icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-pill:active,.cchip:active{transform:scale(.97);}
 .page.active{animation:softPageIn .38s cubic-bezier(.2,.8,.2,1);}
-@keyframes softPageIn{from{opacity:0;transform:translateY(12px) scale(.99);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes softPageIn{from{opacity:0;}to{opacity:1;}}
 .mc{animation:softSlideUp .36s cubic-bezier(.2,.8,.2,1);}
 @keyframes softSlideUp{from{transform:translateY(100%);opacity:.8;}to{transform:translateY(0);opacity:1;}}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
