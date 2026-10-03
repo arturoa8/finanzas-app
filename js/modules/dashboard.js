@@ -4,9 +4,10 @@
 import {aportesNetosInversion, esCuentaInversion, esCuentaUSDNoInversion, fueraDePerimetro} from './accounts.js';
 import {renderAnalisis} from './analytics.js';
 import {renderCardsPage} from './cards/cards-ui.js';
-import {getCardOutstandingTotal} from './cards/cards.js';
+import {favorTarjetaEnSoles, getCardOutstandingTotal, modeloCreditoTarjetaUSD, tarjetaConCreditoUSD} from './cards/cards.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {pagoEnSoles, pagoEsUSD} from './cards/payments.js';
+import {notaCreditoUSD} from './cards/usd-credit.js';
 import {aplicarVistaUSD, monedaCuenta, verUSD} from './currencies.js';
 import {renderDeb} from './debts.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
@@ -171,6 +172,17 @@ export function renderBal(){
     gPeriodo += gastoNeto(t);
   });
 
+  // Al usar crédito USD comprado antes, reconocer su costo histórico. La
+  // diferencia frente al gasto estimado pertenece a la fecha de consumo.
+  const idsBalance=new Set(txBalance.map(t=>String(t[6]))),idsPeriodo=new Set(txPeriodo.map(t=>String(t[6])));
+  for(const card of CREDIT_CARDS){
+    if(!tarjetaConCreditoUSD(card))continue;
+    for(const ajuste of modeloCreditoTarjetaUSD(card).cambios){
+      if(idsBalance.has(ajuste.id)){if(ajuste.monto>0)iBal+=ajuste.monto;else gBal-=ajuste.monto;}
+      if(idsPeriodo.has(ajuste.id)){if(ajuste.monto>0)iPeriodo+=ajuste.monto;else gPeriodo-=ajuste.monto;}
+    }
+  }
+
   let balance = iBal - gBal;
 
   // Las transferencias a IBKR o a cuentas USD sacan soles del perímetro.
@@ -182,7 +194,9 @@ export function renderBal(){
     // Si se pagó desde dólares ya comprados, no hubo otra salida de soles.
     // El pago redujo la deuda anterior; se repone solo su equivalente
     // reconocido. Su ajuste de cambio se excluyó arriba por la misma razón.
-    balance+=pagosDesdeUSD.reduce((sum,p)=>sum+pagoEnSoles(p),0);
+    balance+=pagosDesdeUSD.reduce((sum,p)=>sum+pagoEnSoles(p)+(Number(notaCreditoUSD(p)?.costoCredito)||0),0);
+    // El crédito a favor pertenece a la tarjeta; aún no es efectivo en banco.
+    balance-=CREDIT_CARDS.reduce((sum,card)=>sum+favorTarjetaEnSoles(card,hoy),0);
   }
 
   // Patrimonio = Neto + valor del portafolio en soles. El valor_total de

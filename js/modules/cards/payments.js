@@ -1,29 +1,31 @@
 // Pagos de tarjeta, en soles y en dolares.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cuentasApp} from '../accounts.js';
+import {cuentasApp, validarCuentasDisponibles} from '../accounts.js';
 import {renderCardDetail, renderCardsPage} from './cards-ui.js';
-import {deudaTarjetaUSD, equivalenteReconocido, getSelectedCardAndData} from './cards.js';
+import {deudaTarjetaUSD, equivalenteReconocido, getSelectedCardAndData, modeloCreditoTarjetaUSD, tarjetaConCreditoUSD} from './cards.js';
+import {notaCreditoUSD, serializarCreditoUSD} from './usd-credit.js';
 import {getCycleKey, normCycleKey} from './cycles.js';
 import {costoPromedioUSD, elv, getCuentaBalanceMoneda, monedaCuenta} from '../currencies.js';
 import {renderBal} from '../dashboard.js';
 import {cargar, sameAccount} from '../transactions.js';
 import {tcMercado} from '../../services/exchange-rate.js';
 import {sbDelete, sbFetch, sbInsert, sbUpdate} from '../../services/supabase.js';
+import {ejecutarOperacionTarjeta} from '../../services/card-operations.js';
 import {datos} from '../../state.js';
 import {toast} from '../../ui/toast.js';
 import {guardedOnce} from '../../utils/async.js';
-import {formatISODate, getDaysDiff, hoyISO} from '../../utils/dates.js';
+import {endOfDay, formatISODate, getDaysDiff, hoyISO, pf} from '../../utils/dates.js';
 import {escAttr, escHtml, fmt, fmtN, norm} from '../../utils/formatters.js';
 
 // Pagos de tarjeta en dólares (ver filaPago): posición 7 = moneda del pago.
 export function pagoEsUSD(p){return p[7]==='USD';}
 
 // Soles que un pago descuenta de la deuda en soles de su ciclo.
-export function pagoEnSoles(p){return pagoEsUSD(p)?(Number(p[10])||0):(Number(p[3])||0);}
+export function pagoEnSoles(p){const meta=notaCreditoUSD(p);return pagoEsUSD(p)?(meta?.tipo==='pago'?Number(meta.reconocido)||0:Number(p[10])||0):(Number(p[3])||0);}
 
 // Soles que un pago saca de la cuenta de origen.
-export function pagoSalidaSoles(p){return pagoEsUSD(p)?(Number(p[8])||0):(Number(p[3])||0);}
+export function pagoSalidaSoles(p){if(notaCreditoUSD(p)?.tipo==='conversion')return 0;return pagoEsUSD(p)?(Number(p[8])||0):(Number(p[3])||0);}
 
 // ── Pagos de tarjeta en dólares ────────────────────────────────────────────
 // Posiciones 0-6 no se mueven. Un pago en soles deja 7 en 'PEN' y el resto en
@@ -39,7 +41,7 @@ export function getCardPaymentRecords(card,cycle){
   const key=getCycleKey(cycle);
   return (datos.pagosTarjetas||[])
     .filter(r=>norm(String(r[1]))===norm(card.cuenta)&&normCycleKey(r[2])===key)
-    .map(r=>({id:String(r[0]),amount:Math.max(0,pagoEnSoles(r)),date:normCycleKey(r[4]),note:String(r[5]||''),cuentaOrigen:r[6]||null,moneda:r[7]||'PEN',usd:Number(r[3])||0,soles:r[8],tc:r[9]}));
+    .map(r=>({id:String(r[0]),amount:Math.max(0,pagoEnSoles(r)),date:normCycleKey(r[4]),note:notaCreditoUSD(r)?'':String(r[5]||''),meta:notaCreditoUSD(r),cuentaOrigen:r[6]||null,moneda:r[7]||'PEN',usd:Number(r[3])||0,soles:r[8],tc:r[9]}));
 }
 
 function getCardPayment(card,cycle){return getCardPaymentRecords(card,cycle).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);}
@@ -67,6 +69,12 @@ async function updateCardPaymentRecord(card,cycle,id,amount,date,note){
 
 async function deleteCardPaymentRecord(card,cycle,id){
   const fila=datos.pagosTarjetas.find(r=>String(r[0])===String(id));
+  const meta=fila&&notaCreditoUSD(fila);
+  if(meta){
+    const dependiente=datos.pagosTarjetas.find(p=>notaCreditoUSD(p)?.origenes?.includes(String(id)));
+    if(dependiente)throw new Error('Este pago tiene una conversión a soles. Elimina primero esa conversión.');
+    await ejecutarOperacionTarjeta({tipo:'eliminar',id,ajusteId:fila[11]||meta.ajusteId||null});await cargar();return;
+  }
   if(fila&&pagoEsUSD(fila)){
     await sbFetch('rpc/eliminar_pago_tarjeta_usd',{method:'POST',body:JSON.stringify({p_id:id})});
     await cargar();
@@ -115,13 +123,11 @@ async function limpiarPagoTarjeta__base(){
   if(!confirm('¿Eliminar todo el historial de pagos de este ciclo?'))return;
   const key=getCycleKey(ctx.data.cycle);
   try{
-    // Los pagos en dólares se borran por su función para llevarse su diferencia de cambio.
-    const enUSD=datos.pagosTarjetas.filter(r=>norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key&&pagoEsUSD(r));
-    for(const r of enUSD)await sbFetch('rpc/eliminar_pago_tarjeta_usd',{method:'POST',body:JSON.stringify({p_id:r[0]})});
-    await sbFetch(`pagos_tarjetas?tarjeta=eq.${encodeURIComponent(ctx.card.cuenta)}&ciclo_key=eq.${key}`,{method:'DELETE'});
-    datos.pagosTarjetas=datos.pagosTarjetas.filter(r=>!(norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key));
+    const registros=datos.pagosTarjetas.filter(r=>norm(String(r[1]))===norm(ctx.card.cuenta)&&normCycleKey(r[2])===key)
+      .sort((a,b)=>Number(notaCreditoUSD(b)?.tipo==='conversion')-Number(notaCreditoUSD(a)?.tipo==='conversion'));
+    for(const r of registros)await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,r[0]);
     renderBal(); renderCardsPage(); renderCardDetail(); toast('Pagos reiniciados','success');
-  }catch(e){toast('Error al reiniciar pagos','error');}
+  }catch(e){toast(e.message||'Error al reiniciar pagos','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -132,6 +138,7 @@ let editandoPagoId=null;
 export function editarPagoTarjeta(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   const p=getCardPaymentRecords(ctx.card,ctx.data.cycle).find(x=>x.id===id); if(!p)return;
+  if(p.meta||p.moneda==='USD'){toast('Para corregir este movimiento, elimínalo y vuelve a registrarlo.','error');return;}
   editandoPagoId=id;
   document.getElementById('payEditTitle').textContent='Editar pago';
   document.getElementById('payEditDate').value=p.date||hoyISO();
@@ -173,8 +180,9 @@ export const confirmarEliminarPago=guardedOnce(confirmarEliminarPago__base);
 async function eliminarPagoTarjeta__base(id){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   if(!confirm('¿Eliminar este pago?'))return;
-  await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,id);
-  renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
+  try{await deleteCardPaymentRecord(ctx.card,ctx.data.cycle,id);
+    renderBal(); renderCardsPage(); renderCardDetail(); toast('Pago eliminado','success');
+  }catch(e){toast(e.message||'No se pudo eliminar el pago','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -183,7 +191,7 @@ export const eliminarPagoTarjeta=guardedOnce(eliminarPagoTarjeta__base);
 export function renderPaymentHistory(card,cycle){
   const pagos=getCardPaymentRecords(card,cycle).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!pagos.length)return '<div class="pay-history"><div class="pay-history-title">Historial de pagos</div><div class="empty" style="padding:18px 8px">Aún no registras pagos para este ciclo</div></div>';
-  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.moneda==='USD'?escHtml('Pago en dólares · costó '+fmt(p.soles)+' · TC '+Number(p.tc).toFixed(4)+(p.cuentaOrigen?' · desde '+p.cuentaOrigen:'')):escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions">${p.moneda==='USD'?'':`<button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button>`}<button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${p.moneda==='USD'?'US$ '+fmtN(p.usd):fmt(p.amount)}</div></div>`).join('')}</div>`;
+  return `<div class="pay-history"><div class="pay-history-title">Historial de pagos</div>${pagos.map(p=>`<div class="pay-item"><div class="pay-item-main"><div class="pay-item-date">${formatISODate(p.date)}</div><div class="pay-item-note">${p.meta?.tipo==='conversion'?escHtml('Conversión de US$ '+fmtN(p.meta.usd)+' a soles · TC del banco '+Number(p.meta.tc).toFixed(4)):p.moneda==='USD'?escHtml('Pago en dólares · costó '+fmt(p.soles)+' · TC '+Number(p.tc).toFixed(4)+(p.cuentaOrigen?' · desde '+p.cuentaOrigen:'')):escHtml(p.note||'Sin nota')}</div><div class="pay-item-actions">${p.moneda==='USD'||p.meta?'':`<button class="pay-small-btn" onclick="editarPagoTarjeta('${p.id}')">Editar</button>`}<button class="pay-small-btn danger" onclick="eliminarPagoTarjeta('${p.id}')">Eliminar</button></div></div><div class="pay-item-amt">+ ${p.moneda==='USD'?'US$ '+fmtN(p.usd):fmt(p.amount)}</div></div>`).join('')}</div>`;
 }
 
 export function renderPaymentForm(pendiente,card){
@@ -193,7 +201,7 @@ export function renderPaymentForm(pendiente,card){
   const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
   const elegida=cuentas.find(c=>sameAccount(c,def))||cuentas[0];
   const opts=cuentas.map(c=>`<option value="${escAttr(c)}"${c===elegida?' selected':''}>${escHtml(c)}</option>`).join('');
-  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>${renderPagoUSD(card)}`;
+  return `<div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Monto</label><input id="cardPayAmount" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div><div class="pay-field"><label>Fecha</label><input id="cardPayDate" type="date" value="${hoyISO()}"></div><div class="pay-field"><label>Desde</label><select id="cardPayCuenta" class="sel">${opts}</select></div><div class="pay-field pay-note"><label>Nota opcional</label><input id="cardPayNote" type="text" placeholder="Ej. pago desde BBVA"></div></div><button class="btn btn-p" onclick="guardarPagoTarjeta()">Agregar</button></div><div class="pay-quick-row"><button class="btn btn-s" onclick="pagarSaldoCompleto()">Pagar saldo completo (${fmt(pendiente)})</button><button class="btn btn-s" onclick="limpiarPagoTarjeta()">Reiniciar pagos</button></div>${renderPagoUSD(card)}${renderCreditoUSD(card)}`;
 }
 
 // ── Pagar la tarjeta en dólares ────────────────────────────────────────────
@@ -208,16 +216,17 @@ function renderPagoUSD(card){
   const cuentas=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion').map(c=>c[0]);
   const opts=cuentas.map(c=>`<option value="${escAttr(c)}"${sameAccount(c,def)?' selected':''}>${escHtml(c)} · ${monedaCuenta(c)}</option>`).join('');
   const sug=tcMercado>0?(Math.round(d.usd*tcMercado*100)/100).toFixed(2):'';
-  return `<div class="pay-usd" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)"><div class="pay-history-title">Pagar en dólares · debes US$ ${fmtN(d.usd)}</div><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares a pagar</label><input id="cardUsdMonto" type="number" inputmode="decimal" step="0.01" value="${d.usd.toFixed(2)}" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Desde</label><select id="cardUsdCuenta" class="sel" onchange="actualizarPagoUSD()">${opts}</select></div><div class="pay-field" id="cardUsdSolesRow"><label>Soles que costó</label><input id="cardUsdSoles" type="number" inputmode="decimal" step="0.01" value="${sug}" placeholder="0.00" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Fecha</label><input id="cardUsdFecha" type="date" value="${hoyISO()}"></div></div><button class="btn btn-p" onclick="guardarPagoTarjetaUSD()">Pagar US$</button></div><div class="hint" id="cardUsdPreview" style="margin-top:10px"></div></div>`;
+  return `<div class="pay-usd" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)"><div class="pay-history-title">Pagar en dólares · debes US$ ${fmtN(d.usd)}</div><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares a pagar</label><input id="cardUsdMonto" type="number" inputmode="decimal" step="0.01" value="${d.usd.toFixed(2)}" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Desde</label><select id="cardUsdCuenta" class="sel" onchange="actualizarPagoUSD()">${opts}</select></div><div class="pay-field" id="cardUsdSolesRow"><label>Soles que costó</label><input id="cardUsdSoles" type="number" inputmode="decimal" step="0.01" value="${sug}" placeholder="0.00" oninput="actualizarPagoUSD()"></div><div class="pay-field"><label>Fecha</label><input id="cardUsdFecha" type="date" value="${hoyISO()}" onchange="actualizarPagoUSD()"></div></div><button class="btn btn-p" onclick="guardarPagoTarjetaUSD()">Pagar US$</button></div><div class="hint" id="cardUsdPreview" style="margin-top:10px"></div></div>`;
 }
 
 // Costo en soles de un pago en dólares y su diferencia de cambio. Misma cuenta
 // que hace el servidor con el promedio de la deuda pendiente.
-function costoPagoUSD(card,usd,cuenta,solesTexto){
-  const d=deudaTarjetaUSD(card);
-  if(!(usd>0))return{ok:false,mensaje:'Escribe cuántos dólares pagas.'};
-  if(usd>d.usd+0.004)return{ok:false,mensaje:'Supera lo que debes: US$ '+fmtN(d.usd)+'.'};
+export function costoPagoUSD(card,usd,cuenta,solesTexto,fecha=null){
+  if(fecha&&(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!Number.isFinite(+pf(fecha))))return{ok:false,mensaje:'Elige la fecha del pago.'};
+  const d=fecha?modeloCreditoTarjetaUSD(card,endOfDay(pf(fecha))):deudaTarjetaUSD(card);
+  if(!Number.isFinite(usd)||!(usd>0))return{ok:false,mensaje:'Escribe cuántos dólares pagas.'};
   if(!cuenta)return{ok:false,mensaje:'Elige la cuenta de la que sale el pago.'};
+  if(!cuentasApp().some(c=>sameAccount(c[0],cuenta)&&!c[3]&&c[1]!=='inversion'))return{ok:false,mensaje:'Elige una cuenta de efectivo disponible.'};
   let soles,fuente;
   if(monedaCuenta(cuenta)==='USD'){
     const cp=costoPromedioUSD(),saldo=getCuentaBalanceMoneda(cuenta).saldo;
@@ -226,11 +235,13 @@ function costoPagoUSD(card,usd,cuenta,solesTexto){
     soles=Math.round(usd*cp*100)/100;fuente='costo_promedio';
   }else{
     soles=Math.round(Number(solesTexto)*100)/100;fuente='manual';
-    if(!(soles>0))return{ok:false,mensaje:'Escribe cuántos soles costó este pago.'};
+    if(!Number.isFinite(soles)||!(soles>0))return{ok:false,mensaje:'Escribe cuántos soles costó este pago.'};
   }
-  const eq=equivalenteReconocido(card,usd),dif=Math.round((soles-eq)*100)/100,tc=soles/usd;
+  const cubierto=Math.min(usd,d.usd),exceso=Math.round((usd-cubierto)*100)/100;
+  const costoCredito=Math.round(soles*exceso/usd*100)/100;
+  const eq=fecha?(cubierto===d.usd?d.pen:d.usd>0?Math.round(cubierto*d.pen/d.usd*100)/100:0):(equivalenteReconocido(card,cubierto)||0),dif=Math.round((soles-costoCredito-eq)*100)/100,tc=soles/usd;
   const txt=Math.abs(dif)<0.005?'Sin diferencia de cambio.':dif>0?'Diferencia de cambio: costó '+fmt(dif)+' más de lo estimado.':'Diferencia de cambio: costó '+fmt(-dif)+' menos de lo estimado.';
-  return{ok:true,soles,fuente,tc,eq,dif,mensaje:'TC real: '+tc.toFixed(6)+' · costó '+fmt(soles)+' · estaba reconocido '+fmt(eq)+'. '+txt};
+  return{ok:true,soles,fuente,tc,eq,dif,exceso,costoCredito,mensaje:'TC real: '+tc.toFixed(6)+' · costó '+fmt(soles)+'. '+txt+(exceso>0?' Quedarán +US$ '+fmtN(exceso+d.saldoFavor)+' a favor para próximos consumos en dólares.':'')};
 }
 
 export function actualizarPagoUSD(){
@@ -238,16 +249,25 @@ export function actualizarPagoUSD(){
   if(!ctx||!prev)return;
   const cuenta=elv('cardUsdCuenta'),fila=document.getElementById('cardUsdSolesRow');
   if(fila)fila.hidden=monedaCuenta(cuenta)==='USD';
-  prev.textContent=costoPagoUSD(ctx.card,Number(elv('cardUsdMonto')),cuenta,elv('cardUsdSoles')).mensaje;
+  prev.textContent=costoPagoUSD(ctx.card,Number(elv('cardUsdMonto')),cuenta,elv('cardUsdSoles'),elv('cardUsdFecha')).mensaje;
 }
 
 async function guardarPagoTarjetaUSD__base(){
   const ctx=getSelectedCardAndData(); if(!ctx)return;
   const usd=Math.round(Number(elv('cardUsdMonto'))*100)/100,cuenta=elv('cardUsdCuenta'),fecha=elv('cardUsdFecha')||hoyISO();
-  const r=costoPagoUSD(ctx.card,usd,cuenta,elv('cardUsdSoles'));
+  const r=costoPagoUSD(ctx.card,usd,cuenta,elv('cardUsdSoles'),fecha);
   if(!r.ok){toast(r.mensaje,'error');return;}
   try{
-    await sbFetch('rpc/pagar_tarjeta_usd',{method:'POST',body:JSON.stringify({p_tarjeta:ctx.card.cuenta,p_ciclo:getCycleKey(ctx.data.cycle),p_monto_usd:usd,p_fecha:fecha+'T12:00:00Z',p_nota:null,p_cuenta_origen:cuenta,p_monto_origen:r.soles,p_tc_fuente:r.fuente})});
+    validarCuentasDisponibles();
+    const hayConsumosPosteriores=datos.transacciones.some(t=>sameAccount(t[5],ctx.card.cuenta)&&t[9]==='USD'&&pf(t[0])>endOfDay(pf(fecha)));
+    if(r.exceso>0||tarjetaConCreditoUSD(ctx.card)||hayConsumosPosteriores){
+      const id=crypto.randomUUID(),momento=fecha+'T23:59:59-05:00';
+      const ajuste=ajusteCambioTarjeta(ctx.card,momento,r.dif,'Pago en dólares');
+      const pago={id,tarjeta:ctx.card.cuenta,ciclo_key:getCycleKey(ctx.data.cycle),monto:usd,fecha:momento,cuenta_origen:cuenta,
+        moneda:'USD',monto_origen:r.soles,tc:Number(r.tc.toFixed(8)),tc_fuente:r.fuente,equivalente:Math.round((r.eq+r.costoCredito)*100)/100,
+        ajuste_id:ajuste?.id||null,nota:serializarCreditoUSD({tipo:'pago',reconocido:r.eq,credito:r.exceso,costoCredito:r.costoCredito})};
+      await ejecutarOperacionTarjeta({tipo:'crear',id,pago,ajuste});
+    }else await sbFetch('rpc/pagar_tarjeta_usd',{method:'POST',body:JSON.stringify({p_tarjeta:ctx.card.cuenta,p_ciclo:getCycleKey(ctx.data.cycle),p_monto_usd:usd,p_fecha:fecha+'T12:00:00Z',p_nota:null,p_cuenta_origen:cuenta,p_monto_origen:r.soles,p_tc_fuente:r.fuente})});
   }catch(e){
     toast(/pagar_tarjeta_usd|schema cache|Could not find/i.test(e.message||'')?'Falta activar los pagos en dólares en Supabase. Ejecuta el SQL de tarjetas en dólares.':(e.message||'No se pudo registrar el pago'),'error');
     return;
@@ -257,3 +277,46 @@ async function guardarPagoTarjetaUSD__base(){
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
 export const guardarPagoTarjetaUSD=guardedOnce(guardarPagoTarjetaUSD__base);
+
+function ajusteCambioTarjeta(card,fecha,diferencia,detalle){
+  if(Math.abs(diferencia)<0.005)return null;
+  return{id:crypto.randomUUID(),fecha,descripcion:detalle+' · '+card.cuenta,categoria:'Diferencia de cambio',
+    tipo:diferencia>0?'Gasto':'Ingreso',monto:Math.abs(diferencia),cuenta:''};
+}
+
+function renderCreditoUSD(card){
+  const d=deudaTarjetaUSD(card);if(!(d.saldoFavor>0))return '';
+  return `<section class="card-usd-credit"><div class="pay-history-title">Saldo a favor en dólares</div><div class="credit-mini-val green" id="cardUsdCredit">+US$ ${fmtN(d.saldoFavor)}</div><p class="hint">Se aplica a tus próximos consumos en dólares.</p><details class="credit-conversion"><summary>Registrar conversión del banco a soles</summary><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares convertidos</label><input id="cardCreditUsd" type="number" inputmode="decimal" min="0.01" step="0.01" value="${d.saldoFavor.toFixed(2)}" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>TC del banco · S/ por US$</label><input id="cardCreditTc" type="number" inputmode="decimal" min="0" step="0.0001" placeholder="Ej. 3.5000" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>Fecha de conversión</label><input id="cardCreditDate" type="date" value="${hoyISO()}" onchange="actualizarConversionCreditoUSD()"></div></div><button class="btn btn-p" onclick="guardarConversionCreditoUSD()">Registrar conversión</button></div><p class="hint" id="cardCreditPreview">Escribe el tipo de cambio que aplicó el banco.</p></details></section>`;
+}
+
+export function costoConversionCreditoUSD(card,usd,tc,fecha){
+  if(!Number.isFinite(usd)||usd<=0)return{ok:false,mensaje:'Escribe los dólares que convirtió el banco.'};
+  if(!Number.isFinite(tc)||tc<=0)return{ok:false,mensaje:'Escribe el tipo de cambio que aplicó el banco.'};
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!Number.isFinite(+pf(fecha)))return{ok:false,mensaje:'Elige la fecha de conversión.'};
+  const modelo=modeloCreditoTarjetaUSD(card,endOfDay(pf(fecha)));
+  if(usd>modelo.saldoFavor+0.004)return{ok:false,mensaje:'En esa fecha hay US$ '+fmtN(modelo.saldoFavor)+' a favor.'};
+  const uso=modelo.consumirCredito(Math.round(usd*100)),soles=Math.round(usd*tc*100)/100;
+  if(!Number.isFinite(soles)||!(soles>0))return{ok:false,mensaje:'El importe convertido en soles debe ser mayor que cero.'};
+  return{ok:true,usd,tc,soles,costo:uso.costo/100,origenes:uso.origenes,
+    mensaje:'El banco acreditó '+fmt(soles)+' a tu tarjeta. Quedarán +US$ '+fmtN(Math.max(0,Math.round((modelo.saldoFavor-usd)*100)/100))+' en dólares.'};
+}
+export function actualizarConversionCreditoUSD(){
+  const ctx=getSelectedCardAndData(),el=document.getElementById('cardCreditPreview');if(!ctx||!el)return;
+  try{el.textContent=costoConversionCreditoUSD(ctx.card,Number(elv('cardCreditUsd')),Number(elv('cardCreditTc')),elv('cardCreditDate')).mensaje;}
+  catch(e){el.textContent=e.message;}
+}
+async function guardarConversionCreditoUSD__base(){
+  const ctx=getSelectedCardAndData();if(!ctx)return;
+  try{
+    validarCuentasDisponibles();
+    const fecha=elv('cardCreditDate'),r=costoConversionCreditoUSD(ctx.card,Math.round(Number(elv('cardCreditUsd'))*100)/100,Number(elv('cardCreditTc')),fecha);
+    if(!r.ok){toast(r.mensaje,'error');return;}
+    const id=crypto.randomUUID(),momento=fecha+'T23:59:59-05:00';
+    const ajuste=ajusteCambioTarjeta(ctx.card,momento,Math.round((r.costo-r.soles)*100)/100,'Conversión del saldo a favor USD');
+    const pago={id,tarjeta:ctx.card.cuenta,ciclo_key:getCycleKey(ctx.data.cycle),monto:r.soles,fecha:momento,moneda:'PEN',cuenta_origen:null,
+      nota:serializarCreditoUSD({tipo:'conversion',usd:r.usd,tc:r.tc,costo:r.costo,origenes:r.origenes,ajusteId:ajuste?.id||null})};
+    await ejecutarOperacionTarjeta({tipo:'crear',id,pago,ajuste});
+    await cargar();renderCardDetail();toast('Conversión del banco registrada','success');
+  }catch(e){toast(e.message||'No se pudo registrar la conversión','error');}
+}
+export const guardarConversionCreditoUSD=guardedOnce(guardarConversionCreditoUSD__base);

@@ -3,6 +3,7 @@
 
 import {cuentaPorNombre, llenarCuentas, setCuentasMigradas, setEstadoCuentas, validarCuentasDisponibles} from './accounts.js';
 import {recuperarAbonosPendientes} from '../services/debt-operations.js';
+import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {filaPago} from './cards/payments.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -57,6 +58,7 @@ async function cargar__base(){
   const cuentasReq=pedirCuentas().catch(()=>pedirCuentas()).catch(e=>({falla:e}));
   try{
     await recuperarAbonosPendientes();
+    await recuperarPagosTarjetaPendientes();
     const [tx,cfg,pagos,ciclos,cats,deu,abonos,pres,rec]=await Promise.all([
       sbSelectTodo('transacciones','?select=*&order=fecha.asc,id.asc'),
       sbSelect('config_tarjetas','?select=tarjeta,limite_credito,meta_pct,nombre,emoji,corte_dia,pago_dia'),

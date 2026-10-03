@@ -5,6 +5,7 @@ import {selectedCardCuenta} from './cards-ui.js';
 import {CREDIT_CARDS} from './config.js';
 import {cardCycleOffset, cardTxCycleKey, getCardCycle, getCycleKey, isCardExpenseFor, normCycleKey, txBelongsToCycle} from './cycles.js';
 import {getCardPaymentRecords, getPaymentStatus, pagoEnSoles, pagoEsUSD} from './payments.js';
+import {calcularCreditoUSD, notaCreditoUSD} from './usd-credit.js';
 import {sameAccount} from '../transactions.js';
 import {tcMercado} from '../../services/exchange-rate.js';
 import {datos} from '../../state.js';
@@ -15,6 +16,23 @@ import {cleanName, fmt, fmtN} from '../../utils/formatters.js';
 // misma cuenta que hace pagar_tarjeta_usd() en el servidor, para que lo que se
 // previsualiza coincida con lo que se guarda.
 export function deudaTarjetaUSD(card){
+  if(!tarjetaConCreditoUSD(card))return{...deudaTarjetaUSDAnterior(card),saldoFavor:0,costoFavor:0};
+  const modelo=modeloCreditoTarjetaUSD(card);
+  return{usd:modelo.usd,pen:modelo.pen,saldoFavor:modelo.saldoFavor,costoFavor:modelo.costoFavor};
+}
+
+export function modeloCreditoTarjetaUSD(card,hasta=null){
+  const gastos=(datos.transacciones||[]).filter(t=>sameAccount(t[5]||'',card.cuenta)&&t[9]==='USD'&&(!hasta||pf(t[0])<=hasta))
+    .map(t=>({id:String(t[6]),fecha:t[0],tipo:t[3],usd:Number(t[10]),pen:Number(t[4]),origen:String(t[8]||''),ciclo:cardTxCycleKey(card,t)}));
+  const pagos=(datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)&&(!hasta||pf(p[4])<=hasta))
+    .map(p=>({id:String(p[0]),fecha:p[4],moneda:p[7]||'PEN',usd:Number(p[3]),costo:Number(p[8]),reconocido:Number(p[10]),ciclo:normCycleKey(p[2]),meta:notaCreditoUSD(p)}));
+  return calcularCreditoUSD(gastos,pagos);
+}
+
+export function tarjetaConCreditoUSD(card){return (datos.pagosTarjetas||[]).some(p=>sameAccount(p[1],card.cuenta)&&notaCreditoUSD(p));}
+
+// Saldo reconocido legacy, útil para la previsualización de pagos existentes.
+function deudaTarjetaUSDAnterior(card){
   let usd=0,pen=0;
   (datos.transacciones||[]).forEach(t=>{
     if(!sameAccount(t[5]||'',card.cuenta)||t[9]!=='USD')return;
@@ -35,7 +53,8 @@ export function deudaUSDTotal(){return CREDIT_CARDS.reduce((s,c)=>s+deudaTarjeta
 export function equivalenteReconocido(card,usd){
   const d=deudaTarjetaUSD(card);
   if(!(d.usd>0)||!(usd>0))return null;
-  return Math.abs(usd-d.usd)<0.005?d.pen:Math.round(usd*d.pen/d.usd*100)/100;
+  const aplicado=Math.min(usd,d.usd);
+  return Math.abs(aplicado-d.usd)<0.005?d.pen:Math.round(aplicado*d.pen/d.usd*100)/100;
 }
 
 export function cardStats(gastos,total){
@@ -61,6 +80,11 @@ export function usdCiclo(card,data){
   (datos.transacciones||[]).forEach(t=>{if(t[3]==='Reembolso'&&t[9]==='USD'&&sameAccount(t[5]||'',card.cuenta)&&ids.has(String(t[8])))reemb+=Number(t[10])||0;});
   (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p)&&normCycleKey(p[2])===key)pagado+=Number(p[3])||0;});
   const c=v=>Math.round(v*100)/100;
+  if(tarjetaConCreditoUSD(card)){
+    const modelo=modeloCreditoTarjetaUSD(card),b=modelo.porCiclo.get(key);
+    const cubierto=(b?.usdPagado||0)/100;
+    return{total:c(total),pagado:c(Math.min(cubierto,total)),pendiente:c(Math.max(0,total-reemb-cubierto)),creditoAplicado:(b?.creditoAplicado||0)/100};
+  }
   return{total:c(total),pagado:c(Math.min(pagado,total)),pendiente:c(Math.max(0,total-reemb-pagado))};
 }
 
@@ -71,11 +95,23 @@ function cardLedger(card,hasta=null){
   const bucket=key=>{if(!buckets.has(key))buckets.set(key,{total:0,pagado:0,reembolsos:0,creditoAplicado:0});return buckets.get(key);};
   const expenses=datos.transacciones.filter(t=>isCardExpenseFor(card,t)&&(!hasta||pf(t[0])<=hasta));
   expenses.forEach(t=>bucket(cardTxCycleKey(card,t)).total+=Number(t[4]));
-  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)&&(!hasta||pf(p[4])<=hasta)).forEach(p=>bucket(normCycleKey(p[2])).pagado+=pagoEnSoles(p));
+  const conCredito=tarjetaConCreditoUSD(card);
+  (datos.pagosTarjetas||[]).filter(p=>sameAccount(p[1],card.cuenta)&&(!hasta||pf(p[4])<=hasta)&&(!conCredito||!pagoEsUSD(p))).forEach(p=>bucket(normCycleKey(p[2])).pagado+=pagoEnSoles(p));
   datos.transacciones.filter(t=>t[3]==='Reembolso'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=(hasta||endOfDay(new Date()))).forEach(t=>{
     const original=expenses.find(g=>String(g[6])===String(t[8]));
     if(original)bucket(cardTxCycleKey(card,original)).reembolsos+=Number(t[4]);
   });
+  if(conCredito){
+    // La deuda USD se calcula en su propia moneda. Solo la conversión
+    // explícita del banco puede crear crédito PEN para consumos en soles.
+    const cubiertoUSD=new Map();
+    for(const t of expenses.filter(t=>t[9]==='USD')){const key=cardTxCycleKey(card,t);cubiertoUSD.set(key,(cubiertoUSD.get(key)||0)+Number(t[4]));}
+    for(const t of datos.transacciones.filter(t=>t[3]==='Reembolso'&&t[9]==='USD'&&sameAccount(t[5],card.cuenta)&&pf(t[0])<=(hasta||endOfDay(new Date())))){
+      const original=expenses.find(g=>String(g[6])===String(t[8]));if(original){const key=cardTxCycleKey(card,original);cubiertoUSD.set(key,(cubiertoUSD.get(key)||0)-Number(t[4]));}
+    }
+    for(const lote of modeloCreditoTarjetaUSD(card,hasta).deuda)cubiertoUSD.set(lote.ciclo,(cubiertoUSD.get(lote.ciclo)||0)-lote.pen/100);
+    for(const [key,monto] of cubiertoUSD)bucket(key).pagado+=monto;
+  }
   // Los importes son decimales binarios: 89.90+3.50+19.90 da 113.30000000000001
   // y contra 113.30 pagados deja una "deuda" de 1e-14 que marca Vencido. Todo el
   // cálculo se hace con los acumulados ya redondeados a céntimos.
@@ -93,14 +129,20 @@ function cardLedger(card,hasta=null){
 
 export function getCardOutstandingTotal(card,hasta=null){return cardLedger(card,hasta).pendiente;}
 
+export function favorTarjetaEnSoles(card,hasta=null){
+  if(!tarjetaConCreditoUSD(card))return 0;
+  return Math.round((cardLedger(card,hasta).saldoFavor+modeloCreditoTarjetaUSD(card,hasta).costoFavor)*100)/100;
+}
+
 export function getCardData(card,offset=cardCycleOffset){
   const cycle=getCardCycle(card,offset),key=getCycleKey(cycle);
   const gastos=datos.transacciones.filter(t=>isCardExpenseFor(card,t)&&txBelongsToCycle(card,t,cycle)).sort((a,b)=>pf(b[0])-pf(a[0]));
   const ledger=cardLedger(card),b=ledger.buckets.get(key)||{total:0,pagado:0,reembolsos:0,creditoAplicado:0,pendiente:0};
-  const {total,reembolsos,creditoAplicado,pendiente}=b,pagado=Math.min(b.pagado,total);
+  const {total,reembolsos,creditoAplicado,pendiente}=b,pagado=Math.max(0,Math.min(b.pagado,total));
   const status=getPaymentStatus(total,total-pendiente,cycle.pay);
   if(total>0&&pendiente===0&&(reembolsos>0||creditoAplicado>0)){status.text='Cubierto';status.detail='Incluye devoluciones o saldo a favor';}
-  return{cycle,gastos,total,pagado,pendiente,status,reembolsos,creditoAplicado,saldoFavor:ledger.saldoFavor,pagos:getCardPaymentRecords(card,cycle)};
+  const usd=deudaTarjetaUSD(card);
+  return{cycle,gastos,total,pagado,pendiente,status,reembolsos,creditoAplicado,saldoFavor:ledger.saldoFavor,saldoFavorUSD:usd.saldoFavor,costoFavorUSD:usd.costoFavor,pagos:getCardPaymentRecords(card,cycle)};
 }
 
 export function getSelectedCardAndData(){const card=CREDIT_CARDS.find(c=>sameAccount(c.cuenta,selectedCardCuenta));return card?{card,data:getCardData(card,cardCycleOffset)}:null;}

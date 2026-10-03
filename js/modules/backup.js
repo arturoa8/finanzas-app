@@ -1,6 +1,7 @@
 import {datos} from '../state.js';
 import {validarCuentasDisponibles} from './accounts.js';
 import {abonoPendiente} from '../services/debt-operations.js';
+import {pagoTarjetaPendiente} from '../services/card-operations.js';
 import {toast} from '../ui/toast.js';
 import {hoyISO} from '../utils/dates.js';
 
@@ -18,7 +19,7 @@ function descargarArchivo(nombre,contenido,tipo){
   const a=document.createElement('a');a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-function validarRespaldo(){validarCuentasDisponibles();if(!datos.cargados)throw new Error('Actualiza los datos antes de descargar.');if(abonoPendiente())throw new Error('Confirma el abono pendiente antes de descargar: pulsa Actualizar.');}
+function validarRespaldo(){validarCuentasDisponibles();if(!datos.cargados)throw new Error('Actualiza los datos antes de descargar.');if(abonoPendiente()||pagoTarjetaPendiente())throw new Error('Confirma el movimiento pendiente antes de descargar: pulsa Actualizar.');}
 export function exportarMovimientosCSV(){
   try{validarRespaldo();descargarArchivo('movimientos-'+hoyISO()+'.csv',movimientosCSV(datos.transacciones),'text/csv;charset=utf-8');toast('Descarga de movimientos preparada','success');}catch(e){toast(e.message,'error');}
 }

@@ -1,0 +1,70 @@
+const assert=require('node:assert/strict');
+const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');
+process.env.TZ='America/Lima';
+const RealDate=Date;globalThis.Date=class extends RealDate{constructor(...a){super(...(a.length?a:['2026-10-02T12:00:00-05:00']));}};
+entornoPrueba();
+(async()=>{
+  const {calcularCreditoUSD,serializarCreditoUSD}=await modulo('modules/cards/usd-credit.js');
+  const {datos}=await modulo('state.js'),cards=await modulo('modules/cards/cards.js'),p=await modulo('modules/cards/payments.js');
+  const card={cuenta:'Visa demo',finDia:24,inicioDia:25,pagoDia:15};
+  const gasto={id:'g1',fecha:'2026-09-10',tipo:'Gasto',usd:5.42,pen:18.43,ciclo:'2026-09-24'};
+  const pago={id:'p1',fecha:'2026-09-15',moneda:'USD',usd:6,costo:21,reconocido:20.46,ciclo:gasto.ciclo,meta:{tipo:'pago',reconocido:18.43,credito:0.58,costoCredito:2.03}};
+  let m=calcularCreditoUSD([gasto],[pago]);
+  assert.equal(m.usd,0);assert.equal(m.pen,0);assert.equal(m.saldoFavor,0.58);assert.equal(m.costoFavor,2.03);
+  const siguiente={id:'g2',fecha:'2026-09-26',tipo:'Gasto',usd:0.30,pen:1.08,ciclo:'2026-10-24'};
+  m=calcularCreditoUSD([siguiente,gasto],[pago]);
+  assert.equal(m.saldoFavor,0.28);assert.equal(m.costoFavor,0.98);assert.equal(m.usd,0);
+  assert.equal(m.porCiclo.get(siguiente.ciclo).creditoAplicado,30);
+  assert.equal(m.cambios.reduce((s,c)=>s+c.monto,0),0.03,'diferencia al consumir crédito comprado antes');
+  m=calcularCreditoUSD([gasto,{...siguiente,fecha:'2026-09-15'}],[pago]);
+  assert.equal(m.saldoFavor,0.28);assert.equal(m.costoFavor,0.98);
+  assert.equal(m.cambios.reduce((s,c)=>s+c.monto,0),0.03,'una compra del día ingresada después no reescribe el recibo');
+  m=calcularCreditoUSD([gasto,{...siguiente,usd:1,pen:3.60}],[pago]);
+  assert.equal(m.saldoFavor,0);assert.equal(m.usd,0.42);assert.equal(m.pen,1.51);
+  m=calcularCreditoUSD([gasto],[pago,{id:'c1',fecha:'2026-09-20',moneda:'PEN',meta:{tipo:'conversion',usd:0.58}}]);
+  assert.equal(m.saldoFavor,0);assert.equal(m.costoFavor,0);
+  assert.throws(()=>calcularCreditoUSD([gasto],[pago,{id:'c1',fecha:'2026-09-20',meta:{tipo:'conversion',usd:0.59}}]),/supera el crédito/);
+  // Pagos anteriores conservan el costo promedio reconocido, aunque las
+  // compras de distintos ciclos se hicieron con tipos de cambio diferentes.
+  m=calcularCreditoUSD([{...gasto,usd:100,pen:340},{...siguiente,usd:50,pen:175}],
+    [{...pago,fecha:'2026-09-27',usd:60,costo:210,reconocido:206,meta:null}]);
+  assert.equal(m.usd,90);assert.equal(m.pen,309);assert.ok(m.deuda.every(l=>l.pen>=0));
+  // Una devolución de una compra pagada es crédito USD y cubre otra deuda USD.
+  const reembolso={id:'r1',fecha:'2026-09-28',tipo:'Reembolso',usd:1,pen:3.40,origen:'g1',ciclo:gasto.ciclo};
+  m=calcularCreditoUSD([gasto,reembolso],[pago]);assert.equal(m.saldoFavor,1.58);
+  m=calcularCreditoUSD([gasto,{...siguiente,usd:2,pen:7.20},reembolso],[pago]);
+  assert.equal(m.saldoFavor,0);assert.equal(m.usd,0.42);assert.equal(m.pen,1.51);
+
+  datos.cuentas=[['Plin','billetera','PEN',false,'c1'],['BCP Dólares','banco','USD',false,'c2']];
+  datos.transacciones=[['2026-09-10','Compra','Compras','Gasto',18.43,card.cuenta,'g1',null,null,'USD',5.42,3.40,'mercado']];
+  datos.pagosTarjetas=[];datos.ciclosOverride=[];
+  const preview=p.costoPagoUSD(card,6,'Plin','21');
+  assert.equal(preview.ok,true);assert.equal(preview.exceso,0.58);assert.equal(preview.eq,18.43);
+  assert.equal(preview.costoCredito,2.03);assert.equal(preview.dif,0.54);assert.match(preview.mensaje,/0\.58.*a favor/);
+  assert.equal(p.costoPagoUSD(card,Infinity,'Plin','21').ok,false);
+  assert.equal(p.costoPagoUSD(card,6,'Plin','0').ok,false);
+  const anticipado=p.costoPagoUSD(card,6,'Plin','21','2026-09-09');
+  assert.equal(anticipado.exceso,6);assert.equal(anticipado.dif,0,'un pago anterior al consumo se reconoce primero como crédito');
+  const fila=['p1',card.cuenta,gasto.ciclo,6,'2026-09-15',serializarCreditoUSD(pago.meta),'Plin','USD',21,3.5,20.46,null,'manual'];
+  datos.pagosTarjetas=[fila];
+  assert.equal(p.pagoEnSoles(fila),18.43);assert.equal(p.pagoSalidaSoles(fila),21);
+  assert.equal(cards.getCardOutstandingTotal(card),0);assert.equal(cards.getCardData(card,-1).saldoFavor,0);
+  assert.equal(cards.getCardData(card,-1).saldoFavorUSD,0.58,'USD no se cuenta también como crédito PEN');
+  assert.equal(cards.favorTarjetaEnSoles(card),2.03);
+  assert.equal(p.costoConversionCreditoUSD(card,0.58,3.6,'2026-09-14').ok,false,'no había crédito antes del pago');
+  const conversion=p.costoConversionCreditoUSD(card,0.58,3.6,'2026-09-20');
+  assert.equal(conversion.ok,true);assert.equal(conversion.soles,2.09);assert.equal(conversion.costo,2.03);
+  assert.deepEqual(conversion.origenes,['p1']);
+  const convertido=['c1',card.cuenta,'2026-10-24',2.09,'2026-09-20',serializarCreditoUSD({tipo:'conversion',usd:0.58,tc:3.6,costo:2.03,origenes:['p1']}),null,'PEN'];
+  datos.pagosTarjetas.push(convertido);
+  assert.equal(cards.deudaTarjetaUSD(card).saldoFavor,0);assert.equal(cards.getCardData(card).saldoFavor,2.09);
+  assert.equal(p.pagoSalidaSoles(convertido),0,'convertir el crédito no descuenta otra vez el banco');
+  datos.transacciones.push(['2026-09-28','Compra PEN','Compras','Gasto',3,card.cuenta,'pen1']);
+  assert.equal(cards.getCardOutstandingTotal(card),0.91,'el crédito convertido sí cubre consumos PEN');
+  datos.pagosTarjetas=[fila];
+  assert.equal(cards.getCardOutstandingTotal(card),3,'el crédito USD no paga consumos PEN sin conversión');
+  datos.transacciones.push(['2026-09-28','Devolución','Compras','Reembolso',3.40,card.cuenta,'r1',null,'g1','USD',1,3.40,'mercado']);
+  assert.equal(cards.getCardData(card).saldoFavor,0,'la devolución USD tampoco crea crédito PEN');
+  assert.equal(cards.deudaTarjetaUSD(card).saldoFavor,1.58);
+  console.log('PASS: US$5.42 → pago US$6 → +US$0.58, próximos ciclos USD, diferencia de cambio, devoluciones, conversión bancaria y separación PEN/USD.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

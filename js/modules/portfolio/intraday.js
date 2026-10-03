@@ -374,7 +374,7 @@ export function pfWireChartTooltip(container,grafico,opts){
   label.style.display='none';
   const {puntos,VB_W,etiqueta}=grafico.meta;
   const heroValorEl=document.getElementById('pfHeroValor'),heroHoyEl=document.getElementById('pfHeroHoy'),heroSubEl=document.getElementById('pfHeroHoySub'),frescuraEl=document.getElementById('pfFrescura');
-  const activos=new Map();let subtituloOriginal='';
+  const activos=new Map();let subtituloOriginal='',colorOriginal='';
   function posicionarEtiqueta(fraccion){
     const ancho=container.clientWidth,mitad=label.offsetWidth/2;
     label.style.left=Math.min(Math.max(fraccion*ancho,mitad+6),ancho-mitad-6)+'px';
@@ -403,7 +403,7 @@ export function pfWireChartTooltip(container,grafico,opts){
     posicionarEtiqueta(xPix/VB_W);
     // Hero temporal (secciones 2-3, 14, 18): reemplaza valor/rendimiento/hora
     // mientras se arrastra. evt.preventDefault evita seleccionar texto.
-    if(heroValorEl)heroValorEl.textContent=d.valorTexto;
+    if(heroValorEl){heroValorEl.textContent=d.valorTexto;heroValorEl.style.color=colorOriginal;}
     // lineaTexto: la vista Valor no muestra un %, que ahí mezclaría aportes
     // con rentabilidad; describe el punto con su propio texto.
     if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto!=null?d.lineaTexto:d.gananciaTexto?d.gananciaTexto+' ('+d.pctTexto+')':d.pctTexto;heroHoyEl.style.color=color;}
@@ -422,7 +422,7 @@ export function pfWireChartTooltip(container,grafico,opts){
     tipG.style.display='';rangeG.style.display='';
     const fechas=etiqueta(a.t)+' – '+etiqueta(b.t);
     label.textContent=fechas;label.title=fechas;label.style.display='block';posicionarEtiqueta((xA+xB)/2/VB_W);
-    if(heroValorEl)heroValorEl.textContent=d.valorTexto;
+    if(heroValorEl){heroValorEl.textContent=d.valorTexto;heroValorEl.style.color=color;}
     if(heroHoyEl){heroHoyEl.textContent=d.lineaTexto;heroHoyEl.style.color=color;}
     if(heroSubEl)heroSubEl.textContent=d.subTexto;
     if(frescuraEl){frescuraEl.textContent=fechas;frescuraEl.title=fechas;frescuraEl.setAttribute('aria-label',fechas);}
@@ -434,13 +434,14 @@ export function pfWireChartTooltip(container,grafico,opts){
   }
   function ocultar(){
     tipG.style.display='none';rangeG.style.display='none';label.style.display='none';
+    if(heroValorEl)heroValorEl.style.color=colorOriginal;
     // Sección 4: se restaura con las mismas funciones que pintan el hero
     // normal — nunca se duplica el cálculo acá, y nunca se escribe nada
     // fuera del DOM (sección 19: pfYahoo/Supabase quedan intactos).
     pintarValorPrincipal();
   }
   svgEl.addEventListener('pointerdown',evt=>{
-    if(!activos.size)subtituloOriginal=heroSubEl?.textContent||'';
+    if(!activos.size){subtituloOriginal=heroSubEl?.textContent||'';colorOriginal=heroValorEl?.style.color||'';}
     activos.set(evt.pointerId,evt);
     if(evt.isTrusted)svgEl.setPointerCapture(evt.pointerId);
     pintarSeleccion();

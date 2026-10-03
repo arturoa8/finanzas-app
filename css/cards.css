@@ -201,3 +201,6 @@
 @media(max-width:460px){.pay-form-grid{grid-template-columns:1fr}.pay-form-fields{grid-template-columns:1fr 1fr}.pay-quick-row{grid-template-columns:1fr}}
 
 
+
+/* Créditos de tarjeta: cada moneda conserva su saldo hasta convertirlo. */
+.card-usd-credit{margin-top:18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--card2)}.card-usd-credit .hint{margin:8px 0;font-size:12px;line-height:1.5}.credit-conversion summary{cursor:pointer;color:var(--dim);font-size:12px;margin-top:12px}.credit-conversion .pay-form-grid{margin-top:14px}.card-pen-credit{display:flex;justify-content:space-between;gap:12px;padding:12px 0;color:var(--dim);font-size:12px}.card-pen-credit strong{color:var(--green);white-space:nowrap}
