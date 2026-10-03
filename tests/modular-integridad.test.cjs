@@ -85,5 +85,12 @@ assert.equal(new Set(precargados).size,precargados.length,'modulepreload repetid
 assert.deepEqual([...precargados].sort(),[...grafo].map(f=>path.relative(MOD,f).split(path.sep).join('/')).sort(),
   'los modulepreload de index.html no coinciden con los modulos que importa app.js');
 
+// ── 6. La versión de index.html es la misma que la de los módulos ────────
+// Configuración muestra VERSION_APP y avisa si la página guardada es otra.
+const versionPagina=(indice.match(/<meta name="version-app" content="([^"]+)">/)||[])[1];
+const versionModulos=(fs.readFileSync(path.join(MOD,'js','modules','settings.js'),'utf8').match(/export const VERSION_APP='([^']+)'/)||[])[1];
+assert.ok(versionPagina&&versionModulos,'falta la versión en index.html o en settings.js');
+assert.equal(versionPagina,versionModulos,'index.html y settings.js deben tener la misma versión');
+
 console.log(`PASS: ${Object.keys(nuevos).length} definiciones sin duplicar, ${archivos.length} modulos sin imports rotos, `+
- `${expuestas.size} handlers cubiertos por el puente y ${precargados.length} modulos precargados.`);
+ `${expuestas.size} handlers cubiertos por el puente, ${precargados.length} modulos precargados y versión ${versionModulos}.`);

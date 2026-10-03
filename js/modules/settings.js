@@ -9,6 +9,18 @@ import {toast} from '../ui/toast.js';
 
 const APP_PREFS_KEY='finanzas.appearance.v1';
 
+// Versión publicada. Se muestra en Configuración para saber si el iPhone ya
+// usa la última. index.html repite el número en <meta name="version-app">
+// (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
+// una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
+export const VERSION_APP='2026.10.03.9';
+
+function pintarVersion(){
+  const el=document.getElementById('settingsVersion');if(!el)return;
+  const pagina=document.querySelector('meta[name="version-app"]')?.content;
+  el.textContent='Versión '+VERSION_APP+(pagina&&pagina!==VERSION_APP?' · página '+pagina+': cierra y vuelve a abrir la app para completar la actualización':'');
+}
+
 function leerPreferencias(){try{return JSON.parse(localStorage.getItem(APP_PREFS_KEY))||{};}catch(e){return {};}}
 
 export let appPreferences=leerPreferencias();
@@ -35,6 +47,7 @@ export function abrirConfiguracion(seccion){
   leerTipoCambio().then(()=>{if(tcUsdPen>0&&document.activeElement!==tcEl&&!tcEl.value)tcEl.value=tcUsdPen;});
  }
  renderCuentasConfig();
+ pintarVersion();
  document.getElementById('settingsModal').classList.add('active');
  if(seccion==='cuentas'){
   const s=document.getElementById('cuentasConfigSection');
