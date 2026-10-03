@@ -88,6 +88,9 @@ function renderMesPickerGrid(){
 
 function setVista(v){vista=v;mesOffset=0;render();}
 
+// requestAnimationFrame corre justo antes de pintar; el setTimeout, después.
+const despuesDelPintado=fn=>globalThis.requestAnimationFrame?requestAnimationFrame(()=>setTimeout(fn,0)):setTimeout(fn,0);
+
 export function setPg(p,b){
   const saliendoDelPortafolio=document.getElementById('p-ana').classList.contains('active');
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
@@ -100,7 +103,13 @@ export function setPg(p,b){
     // no donde se quedó. Se reafirma tras la carga async para que el cambio
     // de alto del contenido (spinner → datos) no la vuelva a mover.
     window.scrollTo(0,0);
-    renderPortafolio().then(()=>{if(document.getElementById('p-ana').classList.contains('active'))window.scrollTo(0,0);}).catch(()=>{});
+    // Primero se muestra la pestaña y después se calcula: pintar el
+    // portafolio bloquea el hilo y en el iPhone retrasaba el cambio.
+    const enPortafolio=()=>document.getElementById('p-ana').classList.contains('active');
+    despuesDelPintado(()=>{
+      if(!enPortafolio())return;
+      renderPortafolio().then(()=>{if(enPortafolio())window.scrollTo(0,0);}).catch(()=>{});
+    });
   }
   if(p==='card')renderCardsPage();
   if(p==='deb')renderDeb();

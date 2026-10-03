@@ -303,8 +303,20 @@ export async function pfConsultarHistoriaYahoo(periodo){
   return promesa;
 }
 
+// Al entrar a Portafolio, Yahoo, la lista de posiciones y el pintado base
+// pedían cada uno el valor estimado y el gráfico: hasta cuatro dibujos
+// seguidos antes de mostrar la pestaña. Dentro de un grupo se dibuja una
+// sola vez, al final.
+let pfPintadoAgrupado=0;
+export function agruparPintadoPf(pintar){
+  pfPintadoAgrupado++;
+  try{pintar();}
+  finally{pfPintadoAgrupado--;}
+  if(!pfPintadoAgrupado)renderPfYahoo();
+}
+
 export function renderPfYahoo(){
-  if(!pfHistoricoCache.length)return;
+  if(pfPintadoAgrupado||!pfHistoricoCache.length)return;
   const qByKey=new Map(pfYahoo.quotes.map(q=>[String(q.account)+'|'+String(q.contract_id),q]));
   // Todo el cálculo vive en obtenerValorActualPortafolio() — acá solo se
   // guarda lo que hace falta para el diagnóstico y se dispara el pintado.

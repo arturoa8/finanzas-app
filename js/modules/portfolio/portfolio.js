@@ -4,14 +4,14 @@
 import {filtrarPorPeriodo} from '../analytics.js';
 import {renderPfDistribucion} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
-import {renderPfDiagnostico, renderPfDiagnosticoYahoo} from './diagnostics.js';
-import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt, pintarValorPrincipal} from './hero.js';
+import {renderPfDiagnostico} from './diagnostics.js';
+import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt} from './hero.js';
 import {construirGraficoIntradia, construirSerieSesiones, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
 import {pfFlujos, pfRendimientoEntrePuntos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
 import {escalaGrafico} from '../settings.js';
-import {limpiarCachePfYahoo, pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, precargarPfYahoo, startPfYahoo} from '../../services/market-data.js';
+import {agruparPintadoPf, limpiarCachePfYahoo, pfComputeBaseId, pfComputeScope, pfConsultarHistoriaYahoo, pfHistoriaYahooEnCache, pfLondonDay, pfValidarCacheYahoo, pfYahoo, precargarPfYahoo, startPfYahoo} from '../../services/market-data.js';
 import {sessionUserId} from '../../services/auth.js';
 import {sbFetch, sbFetchTodo} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
@@ -136,6 +136,7 @@ function pfCargarDatos({force=false}={}){
     const snapshots=new Map([...snapshotsHoy,...nuevosSnapshots].map(s=>[s.capturado_en,s]));
     pfSnapshotsHoyCache=[...snapshots.values()].sort((a,b)=>a.capturado_en.localeCompare(b.capturado_en));
     pfUltimaSyncCache=lastSuccess?.[0]||null;
+    solicitud.extrasAplicados=true;
     return extras;
   }).catch(()=>null);
   return solicitud;
@@ -159,17 +160,20 @@ export function precargarPortafolio({esperarGraficos=false}={}){
   });
 }
 
+// Yahoo y la lista de posiciones piden cada uno su dibujo del valor estimado
+// y del gráfico. Agrupados, renderPfYahoo los dibuja una sola vez al final.
 function pfPintarBase(ultimoHistorial){
-  startPfYahoo();
-  renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
-  document.getElementById('pfResumenCard').style.display='';
-  document.getElementById('pfChartCard').style.display='';
-  pintarValorPrincipal();renderPfChart();
-  document.getElementById('pfDistCard').style.display='';
-  renderPfDistribucion(ultimoHistorial);
-  document.getElementById('pfPosicionesCard').style.display='';
-  renderPfPosiciones(pfPosicionesCache);
-  renderPfDiagnosticoYahoo();pfMostrarSubTabs(true);pfAplicarSubvista();
+  agruparPintadoPf(()=>{
+    startPfYahoo();
+    renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
+    document.getElementById('pfResumenCard').style.display='';
+    document.getElementById('pfChartCard').style.display='';
+    document.getElementById('pfDistCard').style.display='';
+    renderPfDistribucion(ultimoHistorial);
+    document.getElementById('pfPosicionesCard').style.display='';
+    renderPfPosiciones(pfPosicionesCache);
+    pfMostrarSubTabs(true);pfAplicarSubvista();
+  });
 }
 
 // Carga sin layout shift (Parte A, sección 1-2): si ya había datos en caché
@@ -250,6 +254,9 @@ export async function renderPortafolio(opts={}){
 
   // Lanzar Yahoo antes de pintar: mientras llega el primer precio, el 1D
   // muestra carga en lugar de la línea provisional entre dos cierres.
+  // Si los datos auxiliares ya estaban (precarga o visita reciente), este
+  // pintado los incluye y no hace falta repetir resumen y gráfico.
+  const extrasPintados=solicitud.extrasAplicados===true;
   pfPintarBase(ultimoHistorial);
 
   const extras=await solicitud.completa;
@@ -260,8 +267,10 @@ export async function renderPortafolio(opts={}){
     const dias=diasEntre(hoyLocal(),parseDateOnly(ultimoHistorial.fecha_valoracion));
     estadoEl.innerHTML=`<div class="empty" style="color:var(--yellow);text-align:left;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px">⚠️ La última sincronización falló (${esc(fmtDateLong(new Date(ultimaSync.iniciado_en)))}). Mostrando los últimos datos válidos, de hace ${dias} día${dias!==1?'s':''}.</div>`;
   }
-  renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
-  renderPfChart();
+  if(!extrasPintados){
+    renderPfResumen(ultimoHistorial,pfUltimaSyncCache);
+    renderPfChart();
+  }
   renderPfDiagnostico(reconciliacion?.[0]||null,ledger||[]);
   pfAplicarSubvista();
 }
