@@ -2,13 +2,13 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {renderCardsPage} from './cards-ui.js';
-import {getCardData} from './cards.js';
+import {deudaCicloPorMoneda, getCardData} from './cards.js';
 import {CREDIT_CARDS} from './config.js';
 import {getTxRow, sameAccount} from '../transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../../services/supabase.js';
 import {datos} from '../../state.js';
 import {addMonths, endOfDay, pf} from '../../utils/dates.js';
-import {fmt, fmtC, mesesC, norm} from '../../utils/formatters.js';
+import {fmt, fmtC, fmtN, mesesC, norm} from '../../utils/formatters.js';
 
 export let cardCycleOffset=0;
 
@@ -121,8 +121,11 @@ function renderCardCyclePickerGrid(){
   }).join('');
 }
 
-function cardCycleTotal(offset=cardCycleOffset){
-  return CREDIT_CARDS.reduce((sum,card)=>sum+getCardData(card,offset).pendiente,0);
+// Mismas cifras que el desglose de la línea: soles y, debajo, dólares.
+function pintarMontoCiclo(el,prefijo,offset){
+  if(!el)return;
+  const m=deudaCicloPorMoneda(offset);
+  el.innerHTML=`${prefijo}: ${fmt(m.soles)}${m.usd>0?`<span class="card-cycle-usd">+ US$ ${fmtN(m.usd)}</span>`:''}`;
 }
 
 function cycleMonthLabel(date){return `${mesesC[date.getMonth()]}. ${date.getFullYear()}`;}
@@ -168,11 +171,11 @@ export function updateCardCycleQuickUI(){
   const mainLbl=document.getElementById('chipCardCycleLbl'); const mainAmt=document.getElementById('chipCardCycleAmt'); const sideLbl=document.getElementById('chipNextCycleLbl'); const sideAmt=document.getElementById('chipNextCycleAmt');
   bar.classList.toggle('offset-next',cardCycleOffset>0);
   if(cardCycleOffset>0){
-    if(mainTitle)mainTitle.textContent='Ciclo anterior'; if(mainLbl)mainLbl.textContent=cycleMonthLabel(prev); if(mainAmt)mainAmt.textContent=`Anterior: ${fmt(cardCycleTotal(cardCycleOffset-1))}`; main.onclick=()=>goPrevCardCycle(); const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='‹';
-    if(sideTitle)sideTitle.textContent='Ciclo seleccionado'; if(sideLbl)sideLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`; if(sideAmt)sideAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`; side.onclick=()=>abrirCardCyclePicker(); const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='⌄';
+    if(mainTitle)mainTitle.textContent='Ciclo anterior'; if(mainLbl)mainLbl.textContent=cycleMonthLabel(prev); pintarMontoCiclo(mainAmt,'Anterior',cardCycleOffset-1); main.onclick=()=>goPrevCardCycle(); const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='‹';
+    if(sideTitle)sideTitle.textContent='Ciclo seleccionado'; if(sideLbl)sideLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`; pintarMontoCiclo(sideAmt,'Actual',cardCycleOffset); side.onclick=()=>abrirCardCyclePicker(); const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='⌄';
   }else{
-    if(mainTitle)mainTitle.textContent='Ciclo seleccionado'; if(mainLbl)mainLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`; if(mainAmt)mainAmt.textContent=`Actual: ${fmt(cardCycleTotal(cardCycleOffset))}`; main.onclick=()=>abrirCardCyclePicker(); const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='⌄';
-    if(sideTitle)sideTitle.textContent='Siguiente ciclo'; if(sideLbl)sideLbl.textContent=cycleMonthLabel(next); if(sideAmt)sideAmt.textContent=`Siguiente: ${fmt(cardCycleTotal(cardCycleOffset+1))}`; side.onclick=()=>goNextCardCycle(); const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='›';
+    if(mainTitle)mainTitle.textContent='Ciclo seleccionado'; if(mainLbl)mainLbl.textContent=`Ciclo ${cycleMonthLabel(selected)}`; pintarMontoCiclo(mainAmt,'Actual',cardCycleOffset); main.onclick=()=>abrirCardCyclePicker(); const a1=main.querySelector('.card-cycle-arrow'); if(a1)a1.textContent='⌄';
+    if(sideTitle)sideTitle.textContent='Siguiente ciclo'; if(sideLbl)sideLbl.textContent=cycleMonthLabel(next); pintarMontoCiclo(sideAmt,'Siguiente',cardCycleOffset+1); side.onclick=()=>goNextCardCycle(); const a2=side.querySelector('.card-cycle-arrow'); if(a2)a2.textContent='›';
   }
   pulseCycleBar();
 }

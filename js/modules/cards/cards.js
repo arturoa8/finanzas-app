@@ -9,7 +9,7 @@ import {calcularCreditoUSD, notaCreditoUSD} from './usd-credit.js';
 import {sameAccount} from '../transactions.js';
 import {datos} from '../../state.js';
 import {endOfDay, pf} from '../../utils/dates.js';
-import {cleanName, fmtN} from '../../utils/formatters.js';
+import {cleanName, fmt, fmtN} from '../../utils/formatters.js';
 
 // Deuda en dólares de una tarjeta y los soles ya reconocidos por ella. Es la
 // misma cuenta que hace pagar_tarjeta_usd() en el servidor, para que lo que se
@@ -83,38 +83,70 @@ export function usdCiclo(card,data){
   return{total:c(total),pagado:c(Math.min(pagado,total)),pendiente:c(Math.max(0,total-reemb-pagado))};
 }
 
-// Soles (al TC de cada compra) de la parte en dólares que sigue pendiente en
-// el ciclo. Esa parte se paga en dólares: un pago en soles no la descuenta.
-export function pendienteUSDEnSoles(card,data){
-  const key=getCycleKey(data.cycle),c=v=>Math.round(v*100)/100;
-  if(tarjetaConCreditoUSD(card))
-    return c(modeloCreditoTarjetaUSD(card).deuda.filter(l=>l.ciclo===key&&l.usd>0).reduce((s,l)=>s+l.pen,0)/100);
-  let pen=0;const ids=new Set();
-  data.gastos.forEach(t=>{if(t[9]==='USD'){pen+=Number(t[4])||0;ids.add(String(t[6]));}});
-  if(!(pen>0))return 0;
-  (datos.transacciones||[]).forEach(t=>{if(t[3]==='Reembolso'&&t[9]==='USD'&&sameAccount(t[5]||'',card.cuenta)&&ids.has(String(t[8])))pen-=Number(t[4])||0;});
-  (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p)&&normCycleKey(p[2])===key)pen-=pagoEnSoles(p);});
-  return c(Math.max(0,pen));
+// Parte en dólares que sigue pendiente, por ciclo: los dólares y los soles
+// con que cuenta en la línea usada (al TC de cada compra). Esa parte se paga
+// en dólares: un pago en soles no la descuenta.
+function pendienteUSDPorCiclo(card){
+  const porCiclo=new Map();
+  const sumar=(key,usd,pen)=>{const x=porCiclo.get(key)||{usd:0,pen:0};x.usd+=usd;x.pen+=pen;porCiclo.set(key,x);};
+  if(tarjetaConCreditoUSD(card)){
+    for(const l of modeloCreditoTarjetaUSD(card).deuda)if(l.usd>0)sumar(l.ciclo,l.usd/100,l.pen/100);
+  }else{
+    const gastos=(datos.transacciones||[]).filter(t=>isCardExpenseFor(card,t)&&t[9]==='USD');
+    gastos.forEach(t=>sumar(cardTxCycleKey(card,t),Number(t[10])||0,Number(t[4])||0));
+    (datos.transacciones||[]).forEach(t=>{
+      if(t[3]!=='Reembolso'||t[9]!=='USD'||!sameAccount(t[5]||'',card.cuenta))return;
+      const original=gastos.find(g=>String(g[6])===String(t[8]));
+      if(original)sumar(cardTxCycleKey(card,original),-(Number(t[10])||0),-(Number(t[4])||0));
+    });
+    (datos.pagosTarjetas||[]).forEach(p=>{if(sameAccount(p[1],card.cuenta)&&pagoEsUSD(p))sumar(normCycleKey(p[2]),-(Number(p[3])||0),-pagoEnSoles(p));});
+  }
+  const c=v=>Math.round(Math.max(0,v)*100)/100;
+  for(const x of porCiclo.values()){x.usd=c(x.usd);x.pen=x.usd?c(x.pen):0;}
+  return porCiclo;
 }
+
+export function pendienteUSDEnSoles(card,data){return pendienteUSDPorCiclo(card).get(getCycleKey(data.cycle))?.pen||0;}
 
 // Lo que se paga en soles de un ciclo: el pendiente sin su parte en dólares.
 export function pendienteEnSoles(card,data){return Math.max(0,Math.round((data.pendiente-pendienteUSDEnSoles(card,data))*100)/100);}
 
-// Deuda en dólares de todas las tarjetas y los soles con que ya cuenta en la
-// línea usada (al TC de cada compra).
-export function deudaUSDTodas(){
-  const d=CREDIT_CARDS.reduce((s,card)=>{const x=deudaTarjetaUSD(card);return{usd:s.usd+x.usd,pen:s.pen+x.pen};},{usd:0,pen:0});
-  return{usd:Math.round(d.usd*100)/100,pen:Math.round(d.pen*100)/100};
+const sumarMonedas=(a,b)=>({soles:Math.round((a.soles+b.soles)*100)/100,usd:Math.round((a.usd+b.usd)*100)/100});
+
+// Lo que se debe de un ciclo en todas las tarjetas, separado por moneda: en
+// soles lo consumido en soles y en dólares lo consumido en dólares.
+export function deudaCicloPorMoneda(offset){
+  return CREDIT_CARDS.reduce((s,card)=>{
+    const data=getCardData(card,offset),usd=pendienteUSDPorCiclo(card).get(getCycleKey(data.cycle));
+    return sumarMonedas(s,{soles:Math.max(0,data.pendiente-(usd?.pen||0)),usd:usd?.usd||0});
+  },{soles:0,usd:0});
 }
 
-// Pendiente de ciclos que cerraron antes del actual (vencido o por pagar).
-export function pendienteCiclosAnteriores(card){
-  const actual=getCycleKey(getCardCycle(card,0));
-  let s=0;for(const [key,b] of cardLedger(card).buckets)if(key<actual)s+=b.pendiente;
-  return Math.round(s*100)/100;
+// Desglose de la línea total usada por ciclo (respecto del ciclo en curso),
+// separado por moneda. Anteriores y más adelante suelen estar en cero.
+export function desgloseLineaPorMoneda(){
+  const cero={soles:0,usd:0},d={anteriores:cero,actual:cero,siguiente:cero,despues:cero};
+  for(const card of CREDIT_CARDS){
+    const actual=getCycleKey(getCardCycle(card,0)),siguiente=getCycleKey(getCardCycle(card,1));
+    const usd=pendienteUSDPorCiclo(card),{buckets}=cardLedger(card);
+    for(const key of new Set([...buckets.keys(),...usd.keys()])){
+      const u=usd.get(key)||{usd:0,pen:0},b=buckets.get(key);
+      const parte={soles:Math.max(0,(b?.pendiente||0)-u.pen),usd:u.usd};
+      const grupo=key<actual?'anteriores':key===actual?'actual':key===siguiente?'siguiente':'despues';
+      d[grupo]=sumarMonedas(d[grupo],parte);
+    }
+  }
+  return d;
 }
 
-export function chipUSD(usd){return usd>0?` <small style="color:var(--dim)">· US$ ${fmtN(usd)}</small>`:'';}
+// "S/ 658.96 · US$ 39.15": cada moneda solo si tiene saldo.
+export function fmtMonedas({soles,usd}){
+  const partes=[];if(soles>0||!(usd>0))partes.push(fmt(soles));if(usd>0)partes.push('US$ '+fmtN(usd));
+  return partes.join(' · ');
+}
+
+// Con prefijo 'incl. ' indica que el importe en soles ya contiene esos dólares.
+export function chipUSD(usd,prefijo=''){return usd>0?` <small style="color:var(--dim)">· ${prefijo}US$ ${fmtN(usd)}</small>`:'';}
 
 function cardLedger(card,hasta=null){
   const buckets=new Map();

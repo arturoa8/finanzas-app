@@ -1,7 +1,7 @@
 // Pagar el saldo en soles no toca la parte en dólares del ciclo: esa se paga
 // en dólares. Antes, "Pagar saldo completo" registraba todo en soles y la
-// tarjeta quedaba "Pagado" mientras seguía "debes US$…". También cubre lo que
-// la línea total usada muestra como "Incluye" (dólares y ciclos anteriores).
+// tarjeta quedaba "Pagado" mientras seguía "debes US$…". También cubre el
+// desglose de la línea total usada por ciclo y moneda.
 const assert=require('node:assert/strict');
 const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');
 process.env.TZ='America/Lima';
@@ -27,9 +27,13 @@ entornoPrueba();
   assert.equal(cards.pendienteUSDEnSoles(visa,data),37,'US$10 cuentan como S/37 al TC de la compra');
   assert.equal(cards.pendienteEnSoles(visa,data),100,'en soles se paga solo lo consumido en soles');
   assert.match(p.renderPaymentForm(visa,data),/Pagar saldo en soles \(S\/ 100\.00\)/);
-  assert.equal(cards.pendienteCiclosAnteriores(visa),20,'lo del ciclo cerrado se informa aparte');
-  assert.deepEqual(cards.deudaUSDTodas(),{usd:10,pen:37});
   assert.equal(cards.getCardOutstandingTotal(visa),157,'la línea usada ya incluye dólares y ciclo anterior');
+  assert.deepEqual(cards.desgloseLineaPorMoneda(),{anteriores:{soles:20,usd:0},actual:{soles:100,usd:10},siguiente:{soles:0,usd:0},despues:{soles:0,usd:0}},
+    'actual: S/100 en soles y US$10 en dólares; lo del ciclo cerrado va en Anteriores');
+  assert.deepEqual(cards.deudaCicloPorMoneda(0),{soles:100,usd:10},'la barra de ciclos usa las mismas cifras');
+  assert.equal(cards.fmtMonedas({soles:100,usd:10}),'S/ 100.00 · US$ 10.00');
+  assert.equal(cards.fmtMonedas({soles:0,usd:10}),'US$ 10.00');
+  assert.equal(cards.fmtMonedas({soles:0,usd:0}),'S/ 0.00');
 
   datos.pagosTarjetas=[['pp1',visa.cuenta,'2026-10-24',100,'2026-10-01',null,'Plin','PEN']];
   data=cards.getCardData(visa,0);
@@ -37,6 +41,7 @@ entornoPrueba();
   assert.equal(cards.pendienteEnSoles(visa,data),0);
   assert.doesNotMatch(p.renderPaymentForm(visa,data),/Pagar saldo/,'sin saldo en soles no se ofrece pagarlo');
   assert.equal(cards.deudaTarjetaUSD(visa).usd,10,'la deuda en dólares sigue para pagarse en dólares');
+  assert.deepEqual(cards.deudaCicloPorMoneda(0),{soles:0,usd:10});
 
   // Sin dólares, el botón conserva su nombre de siempre.
   datos.transacciones=datos.transacciones.filter(t=>t[9]!=='USD');datos.pagosTarjetas=[];
@@ -55,7 +60,9 @@ entornoPrueba();
   assert.equal(data.pendiente,124);
   assert.equal(cards.pendienteUSDEnSoles(mc,data),74);
   assert.equal(cards.pendienteEnSoles(mc,data),50);
-  assert.equal(cards.pendienteCiclosAnteriores(mc),0,'el ciclo pasado quedó pagado en dólares');
   assert.equal(cards.deudaTarjetaUSD(mc).usd,20);
-  console.log('PASS: pago en soles sin la parte en dólares, en ambos modelos, y lo que incluye la línea usada.');
+  datos.configTarjetas=[datos.configTarjetas[1]];
+  assert.deepEqual(cards.desgloseLineaPorMoneda().actual,{soles:50,usd:20});
+  assert.deepEqual(cards.desgloseLineaPorMoneda().anteriores,{soles:0,usd:0},'el ciclo pasado quedó pagado en dólares');
+  console.log('PASS: pago en soles sin la parte en dólares, en ambos modelos, y desglose de la línea por ciclo y moneda.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

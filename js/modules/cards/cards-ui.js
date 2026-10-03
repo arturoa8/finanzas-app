@@ -1,7 +1,7 @@
 // Pantallas de tarjetas.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
-import {cardStats, chipUSD, deudaUSDTodas, getCardData, getCardOutstandingTotal, pendienteCiclosAnteriores, usdCiclo} from './cards.js';
+import {cardStats, chipUSD, desgloseLineaPorMoneda, fmtMonedas, getCardData, getCardOutstandingTotal, usdCiclo} from './cards.js';
 import {CREDIT_CARDS, getCardGoalPct, getCreditGoalPct, getCreditLimit, renderCreditLineBlock, renderLineProgress} from './config.js';
 import {cardCycleOffset, clearTxCycleOverride, getCardCycle, getCycleKey, getTxCycleOverride, isCardExpenseFor, setTxCycleOverride, txBelongsToCycle, updateCardCycleQuickUI} from './cycles.js';
 import {actualizarPagoUSD, renderPaymentForm, renderPaymentHistory} from './payments.js';
@@ -30,15 +30,12 @@ export function abrirCardDetail(cuenta){selectedCardCuenta=cuenta;renderCardDeta
 
 export function cerrarCardDetail(){document.getElementById('cardDetailModal').classList.remove('active');selectedCardCuenta=null;}
 
-// Lo que ya está dentro de la línea usada y conviene ver aparte. Informa,
-// no suma: el total de arriba ya lo incluye.
-function renderLineaIncluye(){
-  const anteriores=Math.round(CREDIT_CARDS.reduce((s,card)=>s+pendienteCiclosAnteriores(card),0)*100)/100;
-  const usd=deudaUSDTodas();
-  const filas=[];
-  if(anteriores>0)filas.push(`<div class="line-includes-row"><span>De ciclos anteriores sin pagar</span><strong>${fmt(anteriores)}</strong></div>`);
-  if(usd.usd>0)filas.push(`<div class="line-includes-row"><span>Consumos en dólares</span><strong>US$ ${fmtN(usd.usd)}</strong></div><div class="line-includes-sub">Cuentan como ${fmt(usd.pen)} al tipo de cambio de cada compra. Lo que cuestan en soles se fija al pagarlos en dólares.</div>`);
-  return filas.length?`<div class="line-includes"><div class="line-includes-title">Incluye</div>${filas.join('')}</div>`:'';
+// Desglose de la línea por ciclo y moneda: lo que se paga en soles y lo que
+// se paga en dólares. Anteriores y Más adelante solo aparecen con saldo.
+function renderDesgloseLinea(){
+  const d=desgloseLineaPorMoneda(),hay=x=>x.soles>0||x.usd>0;
+  const filas=[['Anteriores',d.anteriores,hay(d.anteriores)],['Actual',d.actual,true],['Siguiente',d.siguiente,true],['Más adelante',d.despues,hay(d.despues)]];
+  return `<div class="line-breakdown">${filas.filter(f=>f[2]).map(([nombre,monto])=>`<div class="line-breakdown-row"><span>${nombre}</span><strong>${fmtMonedas(monto)}</strong></div>`).join('')}</div>`;
 }
 
 function renderCreditLineSummary(){
@@ -55,15 +52,14 @@ function renderCreditLineSummary(){
   else if(used>goalAmount)cls='bad';
   else if(used>=goalAmount*.8)cls='warn';
   const advice=remaining>=0?`Te quedan ${fmt(remaining)} para mantenerte bajo la meta`:`Te pasaste ${fmt(Math.abs(remaining))} sobre la meta recomendada`;
-  // Actual y siguiente ya están en la barra de ciclos de arriba; aquí va
-  // solo la línea. Editar tarjetas está en el encabezado de la página.
+  // Editar tarjetas está en el encabezado de la página.
   cont.innerHTML=`<div class="line-summary-card">
     <div class="line-summary-top">
       <div><div class="line-summary-title">Línea total usada</div><div class="line-summary-main"><span class="used">${fmt(used)}</span> <span class="limit">de ${fmt(limit)}</span></div></div>
     </div>
     ${renderLineProgress(pct,cls)}
+    ${renderDesgloseLinea()}
     <div class="line-summary-meta"><span><strong>${pct.toFixed(1)}%</strong> usado · meta ponderada ${effectiveGoalPct.toFixed(1)}% = <strong>${fmt(goalAmount)}</strong></span><span class="line-advice ${cls}">${advice}</span></div>
-    ${renderLineaIncluye()}
   </div>`;
 }
 
@@ -84,9 +80,9 @@ export function renderCardsPage(){
         <div class="credit-top"><div><div class="credit-name">${escHtml(card.emoji)} ${escHtml(card.nombre)}</div><div class="credit-sub">${gastos.length} consumo${gastos.length===1?'':'s'} en este ciclo</div></div><div class="credit-amount">${fmt(pendiente)}</div></div>
         <div class="credit-info">
           <div class="credit-row"><span>Ciclo</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
-          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}${usd?chipUSD(usd.total):''}</span></div>
+          <div class="credit-row"><span>Total facturado</span><span>${fmt(total)}${usd?chipUSD(usd.total,'incl. '):''}</span></div>
           <div class="credit-row"><span>Pagado</span><span>${fmt(pagado)} · ${pct.toFixed(0)}%</span></div>
-          <div class="credit-row"><span>Pendiente</span><span${pendiente>0?' style="color:var(--red)"':''}>${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente):''}</span></div>
+          <div class="credit-row"><span>Pendiente</span><span${pendiente>0?' style="color:var(--red)"':''}>${fmt(pendiente)}${usd&&usd.pendiente>0?chipUSD(usd.pendiente,'incl. '):''}</span></div>
           ${data.saldoFavorUSD>0?`<div class="credit-row"><span>A favor en dólares</span><strong style="color:var(--green)">+US$ ${fmtN(data.saldoFavorUSD)}</strong></div>`:''}
           ${data.saldoFavor>0?`<div class="credit-row"><span>A favor en soles</span><strong style="color:var(--green)">+${fmt(data.saldoFavor)}</strong></div>`:''}
           <div class="credit-row"><span>Pagar hasta</span><span>${fmtDateLong(cycle.pay)}</span></div>

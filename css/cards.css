@@ -134,16 +134,14 @@ html{scroll-behavior:auto;}
 .card-cycle-title{font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
 .card-cycle-value{font-size:.95rem;color:var(--text);font-weight:900;display:flex;align-items:center;gap:6px;}
 .card-cycle-amount{font-size:.85rem;color:var(--red);font-weight:900;font-variant-numeric:tabular-nums;margin-top:4px;}
+.card-cycle-usd{display:block;font-size:.92em;margin-top:1px;}
 .card-cycle-next{min-width:150px;}
 .card-cycle-next .card-cycle-value{justify-content:space-between;}
 .card-cycle-arrow{color:var(--dim);font-size:.9rem;}
-/* Lo que ya está dentro de la línea usada: informa, no suma. */
-.line-includes{margin-top:12px;padding-top:11px;border-top:1px solid rgba(255,255,255,.06);}
-.line-includes-title{font-size:.66rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
-.line-includes-row{display:flex;justify-content:space-between;gap:12px;font-size:.74rem;color:var(--dim);font-variant-numeric:tabular-nums;}
-.line-includes-row+.line-includes-row,.line-includes-sub+.line-includes-row{margin-top:6px;}
-.line-includes-row strong{color:var(--text);font-weight:800;white-space:nowrap;}
-.line-includes-sub{font-size:.66rem;color:var(--muted);line-height:1.4;margin-top:3px;}
+/* Desglose de la línea por ciclo y moneda. */
+.line-breakdown{display:grid;gap:5px;margin-top:10px;}
+.line-breakdown-row{display:flex;justify-content:space-between;gap:12px;font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+.line-breakdown-row strong{color:var(--text);font-weight:800;text-align:right;}
 .tx-detail-grid{display:grid;gap:10px;margin:12px 0;}
 .tx-detail-row{display:flex;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:11px 12px;font-size:.8rem;}
 .tx-detail-row span:first-child{color:var(--muted);font-weight:700;}
