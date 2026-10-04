@@ -26,6 +26,7 @@ let mesPickerYear=new Date().getFullYear();
 let mesPickerMes=new Date().getMonth();
 
 let mesPickerTodo=false;
+let scrollMovimientosInicio=0;
 
 export function getMesActivo(){const a=new Date();return new Date(a.getFullYear(),a.getMonth()+mesOffset,1);}
 
@@ -97,14 +98,22 @@ const despuesDelPintado=fn=>globalThis.requestAnimationFrame?requestAnimationFra
 function cambiarMovimientosInicio(abierto){
   const panel=document.getElementById('homeMovements');
   if(!panel)return;
+  const resumen=document.getElementById('homeSummary');
   const boton=document.getElementById('nav-dash');
+  const saliendo=abierto?resumen:panel;
+  if(saliendo?.contains?.(document.activeElement))boton?.focus({preventScroll:true});
   if(!abierto){
-    if(panel.contains?.(document.activeElement))boton?.focus({preventScroll:true});
     ocultarBusquedaInicio();
+    scrollMovimientosInicio=0;
   }
   panel.inert=!abierto;
   panel.setAttribute('aria-hidden',String(!abierto));
   panel.classList.toggle('expanded',abierto);
+  if(resumen){
+    resumen.inert=abierto;
+    resumen.setAttribute('aria-hidden',String(abierto));
+    resumen.classList.toggle('expanded',!abierto);
+  }
   boton?.setAttribute('aria-expanded',String(abierto));
 }
 
@@ -132,7 +141,7 @@ export function setPg(p,b){
   if(!destino)return;
   const actual=document.querySelector('.page.active');
   if(p==='dash'&&actual?.id==='p-dash'){alternarMovimientosInicio();return;}
-  if(p!=='dash'&&actual?.id==='p-dash')cambiarMovimientosInicio(false);
+  if(actual?.id==='p-dash'&&document.getElementById('homeMovements')?.classList.contains('expanded'))scrollMovimientosInicio=Math.max(0,window.scrollY||0);
   const saliendoDelPortafolio=document.getElementById('p-ana').classList.contains('active');
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   destino.classList.add('active');
@@ -141,8 +150,9 @@ export function setPg(p,b){
   if(nav){nav.classList.add('active');nav.setAttribute('aria-current','page');}
   const fab=document.querySelector('.fab');
   if(fab){fab.hidden=p==='ana'||p==='bud';fab.setAttribute('aria-label',p==='card'?'Registrar pago':p==='deb'?'Nueva deuda':p==='pres'?'Crear presupuesto':'Nueva transacción');}
-  if(p==='dash')cambiarMovimientosInicio(false);
-  const restaurarScroll=()=>{if(destino.classList.contains('active'))window.scrollTo(0,0);};
+  const restaurarScroll=()=>{
+    if(destino.classList.contains('active'))window.scrollTo(0,p==='dash'&&document.getElementById('homeMovements')?.classList.contains('expanded')?scrollMovimientosInicio:0);
+  };
   restaurarScroll();
   if(p==='ana'){
     // Las páginas comparten el scroll del documento: si Portafolio quedó

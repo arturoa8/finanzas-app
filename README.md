@@ -2,6 +2,13 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.04.04
+
+- Inicio mantiene el saldo y sus modos arriba. Debajo alterna entre un resumen de pendientes y el historial con categorías; la vista elegida se conserva al navegar y solo cambia al volver a tocar Inicio.
+- El resumen muestra tarjetas pendientes por moneda, el pago más próximo y deudas por pagar o cobrar. Reutiliza los cálculos existentes de pagos, devoluciones y créditos, sin consultas adicionales.
+- Se retiró el bloque de filtros encima del historial. La lupa despliega y oculta la búsqueda con una transición suave, respetando la preferencia de movimiento reducido.
+- Estadísticas queda únicamente en la navegación principal. Más conserva Presupuestos, Deudas y Configuración.
+
 ## Versión 2026.10.04.03
 
 - Inicio abre con el resumen del saldo, sin una vista previa de movimientos. Un segundo toque en Inicio despliega el historial y las categorías con una animación; otro toque vuelve a plegarlos.

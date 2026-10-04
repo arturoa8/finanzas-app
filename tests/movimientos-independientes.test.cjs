@@ -6,7 +6,7 @@ const {entornoPrueba,modulo}=require('./helpers/app-root.cjs');
 process.env.TZ='America/Lima';entornoPrueba();
 const RealDate=Date,ahora=RealDate.parse('2026-10-04T12:00:00-05:00');
 globalThis.Date=class extends RealDate{constructor(...a){super(...(a.length?a:[ahora]));}static now(){return ahora;}};
-const nodos=new Map();let enfocado=null;
+const nodos=new Map();let enfocado=null,opcionesFoco=null;
 function el(id){
   if(!nodos.has(id)){
     const clases=new Set(),attrs=new Map();
@@ -14,18 +14,21 @@ function el(id){
       classList:{add(...xs){xs.forEach(x=>clases.add(x));},remove(...xs){xs.forEach(x=>clases.delete(x));},contains:x=>clases.has(x),
         toggle(x,force){const on=force??!clases.has(x);if(on)clases.add(x);else clases.delete(x);return on;}},
       setAttribute(k,v){attrs.set(k,String(v));},getAttribute:k=>attrs.get(k)??null,removeAttribute:k=>attrs.delete(k),
-      querySelector:()=>null,querySelectorAll:()=>[],replaceChildren(){},append(){},appendChild(){},addEventListener(){},focus(){enfocado=id;}});
+      querySelector:()=>null,querySelectorAll:()=>[],replaceChildren(){},append(){},appendChild(){},addEventListener(){},
+      contains(n){return id==='searchWrap'&&n?.id==='searchInp';},focus(opciones){enfocado=id;opcionesFoco=opciones;document.activeElement=this;}});
   }
   return nodos.get(id);
 }
 const paginas=['dash','ana','card','bud','pres','deb'].map(p=>el('p-'+p));
-document.getElementById=el;
+const sinControles=new Set(['txCuenta','txUsd','txTipoTodos','txTipoGastos','txTipoIngresos','txTipoTransferencias']);
+document.getElementById=id=>sinControles.has(id)?null:el(id);
 document.querySelector=s=>s==='.page.active'?paginas.find(p=>p.classList.contains('active'))||null:s==='.fab'?el('fab'):null;
 document.querySelectorAll=s=>s==='.page'?paginas:s==='.nt'?['dash','bud','ana','card','more'].map(p=>el('nav-'+p)):[];
 document.createElement=el;document.createElementNS=(_,tag)=>el(tag);
 globalThis.window={scrollY:0,scrollTo(){}};globalThis.matchMedia=()=>({matches:true});
 globalThis.fetch=async()=>{throw new Error('Esta prueba no permite consultas de red');};
-el('p-dash').classList.add('active');el('searchWrap').hidden=true;el('homeMovements').inert=true;el('homeMovements').setAttribute('aria-hidden','true');
+el('p-dash').classList.add('active');el('homeSummary').classList.add('expanded');
+el('searchWrap').inert=true;el('searchWrap').setAttribute('aria-hidden','true');el('homeMovements').inert=true;el('homeMovements').setAttribute('aria-hidden','true');
 const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,categoria,tipo,monto,cuenta,id];
 (async()=>{
   const [d,n,c,{datos}]=await Promise.all([modulo('modules/dashboard.js'),modulo('ui/navigation.js'),modulo('modules/currencies.js'),modulo('state.js')]);
@@ -46,13 +49,17 @@ const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,cate
   d.togglePillTipo('gastos',true);
   assert.equal(el('homeMovements').classList.contains('expanded'),true,'el KPI abre el detalle dentro de Inicio');
   assert.equal(el('homeMovements').inert,false);assert.equal(el('homeMovements').getAttribute('aria-hidden'),'false');
+  assert.equal(el('homeSummary').classList.contains('expanded'),false,'el resumen deja paso al historial');
   assert.equal(document.querySelector('.page.active').id,'p-dash');
   assert.ok(d.filtrar().every(t=>t[3]==='Gasto'));assert.deepEqual(inicio(),inicial,'filtrar desde un KPI conserva el resumen');
-  d.togglePillTipo('todos');
-  d.toggleSearch();assert.equal(el('searchWrap').hidden,false);assert.equal(enfocado,'searchInp');
+  assert.match(el('filterPill').innerHTML,/Gastos/,'el filtro del KPI se puede quitar mediante su chip contextual');
+  assert.match(el('filterPill').innerHTML,/quitarFiltro\(\)/);d.quitarFiltro();assert.equal(el('filterPill').innerHTML,'');
+  d.toggleSearch();assert.equal(el('searchWrap').inert,false);assert.equal(el('searchWrap').getAttribute('aria-hidden'),'false');assert.equal(enfocado,'searchInp');
+  assert.equal(opcionesFoco.preventScroll,true,'abrir la búsqueda no salta el scroll');
   assert.equal(el('searchToggle').getAttribute('aria-expanded'),'true');
   el('searchInp').value='Alquiler';d.filtrarBusqueda();assert.equal(d.filtrar().length,1);assert.deepEqual(inicio(),inicial);
-  d.toggleSearch();assert.equal(el('searchWrap').hidden,true);assert.equal(el('searchWrap').classList.contains('show'),false);
+  d.toggleSearch();assert.equal(el('searchWrap').inert,true);assert.equal(el('searchWrap').getAttribute('aria-hidden'),'true');assert.equal(el('searchWrap').classList.contains('show'),false);
+  assert.equal(enfocado,'searchToggle','al cerrar el buscador devuelve el foco a la lupa');
   assert.equal(el('searchInp').value,'');assert.equal(el('searchToggle').getAttribute('aria-expanded'),'false');
   assert.equal(el('searchCount').textContent,'8 movimientos en este período','ocultar la búsqueda también limpia su filtro y repinta');
   n.abrirMesPicker();n.seleccionarMesPicker(8);n.aplicarMesPicker();
@@ -61,21 +68,19 @@ const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,cate
   const septiembre=inicio();assert.notDeepEqual(septiembre,inicial,'el período sí cambia el resumen completo');
   el('searchInp').value='Gasto septiembre';d.filtrarBusqueda();d.filtrarPorCat('Comida');d.togglePillTipo('gastos');
   assert.equal(d.filtrar().length,1);assert.deepEqual(inicio(),septiembre,'buscar y filtrar categoría/tipo no altera el resumen');
-  assert.equal(el('txTipoGastos').getAttribute('aria-pressed'),'true');
-  el('txCuenta').value='Archivada <demo>';d.filtrarCuentaMovimientos();
+  assert.match(el('filterPill').innerHTML,/Gastos/);
+  d.filtrarCuentaMovimientos('Archivada <demo>');
   assert.equal(d.filtrar()[0][5],'Archivada <demo>','se puede filtrar una cuenta archivada observada en el historial');
-  assert.match(el('txCuenta').innerHTML,/Archivada &lt;demo&gt;/,'las etiquetas históricas se escapan');
-  assert.equal(el('txCuenta').value,'Archivada <demo>','el select conserva su filtro después de repintar');
+  assert.match(el('filterPill').innerHTML,/Archivada &lt;demo&gt;/,'las etiquetas históricas se escapan');
   const renombrado=datos.transacciones.find(t=>t[6]==='Gasto septiembre');renombrado[5]='Cuenta renombrada';d.render();
-  assert.equal(el('txCuenta').value,'','renombrar una cuenta limpia el filtro por su nombre anterior');
-  assert.doesNotMatch(el('txCuenta').innerHTML,/Archivada &lt;demo&gt;/,'el dropdown no reinserta el nombre que ya no aparece en los movimientos');
+  assert.doesNotMatch(el('filterPill').innerHTML,/Archivada &lt;demo&gt;/,'renombrar una cuenta limpia el filtro por su nombre anterior');
   assert.equal(d.filtrar()[0][6],'Gasto septiembre','el movimiento conserva su ID y vuelve a ser visible tras renombrar');
   assert.equal(d.filtrar()[0][5],'Cuenta renombrada');
-  el('searchInp').value='';d.filtrarBusqueda();d.quitarFiltro();d.togglePillTipo('todos');el('txCuenta').value='';d.filtrarCuentaMovimientos();
+  el('searchInp').value='';d.filtrarBusqueda();d.quitarFiltro();
   n.abrirMesPicker();n.seleccionarTodoTiempo();n.aplicarMesPicker();const todoTiempo=inicio();d.toggleMovimientosUSD();
   assert.deepEqual(d.filtrar().map(t=>t[6]),['Compra dólares','Gasto dólares'],'USD incluye la compra con dólares en destino y el gasto original USD');
   assert.deepEqual(inicio(),todoTiempo,'filtrar USD en el detalle tampoco cambia el resumen');
-  el('txCuenta').value='BCP Dólares';d.filtrarCuentaMovimientos();
+  d.filtrarCuentaMovimientos('BCP Dólares');
   assert.equal(d.filtrar().length,2,'el filtro de cuenta incluye origen y destino de transferencias');
   c.toggleVistaUSD();const inicioUSD=inicio();
   el('searchInp').value='Compra dólares';d.filtrarBusqueda();assert.deepEqual(inicio(),inicioUSD,'buscar en el detalle conserva los KPI USD del período compartido');
@@ -86,10 +91,10 @@ const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,cate
   assert.deepEqual(inicio(),inicial);
   d.toggleSearch();assert.equal(el('searchWrap').classList.contains('show'),true,'la lupa muestra el campo desde el primer acceso');
   el('searchInp').value='Alquiler';d.filtrarBusqueda();d.ocultarBusquedaInicio();
-  assert.equal(el('searchWrap').hidden,true);assert.equal(el('searchInp').value,'');assert.equal(el('searchToggle').getAttribute('aria-expanded'),'false');
+  assert.equal(el('searchWrap').inert,true);assert.equal(el('searchInp').value,'');assert.equal(el('searchToggle').getAttribute('aria-expanded'),'false');
   assert.ok(d.filtrar().length>1,'el cierre del detalle puede limpiar la búsqueda sin un render reentrante');
   d.togglePillTipo('todos');reembolso[5]='Yape';reembolso[6]='refund-yape';d.render();
-  el('txCuenta').value='Yape';d.filtrarCuentaMovimientos();
+  d.filtrarCuentaMovimientos('Yape');
   assert.equal(d.filtrar().length,1);assert.equal(el('searchCount').textContent,'1 movimiento en este período');
   assert.match(el('txs').innerHTML,/Reembolso · Compras/,'la devolución filtrada muestra su tipo');
   assert.match(el('txs').innerHTML,/class="tdesc">Devolución/,'conserva su descripción');
@@ -97,7 +102,7 @@ const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,cate
   assert.match(el('txs').innerHTML,/editarTx\('refund-yape'\)/,'editar abre el ID de la devolución y no el gasto original');
   assert.match(el('txs').innerHTML,/class="day-total in">\+ S\/ 10/,'el total del día incluye una devolución independiente como entrada');
   assert.doesNotMatch(el('txs').innerHTML,/Sin transacciones|Compra octubre/);
-  el('txCuenta').value='';d.filtrarCuentaMovimientos();
+  d.filtrarCuentaMovimientos(null);
   assert.equal((el('txs').innerHTML.match(/editarTx\('refund-yape'\)/g)||[]).length,1,'con Todas las cuentas la devolución aparece una sola vez');
   assert.match(el('txs').innerHTML,/class="tx-refund-line".*editarTx\('refund-yape'\)/,'cuando el gasto está visible, la devolución vuelve a anidarse');
   assert.match(el('txs').innerHTML,/class="day-total out">− S\/ 3/,'el total del día no vuelve a sumar una devolución ya anidada');
@@ -107,8 +112,10 @@ const tx=(id,fecha,tipo,monto,categoria='Compras',cuenta='Plin')=>[fecha,id,cate
   assert.equal(el('searchCount').textContent,'1 movimiento encontrado');
   n.setPg('dash');assert.equal(el('homeMovements').classList.contains('expanded'),false,'un segundo toque en Inicio cierra su detalle');
   assert.equal(el('homeMovements').inert,true);assert.equal(el('homeMovements').getAttribute('aria-hidden'),'true');
-  assert.equal(el('searchWrap').hidden,true);assert.equal(el('searchCount').textContent,'8 movimientos en este período','cerrar el detalle limpia el buscador sin perder el historial');
+  assert.equal(el('homeSummary').classList.contains('expanded'),true,'al cerrar el historial regresa el resumen');
+  assert.equal(el('searchWrap').inert,true);assert.equal(el('searchCount').textContent,'8 movimientos en este período','cerrar el detalle limpia el buscador sin perder el historial');
   n.setPg('dash');assert.equal(el('homeMovements').classList.contains('expanded'),true,'el siguiente toque vuelve a abrir el historial completo');
   assert.equal((el('txs').innerHTML.match(/class="tx"/g)||[]).length,8);
+  assert.equal([...sinControles].some(id=>nodos.has(id)),false,'el render no recrea los controles visuales retirados');
   console.log('PASS: Inicio comparte período con su historial completo desplegable, conserva saldo/KPI al filtrar, alterna la búsqueda y muestra reembolsos sin duplicarlos.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

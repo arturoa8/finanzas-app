@@ -10,6 +10,7 @@ import {pagoEnSoles, pagoEsUSD} from './cards/payments.js';
 import {notaCreditoUSD} from './cards/usd-credit.js';
 import {aplicarVistaUSD, monedaCuenta, verUSD} from './currencies.js';
 import {renderDeb} from './debts.js';
+import {renderHomeSummary} from './home-summary.js';
 import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
@@ -36,8 +37,8 @@ let movimientosUSD=false;
 
 export function toggleMovimientosUSD(){movimientosUSD=!movimientosUSD;render();}
 
-export function filtrarCuentaMovimientos(){
-  filtroCuentaMovimientos=document.getElementById('txCuenta')?.value||null;
+export function filtrarCuentaMovimientos(cuenta){
+  filtroCuentaMovimientos=cuenta===undefined?document.getElementById('txCuenta')?.value||null:cuenta||null;
   render();
 }
 
@@ -94,6 +95,7 @@ export function filtrar(){
 export function renderBase(){
   actualizarChips();
   renderBal();
+  renderHomeSummary();
   renderCat();
   renderTx();
   // Las otras páginas se pintan al abrirlas. Sus cálculos recorren el
@@ -110,15 +112,16 @@ export function renderBase(){
 function renderFilterPill(){
   const c=document.getElementById('filterPill');
   if(!c)return;
-  if(filtroCategoria){
-    const em=getEmoji(filtroCategoria);
-    c.innerHTML=`<div class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()">${em.e} ${escHtml(cleanName(filtroCategoria))} <span style="font-weight:700;margin-left:4px">
-✕
-</span></div>`;
-  }else c.innerHTML='';
+  const etiquetas=[];
+  if(filtroCategoria)etiquetas.push(getEmoji(filtroCategoria).e+' '+cleanName(filtroCategoria));
+  const tipos={gastos:'Gastos',ingresos:'Ingresos',transferencias:'Transferencias'};
+  if(tipos[filtroTipo])etiquetas.push(tipos[filtroTipo]);
+  if(filtroCuentaMovimientos)etiquetas.push(filtroCuentaMovimientos);
+  if(movimientosUSD)etiquetas.push('En dólares');
+  c.innerHTML=etiquetas.length?`<button type="button" class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()" aria-label="Quitar filtros: ${esc(etiquetas.join(', '))}">${escHtml(etiquetas.join(' · '))} <span aria-hidden="true" style="font-weight:700;margin-left:4px">✕</span></button>`:'';
 }
 
-export function quitarFiltro(){filtroCategoria=null;render();}
+export function quitarFiltro(){filtroCategoria=null;filtroTipo='todos';filtroCuentaMovimientos=null;movimientosUSD=false;render();}
 
 function actualizarChips(){
   if(vista==='mes'){
@@ -137,25 +140,10 @@ function actualizarChips(){
     b.classList.toggle('active',modoBalance===modo);
     b.setAttribute('aria-selected',String(modoBalance===modo));
   });
-  [['todos','txTipoTodos'],['gastos','txTipoGastos'],['ingresos','txTipoIngresos'],['transferencias','txTipoTransferencias']].forEach(([tipo,id])=>{
-    const b=document.getElementById(id);if(!b)return;
-    b.classList.toggle('active',filtroTipo===tipo);
-    b.setAttribute('aria-pressed',String(filtroTipo===tipo));
-  });
-  const usd=document.getElementById('txUsd');
-  if(usd){usd.classList.toggle('active',movimientosUSD);usd.setAttribute('aria-pressed',String(movimientosUSD));}
-  const cuenta=document.getElementById('txCuenta');
-  if(cuenta){
-    const observadas=new Map();
-    datos.transacciones.forEach(t=>[t[5],t[3]==='Transferencia'?t[7]:null].filter(Boolean).forEach(nombre=>observadas.set(norm(nombre),String(nombre))));
-    // Una cuenta archivada sigue apareciendo en sus movimientos. Si el
-    // nombre dejó de existir (por ejemplo, tras renombrarla), quitar el
-    // filtro evita conservar una opción antigua que vacíe el historial.
-    if(filtroCuentaMovimientos&&!observadas.has(norm(filtroCuentaMovimientos)))filtroCuentaMovimientos=null;
-    const opciones=[...observadas.values()].sort((a,b)=>a.localeCompare(b,'es'));
-    cuenta.innerHTML='<option value="">Todas las cuentas</option>'+opciones.map(nombre=>`<option value="${esc(nombre)}">${escHtml(nombre)}</option>`).join('');
-    cuenta.value=filtroCuentaMovimientos?observadas.get(norm(filtroCuentaMovimientos)):'';
-  }
+  // No conservar nombres que desaparecieron tras renombrar una cuenta.
+  // Las cuentas archivadas siguen presentes en sus movimientos históricos.
+  if(filtroCuentaMovimientos&&!datos.transacciones.some(t=>norm(t[5])===norm(filtroCuentaMovimientos)
+    ||(t[3]==='Transferencia'&&norm(t[7])===norm(filtroCuentaMovimientos))))filtroCuentaMovimientos=null;
   // Los KPI de Inicio enlazan al historial sin cambiar el resumen.
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
   out?.classList.remove('active-pill');
@@ -429,7 +417,10 @@ function renderRec(){
 
 export function ocultarBusquedaInicio(){
   const w=document.getElementById('searchWrap');
-  if(w){w.hidden=true;w.classList.remove('show');}
+  if(w){
+    if(w.contains?.(document.activeElement))document.getElementById('searchToggle')?.focus({preventScroll:true});
+    w.inert=true;w.setAttribute('aria-hidden','true');w.classList.remove('show');
+  }
   const buscador=document.getElementById('searchInp');
   if(buscador)buscador.value='';
   busqueda='';
@@ -440,11 +431,11 @@ export function toggleSearch(){
   mostrarMovimientosInicio();
   const w=document.getElementById('searchWrap');
   if(!w)return;
-  const mostrar=w.hidden||!w.classList.contains('show');
-  w.hidden=!mostrar;w.classList.toggle('show',mostrar);
+  const mostrar=!w.classList.contains('show');
+  w.inert=!mostrar;w.setAttribute('aria-hidden',String(!mostrar));w.classList.toggle('show',mostrar);
   document.getElementById('searchToggle')?.setAttribute('aria-expanded',String(mostrar));
   const buscador=document.getElementById('searchInp');
-  if(mostrar)buscador?.focus();
+  if(mostrar)buscador?.focus({preventScroll:true});
   else{
     ocultarBusquedaInicio();render();
   }

@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.04.03">
+<meta name="version-app" content="2026.10.04.04">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -75,6 +75,7 @@ try{
   <link rel="modulepreload" href="./js/modules/cards/payments.js">
   <link rel="modulepreload" href="./js/modules/currencies.js">
   <link rel="modulepreload" href="./js/modules/dashboard.js">
+  <link rel="modulepreload" href="./js/modules/home-summary.js">
   <link rel="modulepreload" href="./js/modules/debts.js">
   <link rel="modulepreload" href="./js/modules/portfolio/capital.js">
   <link rel="modulepreload" href="./js/modules/portfolio/diagnostics.js">
@@ -179,7 +180,6 @@ try{
       <div class="bal-nota" id="balNota" hidden></div>
     </div>
 
-    <div class="quick-insight" id="quickInsight" aria-live="polite"></div>
     <div class="mode-seg" id="modeSeg" role="tablist" aria-label="Modo del saldo">
       <button class="seg-btn active" id="segPeriodo" role="tab" aria-selected="true" onclick="setModoBalance('periodo')">
         <span id="chipPeriodoLbl">Este mes</span>
@@ -190,37 +190,32 @@ try{
       <button class="seg-btn" id="segPatrimonio" role="tab" aria-selected="false" onclick="setModoBalance('patrimonio')">Patrimonio</button>
     </div>
 
+    <div class="home-summary expanded" id="homeSummary" aria-hidden="false">
+      <div class="home-summary-inner">
+        <div class="home-summary-body">
+          <div class="quick-insight" id="quickInsight" aria-live="polite"></div>
+          <div class="home-highlights" id="homeHighlights" aria-label="Resumen actual"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="home-movements" id="homeMovements" inert aria-hidden="true">
       <div class="home-movements-inner">
         <div class="home-movements-body">
-          <div class="s-head"><h2 class="s-title">Movimientos</h2><button type="button" class="pay-small-btn" onclick="alternarMovimientosInicio()">Ocultar ⌃</button></div>
-    <div class="search-wrap" id="searchWrap" hidden>
-      <input type="text" class="search-inp" id="searchInp" aria-label="Buscar movimientos" placeholder="Buscar descripción, categoría, cuenta o monto…" oninput="filtrarBusqueda()">
-    </div>
-    <div class="movements-filters">
-      <div class="movements-period"><button type="button" class="mp-pill" id="txUsd" aria-label="Mostrar solo movimientos en dólares" aria-pressed="false" onclick="toggleMovimientosUSD()">Solo US$</button></div>
-      <div class="movements-types" aria-label="Tipo de movimiento">
-        <button type="button" class="mp-pill active" id="txTipoTodos" aria-pressed="true" onclick="togglePillTipo('todos')">Todos</button>
-        <button type="button" class="mp-pill" id="txTipoGastos" aria-pressed="false" onclick="togglePillTipo('gastos')">Gastos</button>
-        <button type="button" class="mp-pill" id="txTipoIngresos" aria-pressed="false" onclick="togglePillTipo('ingresos')">Ingresos</button>
-        <button type="button" class="mp-pill" id="txTipoTransferencias" aria-pressed="false" onclick="togglePillTipo('transferencias')">Transferencias</button>
-      </div>
-      <div class="movements-account"><label for="txCuenta">Cuenta</label><select class="sel" id="txCuenta" onchange="filtrarCuentaMovimientos()"><option value="">Todas las cuentas</option></select></div>
-    </div>
-
-
-    <div id="filterPill"></div>
-
-    <div class="section">
-      <div class="s-head"><div class="s-title">Categorías</div></div>
-      <div class="cgrid" id="cats"></div>
-    </div>
-
-    <div class="section">
-      <div class="s-head"><div class="s-title">Todos los movimientos</div></div>
-      <div id="searchCount" class="s-sub" aria-live="polite"></div><div id="txs"></div>
-    </div>
-
+          <div class="search-wrap" id="searchWrap" inert aria-hidden="true">
+            <div class="search-inner"><div class="search-content">
+              <input type="text" class="search-inp" id="searchInp" aria-label="Buscar movimientos" placeholder="Buscar descripción, categoría, cuenta o monto…" oninput="filtrarBusqueda()">
+            </div></div>
+          </div>
+          <div id="filterPill"></div>
+          <div class="section">
+            <div class="s-head"><div class="s-title">Categorías</div></div>
+            <div class="cgrid" id="cats"></div>
+          </div>
+          <div class="section">
+            <div class="s-head"><div class="s-title">Todos los movimientos</div></div>
+            <div id="searchCount" class="s-sub" aria-live="polite"></div><div id="txs"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -893,7 +888,6 @@ try{
   <div class="mc compact-mc more-sheet">
     <div class="mc-top"><div><div class="mc-title-big" id="moreTitle">Más</div><p class="more-subtitle">Herramientas y preferencias</p></div><button type="button" class="mh-x" onclick="cerrarMas()" aria-label="Cerrar Más">✕</button></div>
     <div class="more-options">
-      <button type="button" class="more-option" onclick="abrirDesdeMas('bud')"><span class="more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3a9 9 0 0 1 6 6h-6z"/></svg></span><span><strong>Estadísticas</strong><small>Ahorro, gastos y saldos por cuenta</small></span><span aria-hidden="true">›</span></button>
       <button type="button" class="more-option" onclick="abrirDesdeMas('pres')"><span class="more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h4M8 16h6"/></svg></span><span><strong>Presupuestos</strong><small>Límites mensuales y semanales</small></span><span aria-hidden="true">›</span></button>
       <button type="button" class="more-option" onclick="abrirDesdeMas('deb')"><span class="more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></span><span><strong>Deudas</strong><small>Lo que debes y lo que te deben</small></span><span aria-hidden="true">›</span></button>
       <button type="button" class="more-option" onclick="abrirConfiguracionDesdeMas()"><span class="more-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></svg></span><span><strong>Configuración</strong><small>Cuentas, categorías, preferencias y datos</small></span><span aria-hidden="true">›</span></button>
@@ -903,7 +897,7 @@ try{
 
 <!-- Bottom nav (5 tabs) -->
 <nav class="nav" aria-label="Navegación principal">
-  <button type="button" class="nt active" id="nav-dash" data-page="dash" aria-current="page" aria-controls="homeMovements" aria-expanded="false" onclick="setPg('dash',this)">
+  <button type="button" class="nt active" id="nav-dash" data-page="dash" aria-current="page" aria-controls="homeSummary homeMovements" aria-expanded="false" onclick="setPg('dash',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
     Inicio
   </button>

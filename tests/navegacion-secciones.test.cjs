@@ -57,7 +57,11 @@ globalThis.fetch=async(url,opts={})=>{
 for(const p of principales){el('nav-'+p).dataset.page=p;el('nav-'+p).classList.add('nt');}
 el('p-dash').classList.add('active');el('nav-dash').classList.add('active');
 el('homeMovements').inert=true;
-el('homeMovements').contains=n=>['searchInp','txCuenta','txs','cats','searchCount'].includes(n?.id);
+el('homeMovements').setAttribute('aria-hidden','true');
+el('homeMovements').contains=n=>['searchInp','txs','cats','searchCount'].includes(n?.id);
+el('homeSummary').classList.add('expanded');el('homeSummary').setAttribute('aria-hidden','false');
+el('homeSummary').contains=n=>['kpiOut','kpiIn','segPeriodo','segAcumulado','segNeto','segPatrimonio'].includes(n?.id);
+el('nav-dash').setAttribute('aria-expanded','false');
 el('searchInp').closest=s=>s==='#homeMovements'||s==='.home-movements'?el('homeMovements'):null;
 el('iMoneda').value='PEN';
 localStorage.setItem('sb_session',JSON.stringify({user_id:'usuario-demo',access_token:'token-demo',expires_at:Date.now()+3600000}));
@@ -78,6 +82,14 @@ function comprobarPagina(p){
   assert.deepEqual(principales.filter(x=>el('nav-'+x).classList.contains('active')),[principalEsperado(p)],'un solo destino principal activo');
   assert.equal(el('nav-'+principalEsperado(p)).getAttribute('aria-current'),'page','destino seleccionado anunciado');
 }
+function comprobarPanel(abierto){
+  for(const [id,visible] of [['homeMovements',abierto],['homeSummary',!abierto]]){
+    assert.equal(el(id).classList.contains('expanded'),visible,id+' sincroniza su expansión');
+    assert.equal(el(id).inert,!visible,id+' deshabilita el panel oculto');
+    assert.equal(el(id).getAttribute('aria-hidden'),String(!visible),id+' anuncia únicamente el panel visible');
+  }
+  assert.equal(el('nav-dash').getAttribute('aria-expanded'),String(abierto));
+}
 
 (async()=>{
   const [nav,{datos},pres,dashboard]=await Promise.all([modulo('ui/navigation.js'),modulo('state.js'),modulo('modules/presupuestos.js'),modulo('modules/dashboard.js')]);
@@ -97,26 +109,28 @@ function comprobarPagina(p){
     return indice.slice(inicio,despues<0?indice.indexOf('<!-- FAB -->',inicio):inicio+despues);
   };
   assert.doesNotMatch(indice,/id="p-tx"|id="recentTxs"/);
+  assert.match(seccion('dash'),/class="[^"]*expanded[^"]*"[^>]*id="homeSummary"/);
   assert.match(seccion('dash'),/id="homeMovements"[^>]*\binert\b/);assert.match(seccion('dash'),/id="txs"/);assert.match(seccion('dash'),/id="cats"/);
+  assert.doesNotMatch(seccion('dash'),/id="txUsd"|id="txTipoTodos"|id="txCuenta"/,'el historial no conserva los filtros retirados');
   assert.match(seccion('pres'),/id="presupuestosSeccion"/);assert.doesNotMatch(seccion('bud'),/id="presupuestosSeccion"/);
   assert.match(indice,/<button\b[^>]*id="nav-more"[^>]*aria-controls="moreModal"/);
+  const mas=indice.slice(indice.indexOf('id="moreModal"'),indice.indexOf('<!-- Bottom nav'));
+  assert.doesNotMatch(mas,/abrirDesdeMas\('bud'\)/,'Estadísticas tiene su acceso principal');
 
   // Inicio se muestra compacto al entrar; volver a tocarlo revela el historial.
   nav.setPg('card');await pintarPendientes();
   nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');
-  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
-  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'false');
+  comprobarPanel(false);
   nav.setPg('dash');await pintarPendientes();
-  assert.equal(el('homeMovements').classList.contains('expanded'),true);assert.equal(el('homeMovements').inert,false);
-  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'true');
+  comprobarPanel(true);
   nav.mostrarMovimientosInicio();nav.mostrarMovimientosInicio();await pintarPendientes();
-  assert.equal(el('homeMovements').classList.contains('expanded'),true,'mostrar varias veces no vuelve a ocultar');
+  comprobarPanel(true);
   document.activeElement=el('searchInp');nav.alternarMovimientosInicio();await pintarPendientes();
-  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
+  comprobarPanel(false);
   assert.equal(document.activeElement,el('nav-dash'),'al cerrar el buscador no queda foco dentro del contenido inert');
   nav.setPg('tx');await pintarPendientes();comprobarPagina('dash');
-  assert.equal(el('homeMovements').classList.contains('expanded'),true,'el antiguo destino tx abre Inicio con historial');
-  console.log('PASS: Inicio compacto, segundo toque, cierre accesible y alias de Movimientos.');
+  comprobarPanel(true);
+  console.log('PASS: Inicio alterna resumen/historial, sincroniza accesibilidad y conserva el alias de Movimientos.');
 
   // Abrir/cerrar Más conserva el lugar de lectura del historial desplegado.
   window.scrollY=725;
@@ -131,7 +145,7 @@ function comprobarPagina(p){
 
   // Estadísticas calcula indicadores sin repintar la página Presupuestos.
   const presupuestosAntes=pinturas.get('presupuestosLista')||0;
-  nav.abrirMas();nav.abrirDesdeMas('bud');await pintarPendientes();comprobarPagina('bud');
+  nav.setPg('bud');await pintarPendientes();comprobarPagina('bud');
   assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(window.scrollY,0);
   assert.equal(pinturas.get('presupuestosLista')||0,presupuestosAntes,'Estadísticas no calcula presupuestos ocultos');
   assert.ok((pinturas.get('mAhorro')||0)>0,'se actualiza el resumen estadístico');
@@ -144,20 +158,31 @@ function comprobarPagina(p){
   pres.cerrarPresupuestoForm();
   console.log('PASS: Estadísticas y Presupuestos independientes; FAB crea presupuesto.');
 
-  // Volver a Inicio desde otra vista lo presenta compacto y desde arriba.
-  nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');assert.equal(window.scrollY,0);
-  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
-  nav.mostrarMovimientosInicio();await pintarPendientes();
-  nav.setPg('card');
-  assert.equal(el('homeMovements').classList.contains('expanded'),false,'salir de Inicio cierra su panel');
-  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'false','Inicio no anuncia un panel oculto por otra página');
-  nav.setPg('dash');await pintarPendientes();
-  assert.equal(el('homeMovements').classList.contains('expanded'),false,'volver desde Tarjetas no conserva un historial abierto');
-  // Navegación inmediata cancela trabajos viejos de Portafolio.
-  nav.setPg('ana');assert.equal(el('fab').hidden,true);
-  nav.mostrarMovimientosInicio();await pintarPendientes();comprobarPagina('dash');
-  assert.equal(el('homeMovements').classList.contains('expanded'),true,'la carga anterior no vuelve a colapsar el historial');
-  console.log('PASS: regresar a Inicio colapsa el historial; abrirlo cancela navegación anterior.');
+  // Cambiar de página conserva el historial, la búsqueda y el lugar de lectura.
+  nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');comprobarPanel(true);assert.equal(window.scrollY,725);
+  dashboard.toggleSearch();el('searchInp').value='consulta conservada';dashboard.filtrarBusqueda();
+  for(const [i,p] of ['card','bud','ana','pres','deb'].entries()){
+    const desplazamiento=800+i*100;window.scrollY=desplazamiento;
+    nav.setPg(p);comprobarPagina(p);comprobarPanel(true);
+    assert.equal(el('searchInp').value,'consulta conservada',p+' no borra la búsqueda');
+    assert.equal(el('searchWrap').classList.contains('show'),true,p+' conserva el buscador abierto');
+    // Regresar inmediatamente también ejercita la cancelación del trabajo de Portafolio.
+    nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');comprobarPanel(true);
+    assert.equal(window.scrollY,desplazamiento,p+' restaura el lugar de lectura del historial');
+    assert.equal(el('searchInp').value,'consulta conservada');
+  }
+  document.activeElement=el('searchInp');nav.setPg('dash');await pintarPendientes();comprobarPanel(false);
+  assert.equal(el('searchInp').value,'','el cierre explícito limpia la búsqueda');
+  assert.equal(el('searchWrap').classList.contains('show'),false);assert.equal(el('searchWrap').inert,true);
+  assert.equal(el('searchWrap').getAttribute('aria-hidden'),'true');assert.equal(el('searchWrap').hidden,false,'el buscador permanece disponible para su transición');
+  assert.equal(document.activeElement,el('nav-dash'));assert.equal(window.scrollY,0);
+  for(const p of ['card','bud','ana','pres','deb']){
+    nav.setPg(p);nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');comprobarPanel(false);
+    assert.equal(window.scrollY,0,p+' vuelve al resumen que se había elegido');
+  }
+  document.activeElement=el('kpiOut');nav.mostrarMovimientosInicio();await pintarPendientes();comprobarPanel(true);
+  assert.equal(document.activeElement,el('nav-dash'),'abrir el historial saca el foco del resumen antes de inert');
+  console.log('PASS: ambas vistas de Inicio persisten por todas las páginas; historial conserva búsqueda y scroll.');
 
   // Cada acción flotante abre únicamente su formulario contextual.
   for(const [p,modal,label] of [['dash','modal','Nueva transacción'],['card','cardPaymentModal','Registrar pago'],['deb','modalDeuda','Nueva deuda']]){
@@ -199,6 +224,7 @@ function comprobarPagina(p){
   nav.alternarMovimientosInicio();await pintarPendientes();assert.equal(el('homeMovements').inert,true);
   dashboard.toggleSearch();await pintarPendientes();await new Promise(r=>timerReal(r,110));
   assert.equal(el('homeMovements').classList.contains('expanded'),true);assert.equal(el('homeMovements').inert,false);
+  assert.equal(el('searchWrap').inert,false);assert.equal(el('searchWrap').getAttribute('aria-hidden'),'false');assert.equal(el('searchWrap').hidden,false);
   assert.equal(document.activeElement,el('searchInp'));
   dashboard.toggleSearch();await pintarPendientes();assert.equal(el('homeMovements').classList.contains('expanded'),true);
   const estilos=['dashboard.css','theme.css'].map(f=>fs.readFileSync(path.join(appRoot,'css',f),'utf8')).join('\n');

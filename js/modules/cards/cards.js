@@ -184,6 +184,19 @@ function cardLedger(card,hasta=null,cicloVisible=null){
 
 export function getCardOutstandingTotal(card,hasta=null){return cardLedger(card,hasta).pendiente;}
 
+// Saldos pendientes en su moneda real por ciclo. El mismo ledger aplica
+// pagos, devoluciones y créditos; hasta permite un resumen a la fecha de hoy.
+export function getCardPendingByCycle(card,hasta=null){
+  const {buckets}=cardLedger(card,hasta),usd=pendienteUSDPorCiclo(card,hasta),pendientes=new Map();
+  const redondear=n=>Math.round(Math.max(0,n)*100)/100;
+  for(const key of new Set([...buckets.keys(),...usd.keys()])){
+    const u=usd.get(key)||{pen:0,usd:0};
+    const saldo={soles:redondear((buckets.get(key)?.pendiente||0)-u.pen),usd:redondear(u.usd)};
+    if(saldo.soles>0||saldo.usd>0)pendientes.set(key,saldo);
+  }
+  return pendientes;
+}
+
 export function favorTarjetaEnSoles(card,hasta=null){
   const costoUSD=modeloCreditoTarjetaUSD(card,hasta).costoFavor;
   return Math.round((cardLedger(card,hasta).saldoFavor+costoUSD)*100)/100;
