@@ -76,6 +76,35 @@ function pendienteUSDPorCiclo(card,hasta=null){
   return porCiclo;
 }
 
+// Un ciclo separado por moneda: lo consumido, pagado y el saldo en soles y en
+// dólares, más el total en soles (los dólares al TC de cada compra).
+export function desgloseMonedasCiclo(card,data){
+  const c=v=>Math.round((Number(v)||0)*100)/100;
+  const enUSD=t=>t[9]==='USD'&&Number(t[10])>0;
+  const pagosUSD=data.pagos.filter(p=>p.moneda==='USD'&&p.meta?.tipo!=='conversion');
+  const porPago=modeloCreditoTarjetaUSD(card).porPago;
+  const usd=usdCiclo(card,data);
+  const soles={
+    consumido:c(data.gastos.filter(t=>!enUSD(t)).reduce((s,t)=>s+Number(t[4]),0)),
+    pagado:c(data.pagos.filter(p=>p.moneda!=='USD').reduce((s,p)=>s+p.amount,0)),
+    aplicado:c(data.creditoAplicado),
+    pendiente:pendienteEnSoles(card,data),
+    favor:c(data.saldoFavor),
+  };
+  const dolares={
+    consumido:c(data.gastos.filter(enUSD).reduce((s,t)=>s+Number(t[10]),0)),
+    equivalente:c(data.gastos.filter(enUSD).reduce((s,t)=>s+Number(t[4]),0)),
+    pagado:c(pagosUSD.reduce((s,p)=>s+p.usd,0)),
+    costo:c(pagosUSD.reduce((s,p)=>s+(Number(p.soles)||0),0)),
+    aplicado:c(data.creditoAplicadoUSD),
+    pendiente:usd?.pendiente||0,
+    // Excedente que dejaron los pagos en dólares de este ciclo.
+    favor:c(pagosUSD.reduce((s,p)=>s+(porPago.get(p.id)?.creditoUSD||0),0)),
+  };
+  const hayUSD=dolares.consumido>0||dolares.pagado>0||dolares.aplicado>0;
+  return{soles,dolares:hayUSD?dolares:null,total:c(data.total),reembolsos:c(data.reembolsos)};
+}
+
 export function pendienteUSDEnSoles(card,data){return pendienteUSDPorCiclo(card).get(getCycleKey(data.cycle))?.pen||0;}
 
 // Lo que se paga en soles de un ciclo: el pendiente sin su parte en dólares.

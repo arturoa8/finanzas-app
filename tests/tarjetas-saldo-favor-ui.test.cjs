@@ -41,7 +41,10 @@ globalThis.fetch=()=>{throw new Error('Esta prueba visual no puede conectarse co
   const pagosAntes=JSON.stringify(datos.pagosTarjetas);
   ui.renderCardsPage();ui.renderCardDetail();detalle=el('cardDetailContent').innerHTML;
   assert.match(detalle,/card-detail-amount green[^>]*>\+S\/ 12\.00/);
-  assert.match(detalle,/Pagado<\/div><div class="credit-mini-val green">S\/ 8\.00/);
+  // Por moneda: nada pagado en el ciclo; el consumo lo cubrió el saldo a favor.
+  assert.match(detalle,/Consumido<\/span><span>S\/ 8\.00/);
+  assert.match(detalle,/Pagado<\/span><span>S\/ 0\.00/);
+  assert.match(detalle,/A favor aplicado<\/span><span>S\/ 8\.00/);
   assert.match(detalle,/100% pagado/);
   assert.match(detalle,/Saldo a favor aplicado/);
   const credito=/class="pay-item pay-item-credit"[^>]*>([\s\S]*?)<\/article>/.exec(detalle)?.[1];
@@ -65,7 +68,7 @@ globalThis.fetch=()=>{throw new Error('Esta prueba visual no puede conectarse co
   ui.renderCardDetail();detalle=el('cardDetailContent').innerHTML;
   assert.match(detalle,/card-detail-amount green[^>]*>\+US\$ 0\.28/);
   assert.match(detalle,/Saldo a favor aplicado/);
-  assert.match(detalle,/US\$ 0\.30 de saldo a favor/);
+  assert.match(detalle,/A favor aplicado<\/span><span>—<\/span><span>US\$ 0\.30/,'el favor USD aplicado figura en la columna de dólares');
   assert.match(detalle,/100% pagado/);
   assert.equal(datos.pagosTarjetas.length,1);
   console.log('PASS: el ciclo vacío muestra favor PEN/USD; los consumos aplican crédito como pagado, conservan los saldos por ciclo y no crean pagos ficticios.');
