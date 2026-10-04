@@ -43,3 +43,25 @@
 
 .pf-market-position{display:flex;flex-direction:column;gap:6px;padding-top:13px;margin-top:13px;border-top:1px dashed var(--border);font-size:10px;line-height:1.5;color:var(--dim)}.pf-market-position>strong{font-size:16px;color:var(--text)}.pf-market-label{font-size:9px;letter-spacing:.08em;color:var(--blue)}
 
+.pf-fx-section{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.pf-fx-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.pf-fx-head h3{margin:0;font-size:14px;font-weight:650;letter-spacing:-.02em}
+.pf-fx-head>span{font-size:10px;color:var(--dim);text-align:right}
+.pf-fx-total{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin:12px 0 18px;font-size:clamp(26px,4vw,36px);font-weight:750;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.pf-fx-total>span{font-size:13px;font-weight:550;letter-spacing:0}
+.pf-fx-components{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}
+.pf-fx-components>div{min-width:0}
+.pf-fx-components span,.pf-fx-components small{display:block;font-size:10px;color:var(--dim);line-height:1.5}
+.pf-fx-components strong{display:block;font-size:19px;margin:5px 0 3px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.pf-fx-reference{margin:16px 0 0;font-size:10px;color:var(--dim);line-height:1.5}
+.pf-fx-detail{margin-top:12px;color:var(--dim);font-size:11px;line-height:1.6}
+.pf-fx-detail summary{cursor:pointer;width:fit-content;color:var(--text)}
+.pf-fx-detail dl{margin:12px 0;display:grid;gap:8px}
+.pf-fx-detail dl>div{display:flex;justify-content:space-between;gap:12px}
+.pf-fx-detail dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
+.pf-fx-detail p{margin:0;max-width:680px}
+.pf-moneda-note{font-size:10px;line-height:1.5;color:var(--dim);margin:6px 0}
+.pf-moneda-note[hidden]{display:none}
+.pf-saldo-resumen{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(min-width:640px){.pf-fx-components{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:400px){.pf-fx-components strong{font-size:17px}.pf-saldo-resumen strong{font-size:13px}}

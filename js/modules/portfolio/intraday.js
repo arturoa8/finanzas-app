@@ -3,12 +3,14 @@
 
 import {pfAssetColor} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
+import {renderPfSaldoResumen} from './balance-summary.js';
 import {renderPfDiagnostico1D} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfDeltaPosicion, pfFmt, pfModeloDia, pintarValorPrincipal} from './hero.js';
 import {pfFlujos, pfModeloGanancia, pfRendimientoEntrePuntos, pfRendimientoPortafolio} from './performance.js';
-import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
+import {pfColor, pfEtiquetaFecha, pfFechaCorta, pfHistoricoCache, pfIso, pfOpcionesEscala, pfPosicionesCache, pfSigned, pfSignedPct, pfSnapshotsHoyCache, pfVista} from './portfolio.js';
 import {pfLondonDay, pfMarketEstimate, pfQuoteKey, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
 import {dominioY, lttb} from '../../ui/chart-scale.js';
+import {pfPintarGrafico} from '../../ui/portfolio-chart-motion.js';
 import {parseDateOnly} from '../../utils/dates.js';
 import {esc} from '../../utils/formatters.js';
 
@@ -505,11 +507,11 @@ export function renderPfChart1D(area,titulo,hint,res){
   const tieneCurva=s.ok&&['YAHOO','YAHOO_PARCIAL'].includes(s.fuente);
   if(pfPosicionesCache.length&&['idle','loading'].includes(pfYahoo.status)&&!tieneCurva){
     area.setAttribute('aria-busy','true');titulo.textContent='';hint.textContent='';res.innerHTML='';
-    area.innerHTML='<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Cargando rendimiento…</div>';
+    pfPintarGrafico(area,'<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Cargando rendimiento…</div>',{esperar:true});
     renderPfContribuciones(null);return;
   }
   area.setAttribute('aria-busy','false');
-  if(!s.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(s.mensaje)+'</div>';hint.textContent='';res.innerHTML='';renderPfContribuciones(null);return;}
+  if(!s.ok){titulo.textContent='';pfPintarGrafico(area,'<div class="pf-data-note">'+esc(s.mensaje)+'</div>');hint.textContent='';res.innerHTML='';renderPfContribuciones(null);return;}
   const colorLinea=(s.actual-s.base)>=0?'var(--green)':'var(--red)';
   titulo.textContent=s.dia.fuente==='IBKR_CIERRES'?'Últimos cierres IBKR':(s.sesion&&s.sesion!==pfLondonDay())?'Última sesión · '+pfFechaCorta(s.sesion):'Hoy';
   const opcX=s.etiquetaX?{etiqueta:s.etiquetaX}:{};
@@ -521,7 +523,7 @@ export function renderPfChart1D(area,titulo,hint,res){
     // por definición). El coloreado por tramos y la línea punteada viven en
     // construirGraficoIntradia (referencia por defecto).
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,...opcX,...pfOpcionesEscala(s.serie,{vista:'rendimiento',intradia:true})});
-    area.innerHTML=grafico.svg;
+    pfPintarGrafico(area,grafico.svg);
     pfWireChartTooltip(area,grafico,{comparar:(a,b)=>{
       const mismo=a.t===b.t;
       const pct=mismo?0:intervaloCierres?intervaloCierres.pct:pfRendimientoEntrePuntos(a.valor,b.valor);
@@ -537,7 +539,7 @@ export function renderPfChart1D(area,titulo,hint,res){
     // con el que arrancó ESTE gráfico), no 0 — un portafolio nunca cruza $0.
     // (con base Yahoo es el cierre anterior, no la primera vela)
     const grafico=construirGraficoIntradia(s.serie,{color:colorLinea,referencia:s.base,...opcX,...pfOpcionesEscala(s.serie,{vista:'valor',intradia:true})});
-    area.innerHTML=grafico.svg;
+    pfPintarGrafico(area,grafico.svg);
     pfWireChartTooltip(area,grafico,{comparar:(a,b)=>({
       valorTexto:pfSigned(b.valor-a.valor,s.moneda),lineaTexto:'Cambio de valor entre puntos',
       subTexto:'Valor de la cuenta',pctNum:b.valor-a.valor,
@@ -562,9 +564,14 @@ export function renderPfChart1D(area,titulo,hint,res){
   // apertura" (el cierre de ayer, base del 0%) ya no se aprecia en el
   // gráfico salvo tocando justo el primer punto — se deja como cifra fija.
   const cifras='<div class="pf-rend-row" style="grid-template-columns:1fr 1fr"><div>'+(s.dia.fuente==='YAHOO'?'Cierre anterior':'Cierre IBKR base')+'<strong>'+esc(pfFmt(s.base,s.moneda))+'</strong></div><div>'+(s.dia.fuente==='IBKR_CIERRES'?'Último cierre':pfYahooSessionOpen()?'Ahora':'Al cierre')+'<strong style="color:'+pfColor(s.actual-s.base)+'">'+esc(pfFmt(s.actual,s.moneda))+'</strong></div></div>';
-  res.innerHTML=cifras+(g.ok
-    ?'<div class="pf-rend-big">Rendimiento total<strong style="color:'+pfColor(g.pct)+'">'+esc(pfSignedPct(g.pct))+'</strong></div><div class="pf-rend-row" style="grid-template-columns:1fr 1fr"><div>Ganancia total<strong style="color:'+pfColor(g.ganancia)+'">'+esc(pfSigned(g.ganancia,s.moneda))+'</strong></div><div>Aportes netos<strong>'+esc(pfFmt(g.aportes,s.moneda))+'</strong></div></div>'
-    :(g.mensaje?'<p class="hint">'+esc(g.mensaje)+'</p>':''));
+  if(pfVista==='valor'){
+    const cierres=s.dia.fuente==='IBKR_CIERRES'?pfHistoricoCache.filter(r=>Number(r.valor_total)>0).slice(-2):null;
+    renderPfSaldoResumen(res,{inicial:s.base,actual:s.actual,desde:cierres?cierres[0]?.fecha_valoracion:official?.fecha_valoracion,hasta:cierres?cierres.at(-1)?.fecha_valoracion:s.sesion||pfIso(new Date()),moneda:s.moneda,fl:pfFlujos()});
+  }else{
+    res.innerHTML=cifras+(g.ok
+      ?'<div class="pf-rend-big">Rendimiento total<strong style="color:'+pfColor(g.pct)+'">'+esc(pfSignedPct(g.pct))+'</strong></div><div class="pf-rend-row" style="grid-template-columns:1fr 1fr"><div>Ganancia total<strong style="color:'+pfColor(g.ganancia)+'">'+esc(pfSigned(g.ganancia,s.moneda))+'</strong></div><div>Aportes netos<strong>'+esc(pfFmt(g.aportes,s.moneda))+'</strong></div></div>'
+      :(g.mensaje?'<p class="hint">'+esc(g.mensaje)+'</p>':''));
+  }
   renderPfContribuciones(s.dia);
   renderPfDiagnostico1D(s);
   renderPfBenchmark(null);

@@ -4,6 +4,7 @@
 import {filtrarPorPeriodo} from '../analytics.js';
 import {renderPfDistribucion} from './allocation.js';
 import {renderPfBenchmark} from './benchmark.js';
+import {renderPfSaldoResumen} from './balance-summary.js';
 import {renderPfDiagnostico} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt} from './hero.js';
 import {construirGraficoIntradia, construirSerieSesiones, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
@@ -15,6 +16,7 @@ import {agruparPintadoPf, limpiarCachePfYahoo, pfComputeBaseId, pfComputeScope, 
 import {sessionUserId} from '../../services/auth.js';
 import {sbFetch, sbFetchTodo} from '../../services/supabase.js';
 import {toast} from '../../ui/toast.js';
+import {pfCancelarTransicionGrafico, pfPintarGrafico, pfPrepararTransicionGrafico} from '../../ui/portfolio-chart-motion.js';
 import {diasEntre, fmtDateLong, fmtDateShort, hoyLocal, parseDateOnly} from '../../utils/dates.js';
 import {esc, fmtMoneda} from '../../utils/formatters.js';
 import {pfNumber} from '../../utils/numbers.js';
@@ -71,6 +73,7 @@ function pfProgramarPrecarga(){
 
 export function limpiarCachePortafolio(){
   detenerPrecargaPortafolio();
+  pfCancelarTransicionGrafico();
   pfLoadSequence++;
   pfCacheSequence++;
   pfCacheUsuario='';pfDatosCarga=null;
@@ -306,6 +309,7 @@ export function renderPfResumen(row,ultimaSync){
 }
 
 export function setPfPeriodo(p,btn){
+  if(p!==pfPeriodo)pfPrepararTransicionGrafico(document.getElementById('pfChartArea'));
   pfPeriodo=p;
   // Primera vez en "Desde…": propone el primer día con valor en la cuenta.
   if(p==='DESDE'&&!pfDesde){const f=pfHistoricoCache.find(r=>Number(r.valor_total)>0)||pfHistoricoCache[0];if(f)pfDesde=f.fecha_valoracion;}
@@ -376,15 +380,19 @@ export let pfBenchCache=[];
 
 // ── Vista del gráfico ───────────────────────────────────────────────────────
 export function setPfVista(v){
+  if(v!==pfVista)pfPrepararTransicionGrafico(document.getElementById('pfChartArea'));
   pfVista=v;
   const rend=document.getElementById('pfViewRend'),val=document.getElementById('pfViewValor'),titulo=document.getElementById('pfHeroTitulo');
   if(rend)rend.setAttribute('aria-pressed',String(v==='rendimiento'));
   if(val)val.setAttribute('aria-pressed',String(v==='valor'));
-  if(titulo)titulo.textContent=v==='rendimiento'?'Rendimiento de Portafolio':'Valor de Portafolio';
+  if(titulo)titulo.textContent=v==='rendimiento'?'Rendimiento de Portafolio':'Evolución del saldo';
   renderPfChart();
 }
 
-export function setPfDesde(iso){pfDesde=iso||'';renderPfChart();}
+export function setPfDesde(iso){
+  if((iso||'')!==pfDesde)pfPrepararTransicionGrafico(document.getElementById('pfChartArea'));
+  pfDesde=iso||'';renderPfChart();
+}
 
 // Etiqueta del período para el número grande debajo del gráfico (sección 8):
 // "Hoy" del hero NUNCA cambia con el período — eso lo pinta pintarPfHeroHoy().
@@ -527,7 +535,7 @@ export function renderPfChart(){
       info.textContent=pfTextoDesde(per,pfHistoricoCache);
     }
   }
-  if(!per.ok){titulo.textContent='';area.innerHTML='<div class="pf-data-note">'+esc(per.mensaje)+'</div>';hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
+  if(!per.ok){titulo.textContent='';pfPintarGrafico(area,'<div class="pf-data-note">'+esc(per.mensaje)+'</div>');hint.textContent=pfVista==='valor'?'El valor incluye aportes y retiros. No representa tu rentabilidad.':'';return;}
   // Con detalle intradía, el período arranca en el cierre anterior a la
   // primera sesión mostrada (como el 5D/1M de Yahoo): así el lunes también
   // cuenta, y el % del período coincide con el final de la curva.
@@ -537,16 +545,16 @@ export function renderPfChart(){
   const conIntradia=intradia&&iBase>=0;
   if(!conIntradia&&PF_PERIODOS_INTRADIA.has(pfPeriodo)&&pfIntradiaCarga.get(pfPeriodo)?.promesa){
     area.setAttribute('aria-busy','true');titulo.textContent='';hint.textContent='';
-    area.innerHTML='<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Preparando gráfica…</div>';
+    pfPintarGrafico(area,'<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Preparando gráfica…</div>',{esperar:true});
     return;
   }
   if(pfVista==='rendimiento'){
     const r=pfRendimientoPortafolio(filas,pfFlujos());
     titulo.textContent=r.ok?(pfFechaCorta(r.desde)+' – '+pfFechaCorta(r.hasta)):'';
-    if(!r.ok){area.innerHTML='<div class="pf-data-note">'+esc(r.mensaje)+'</div>';hint.textContent='';return;}
+    if(!r.ok){pfPintarGrafico(area,'<div class="pf-data-note">'+esc(r.mensaje)+'</div>');hint.textContent='';return;}
     const cifras='<div class="pf-rend-row"><div>Valor inicial<strong>'+esc(fmtMoneda(r.inicial,r.moneda))+'</strong></div><div>Valor actual<strong>'+esc(fmtMoneda(r.actual,r.moneda))+'</strong></div><div>Cambio de valor<strong style="color:'+pfColor(r.cambio)+'">'+esc(pfSigned(r.cambio,r.moneda))+'</strong></div></div>';
     if(r.conFlujos&&r.pct===undefined){
-      area.innerHTML='<div class="pf-data-note">Hubo aportes o retiros durante este período ('+r.flujos+') sin dólares confirmados. El cambio de valor no representa rentabilidad.</div>';
+      pfPintarGrafico(area,'<div class="pf-data-note">Hubo aportes o retiros durante este período ('+r.flujos+') sin dólares confirmados. El cambio de valor no representa rentabilidad.</div>');
       res.innerHTML=cifras;
       hint.textContent='Hay un aporte o retiro sin dólares confirmados en este período: sin ese dato no se puede aislar su efecto para calcular la rentabilidad. Confírmalo en la transferencia, o prueba un período sin ese movimiento.';
     }else{
@@ -574,7 +582,7 @@ export function renderPfChart(){
         opcX={etiqueta:pfEtiquetaFecha};
       }
       const grafico=construirGraficoIntradia(serie,{...opcX,xPorIndice:true,aria:'Rendimiento del portafolio en el período',...pfOpcionesEscala(serie,{vista:'rendimiento'})});
-      area.innerHTML=grafico.svg;
+      pfPintarGrafico(area,grafico.svg);
       // Cambio en dinero hasta el punto tocado SIN contar lo aportado o
       // retirado entre medio: un depósito no es ganancia. En un cierre, los
       // flujos hasta ese día; dentro de una sesión, solo los de días previos
@@ -606,13 +614,14 @@ export function renderPfChart(){
     const inicial=conIntradia?intradia.base:serie[0]?.valor,moneda=filas.at(-1)?.moneda_base;
     const opcX=conIntradia?{etiqueta:pfEtiquetaFechaHora,etiquetaEje:pfEtiquetaFecha}:{etiqueta:pfEtiquetaFecha};
     const grafico=construirGraficoIntradia(serie,{referencia:inicial,...opcX,xPorIndice:true,aria:'Valor total de la cuenta en el período',vacio:'La cuenta aún no tenía valor en este período.',...pfOpcionesEscala(serie,{vista:'valor'})});
-    area.innerHTML=grafico.svg;
+    pfPintarGrafico(area,grafico.svg);
     // Valor: fecha y valor, sin %: un cambio de valor aquí puede ser un
     // aporte, y mostrarlo como porcentaje lo haría pasar por rentabilidad.
     pfWireChartTooltip(area,grafico,{comparar:(a,b)=>({
       valorTexto:pfSigned(b.valor-a.valor,moneda),lineaTexto:'Cambio de valor entre puntos',
       subTexto:'Incluye aportes y retiros',pctNum:b.valor-a.valor,
     }),describir:p=>({valorTexto:pfFmt(p.valor,moneda),lineaTexto:'Valor de la cuenta · incluye aportes y retiros',pctNum:null,fechaTexto:p.cierre?pfFechaCorta(p.fecha)+' · cierre':null})});
+    renderPfSaldoResumen(res,{inicial,actual:serie.at(-1)?.valor,desde:conIntradia?filas[0].fecha_valoracion:conValor[0]?.fecha_valoracion,hasta:filas.at(-1)?.fecha_valoracion,moneda,fl:pfFlujos()});
     const recorte=conValor.length<filas.length&&conValor.length?' Se muestra desde el primer día con valor en la cuenta ('+pfFechaCorta(conValor[0].fecha_valoracion)+').':'';
     const truncado=grafico.meta&&grafico.meta.dominio[0]>0?' El eje vertical se ajusta al rango del período y no empieza en 0.':'';
     const detalle=conIntradia?' Precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';

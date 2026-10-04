@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.03.14">
+<meta name="version-app" content="2026.10.03.15">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -100,6 +100,10 @@ try{
   <link rel="modulepreload" href="./js/modules/portfolio/allocation.js">
   <link rel="modulepreload" href="./js/modules/portfolio/benchmark.js">
   <link rel="modulepreload" href="./js/modules/portfolio/performance.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/balance-summary.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/fx-performance.js">
+  <link rel="modulepreload" href="./js/modules/portfolio/fx-ui.js">
+  <link rel="modulepreload" href="./js/ui/portfolio-chart-motion.js">
   <link rel="modulepreload" href="./js/modules/cards/cards.js">
   <link rel="modulepreload" href="./js/modules/cards/usd-credit.js">
   <link rel="modulepreload" href="./js/ui/chart-scale.js">
@@ -235,7 +239,7 @@ try{
             <button class="icon-btn pf-view-icon" id="pfViewRend" aria-pressed="true" aria-label="Ver rendimiento" title="Rendimiento" onclick="setPfVista('rendimiento')">
               <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
             </button>
-            <button class="icon-btn pf-view-icon" id="pfViewValor" aria-pressed="false" aria-label="Ver valor" title="Valor" onclick="setPfVista('valor')">
+            <button class="icon-btn pf-view-icon" id="pfViewValor" aria-pressed="false" aria-label="Ver evolución del saldo" title="Saldo y aportes" onclick="setPfVista('valor')">
               <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z"/><path d="M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2Z"/><path d="M18 13h.01"/></svg>
             </button>
             <button class="icon-btn" id="pfRefreshBtn" onclick="pfRefrescarTodo(this)" aria-label="Actualizar portafolio (IBKR y Yahoo)" title="Actualizar">
@@ -247,7 +251,8 @@ try{
         <div class="pf-hero-hoy" id="pfHeroHoy"></div>
         <div class="pf-hero-hoy-sub" id="pfHeroHoySub"></div>
         <div class="s-sub" id="pfFrescura" style="margin-top:4px;color:var(--dim)"></div>
-        <button class="pf-moneda-toggle" id="pfMonedaBtn" aria-pressed="false" onclick="togglePfMoneda(this)">Ver en soles (S/)</button>
+        <button class="pf-moneda-toggle" id="pfMonedaBtn" aria-pressed="false" onclick="togglePfMoneda(this)">Ver equivalencia en soles (S/)</button>
+        <p class="pf-moneda-note" id="pfMonedaNota" hidden>Equivalencia al TC de referencia actual. El rendimiento del gráfico sigue medido en dólares.</p>
         <div class="pf-chart-title" id="pfChartTitulo"></div>
         <div id="pfChartArea"></div>
         <!-- Períodos DEBAJO del gráfico (sección 9): toda la barra, no solo "Desde". -->
@@ -277,6 +282,7 @@ try{
           <div class="s-title">Resumen</div>
           <div class="s-sub" id="pfFechaEfectiva">—</div>
         </div>
+        <section class="pf-fx-section" id="pfResultadoCambio" aria-label="Resultado acumulado en soles"></section>
         <div class="metric-grid" id="pfMetricGrid">
           <div class="metric pf-main"><div class="m-lbl">Valor total</div><div class="m-val" id="pfValorTotal">—</div><div class="m-sub" id="pfMonedaBase">—</div><div class="m-sub" id="pfValorRef" style="color:var(--dim)"></div></div>
           <div class="metric pf-gain"><div class="m-lbl">P&amp;L no realizado</div><div class="m-val" id="pfPnl">—</div><div class="m-sub" id="pfPnlSub">Solo posiciones abiertas</div><div class="m-sub" id="pfPnlEst" style="color:var(--dim)"></div></div>

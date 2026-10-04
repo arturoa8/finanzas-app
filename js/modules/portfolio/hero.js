@@ -2,10 +2,14 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {pfAportesSinReflejar, pfCostosInversion, pfModeloCapital, renderPfCostosEditor} from './capital.js';
-import {pfFlujos, pfResumenPosiciones} from './performance.js';
+import {cuentasInversionHistoricas, pfFlujos, pfResumenPosiciones} from './performance.js';
+import {pfModeloRentabilidadCambio} from './fx-performance.js';
+import {renderPfResultadoCambio} from './fx-ui.js';
+import {cuentasApp} from '../accounts.js';
 import {renderPfPosiciones} from './portfolio-ui.js';
 import {pfColor, pfFechaCorta, pfHistoricoCache, pfIso, pfPosicionesCache, pfSigned, pfSignedPct, pfUltimaSyncCache, renderPfChart, renderPfResumen} from './portfolio.js';
-import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../../services/exchange-rate.js';
+import {cargarTcMercado, leerTipoCambio, tcMercado, tcMercadoFecha, tcUsdPen} from '../../services/exchange-rate.js';
+import {datos} from '../../state.js';
 import {pfComputeBaseId, pfComputeScope, pfLondonDay, pfMarketEstimate, pfOperacionesSinSincronizar, pfQuoteKey, pfSesionQuote, pfYahoo, pfYahooSessionOpen} from '../../services/market-data.js';
 import {fmtDateShort, parseDateOnly} from '../../utils/dates.js';
 import {fmtMoneda} from '../../utils/formatters.js';
@@ -170,6 +174,7 @@ export function pintarValorPrincipal(){
 // la fecha de ese valor (con Yahoo no puede haber aportes posteriores al
 // cierre IBKR: ese caso ya cae a IBKR por el gate de pfAportesSinReflejar).
 function pintarPfCapital(official,v){
+  pintarPfCambio(official,v);
   const el=id=>document.getElementById(id);
   const gEl=el('pfGanancia');if(!gEl)return;
   const moneda=official.moneda_base;
@@ -202,6 +207,26 @@ function pintarPfCapital(official,v){
   if(m.multiplesFechas)notas.push('Con aportes en varias fechas, estas dos rentabilidades son ganancia ÷ capital (no ponderadas por tiempo). La rentabilidad ponderada por tiempo está en el gráfico, período "Todo".');
   set('pfGananciaNota',notas.join(' '));
   if(el('pfCostosEditor')&&!el('pfCostosEditor').hidden)renderPfCostosEditor();
+}
+
+let pfTcSolicitud=null;
+function pintarPfCambio(official,v){
+  if(!document.getElementById('pfResultadoCambio'))return;
+  const tc=tcMercado>0?tcMercado:tcUsdPen;
+  const fecha=v.fuente==='YAHOO'?pfIso(new Date()):official.fecha_valoracion;
+  const modelo=pfModeloRentabilidadCambio({row:{...official,valor_total:v.valor,fecha_valoracion:fecha},
+    tcActual:tc,transacciones:datos.transacciones,cuentas:cuentasApp(),pagosTarjetas:datos.pagosTarjetas,
+    cuentasInversion:cuentasInversionHistoricas()});
+  renderPfResultadoCambio(modelo,{tcActual:tc,tcFuente:tcMercado>0?'mercado':'configurado',
+    tcFecha:tcMercado>0?tcMercadoFecha:'',valorFecha:v.fuente==='YAHOO'?pfIso(new Date(v.timestamp)):official.fecha_valoracion});
+  // El resultado se pinta sin esperar la red. Si aún falta el TC, sólo esta
+  // sección se actualiza cuando llega: no redibuja ni anima el gráfico.
+  if(!(tc>0)&&!pfTcSolicitud){
+    pfTcSolicitud=Promise.allSettled([cargarTcMercado(),leerTipoCambio()]).then(()=>{
+      const actual=pfCierreAnterior();
+      if(actual&&(tcMercado>0||tcUsdPen>0))pintarPfCambio(actual,obtenerValorActualPortafolio());
+    }).finally(()=>{pfTcSolicitud=null;});
+  }
 }
 
 // ── "Hoy" / 1D: una sola fuente de verdad ──────────────────────────────────
@@ -316,7 +341,8 @@ export function pfFmt(n,moneda){
 export async function togglePfMoneda(btn){
   pfMostrarPEN=!pfMostrarPEN;
   if(pfMostrarPEN&&!(tcMercado>0)){await cargarTcMercado().catch(()=>{});if(!(tcMercado>0))await leerTipoCambio().catch(()=>{});}
-  if(btn){btn.setAttribute('aria-pressed',String(pfMostrarPEN));btn.textContent=pfMostrarPEN?'Ver en dólares (US$)':'Ver en soles (S/)';}
+  if(btn){btn.setAttribute('aria-pressed',String(pfMostrarPEN));btn.textContent=pfMostrarPEN?'Ver en dólares (US$)':'Ver equivalencia en soles (S/)';}
+  const nota=document.getElementById('pfMonedaNota');if(nota)nota.hidden=!pfMostrarPEN;
   if(!pfHistoricoCache.length)return;
   renderPfResumen(pfHistoricoCache[pfHistoricoCache.length-1],pfUltimaSyncCache);
   pintarValorPrincipal();

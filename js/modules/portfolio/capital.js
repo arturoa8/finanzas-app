@@ -37,9 +37,13 @@ function pfTcAporteCercano(fechaIso,aportes){
 
 export function pfCostosInversion(){
   const aportes=pfAportesConDolares();
+  const inversiones=cuentasInversionHistoricas();
   const costos=[];
   (datos.transacciones||[]).forEach(t=>{
     if(t[15]!==true||(t[3]!=='Gasto'&&t[3]!=='Ingreso'))return;
+    // Las comisiones pagadas desde el propio portafolio ya reducen su valor.
+    // Sólo los costos externos aumentan el capital desembolsado adicional.
+    if(inversiones.some(c=>sameAccount(c,t[5]||'')))return;
     const signo=t[3]==='Gasto'?1:-1,fecha=pfIso(pf(t[0])),soles=signo*(Number(t[4])||0);
     let usd=null;
     if(t[9]==='USD'&&Number(t[10])>0)usd=signo*Number(t[10]);
@@ -111,7 +115,7 @@ export function pfAportesSinReflejar(official){
 function pfCandidatosCosto(){
   const cuentas=cuentasInversionHistoricas();
   const fechas=(datos.transacciones||[]).filter(t=>t[3]==='Transferencia'&&cuentas.some(c=>sameAccount(t[5]||'',c)||sameAccount(t[7]||'',c))).map(t=>+pf(t[0]));
-  return (datos.transacciones||[]).filter(t=>(t[3]==='Gasto'||t[3]==='Ingreso')&&(t[15]===true||fechas.some(f=>Math.abs(+pf(t[0])-f)<=3*864e5)))
+  return (datos.transacciones||[]).filter(t=>(t[3]==='Gasto'||t[3]==='Ingreso')&&!cuentas.some(c=>sameAccount(c,t[5]||''))&&(t[15]===true||fechas.some(f=>Math.abs(+pf(t[0])-f)<=3*864e5)))
     .sort((a,b)=>pf(b[0])-pf(a[0]));
 }
 
@@ -133,6 +137,10 @@ export function renderPfCostosEditor(){
 
 export async function pfMarcarCosto(id,marcado,input){
   const t=(datos.transacciones||[]).find(x=>String(x[6])===String(id));if(!t)return;
+  if(marcado&&cuentasInversionHistoricas().some(c=>sameAccount(c,t[5]||''))){
+    if(input)input.checked=false;
+    toast('Este costo ya está incluido en el valor de IBKR. No se suma de nuevo al capital.');return;
+  }
   if(input)input.disabled=true;
   try{
     const row=await sbUpdate('transacciones',id,{es_costo_inversion:marcado});
