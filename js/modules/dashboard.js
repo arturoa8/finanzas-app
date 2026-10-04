@@ -1,4 +1,4 @@
-// Inicio y Movimientos: resumen independiente del historial y sus filtros.
+// Inicio: resumen estable y detalle desplegable del historial.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {aportesNetosInversion, esCuentaInversion, esCuentaUSDNoInversion, fueraDePerimetro} from './accounts.js';
@@ -17,7 +17,7 @@ import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './tr
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
-import {abrirMesPicker, getMesActivo, setPg, vista} from '../ui/navigation.js';
+import {abrirMesPicker, getMesActivo, mostrarMovimientosInicio, vista} from '../ui/navigation.js';
 import {dayLabel, fmtDateShort, parseDateOnly, pf} from '../utils/dates.js';
 import {smoothSetText} from '../utils/dom.js';
 import {cleanName, esc, escHtml, fmt, fmtC, fmtMoneda, fmtN, getEmoji, meses, norm} from '../utils/formatters.js';
@@ -30,22 +30,9 @@ let filtroTipo='todos';
 let busqueda='';
 let filtroCuentaMovimientos=null;
 
-// El historial tiene su propio período y moneda. Buscar o filtrar aquí no
-// altera el balance, los KPI ni los últimos movimientos de Inicio.
-let periodoMovimientos={anio:new Date().getFullYear(),mes:new Date().getMonth()};
+// El detalle comparte el período de Inicio. Sus filtros se aplican solo a
+// categorías e historial, y conservan el balance y los KPI del resumen.
 let movimientosUSD=false;
-
-export function getPeriodoMovimientos(){return periodoMovimientos?{...periodoMovimientos}:null;}
-
-export function setPeriodoMovimientos(periodo){
-  if(periodo===null)periodoMovimientos=null;
-  else{
-    const anio=Number(periodo?.anio),mes=Number(periodo?.mes);
-    if(!Number.isInteger(anio)||anio<1||anio>9999||!Number.isInteger(mes)||mes<0||mes>11)return;
-    periodoMovimientos={anio,mes};
-  }
-  render();
-}
 
 export function toggleMovimientosUSD(){movimientosUSD=!movimientosUSD;render();}
 
@@ -55,11 +42,7 @@ export function filtrarCuentaMovimientos(){
 }
 
 function movimientosDelPeriodo(){
-  let tx=datos.transacciones;
-  if(periodoMovimientos){
-    const {anio,mes}=periodoMovimientos;
-    tx=tx.filter(t=>{const f=pf(t[0]);return f.getFullYear()===anio&&f.getMonth()===mes;});
-  }
+  let tx=filtrarInicio();
   if(movimientosUSD)tx=tx.filter(t=>
     (t[9]==='USD'&&Number(t[10])>0)||(t[3]==='Transferencia'&&t[13]==='USD'&&Number(t[14])>0));
   if(filtroCuentaMovimientos)tx=tx.filter(t=>norm(t[5])===norm(filtroCuentaMovimientos)
@@ -113,7 +96,6 @@ export function renderBase(){
   renderBal();
   renderCat();
   renderTx();
-  renderRecentTx();
   // Las otras páginas se pintan al abrirlas. Sus cálculos recorren el
   // historial completo y no deben retrasar el primer resumen de Inicio.
   const pagina=document.querySelector('.page.active')?.id;
@@ -155,11 +137,6 @@ function actualizarChips(){
     b.classList.toggle('active',modoBalance===modo);
     b.setAttribute('aria-selected',String(modoBalance===modo));
   });
-  const periodo=document.getElementById('txPeriodoLbl');
-  if(periodo){
-    const hoy=new Date(),p=periodoMovimientos;
-    periodo.textContent=!p?'Todo el tiempo':p.anio===hoy.getFullYear()&&p.mes===hoy.getMonth()?'Este mes':meses[p.mes]+' '+p.anio;
-  }
   [['todos','txTipoTodos'],['gastos','txTipoGastos'],['ingresos','txTipoIngresos'],['transferencias','txTipoTransferencias']].forEach(([tipo,id])=>{
     const b=document.getElementById(id);if(!b)return;
     b.classList.toggle('active',filtroTipo===tipo);
@@ -186,17 +163,13 @@ function actualizarChips(){
 }
 
 // === KPI PILLS COMO FILTROS ===
-export function togglePillTipo(t){
-  if(document.querySelector('.page.active')?.id==='p-dash'){
-    const ma=getMesActivo();
-    periodoMovimientos=vista==='mes'?{anio:ma.getFullYear(),mes:ma.getMonth()}:null;
+export function togglePillTipo(t,desdeResumen=false){
+  if(desdeResumen){
     movimientosUSD=verUSD;filtroCategoria=null;busqueda='';filtroCuentaMovimientos=null;
     const buscador=document.getElementById('searchInp');if(buscador)buscador.value='';
     filtroTipo=t;
-    setPg('tx');
-    return;
-  }
-  filtroTipo=filtroTipo===t?'todos':t;
+  }else filtroTipo=filtroTipo===t?'todos':t;
+  mostrarMovimientosInicio();
   render();
 }
 
@@ -418,14 +391,7 @@ function renderTx(){
   renderListaTx(movimientosVisibles(filtrar()),document.getElementById('txs'));
 }
 
-function renderRecentTx(){
-  const hoy=new Date();hoy.setHours(23,59,59,999);
-  const tx=filtrarInicio().filter(t=>t[3]!=='Reembolso'&&pf(t[0])<=hoy)
-    .sort((a,b)=>pf(b[0])-pf(a[0])).slice(0,5);
-  renderListaTx(tx,document.getElementById('recentTxs'),false);
-}
-
-function renderListaTx(tx,l,mostrarTotales=true){
+function renderListaTx(tx,l){
   if(!l)return;
   if(tx.length===0){l.innerHTML='<div class="empty">Sin transacciones</div>';return;}
   const o=[...tx].sort((a,b)=>pf(b[0])-pf(a[0]));
@@ -446,7 +412,7 @@ function renderListaTx(tx,l,mostrarTotales=true){
     const totalCls=net>=0?'in':'out';
     const totalSign=net>=0?'+':'−';
     const items=g.items.map(filaTxPrincipal).join('');
-    const total=mostrarTotales?`<span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span>`:'';
+    const total=`<span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span>`;
     return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span>${total}</div>${items}</div>`;
   }).join('');
 }
@@ -461,11 +427,27 @@ function renderRec(){
   }).join('');
 }
 
-export function toggleSearch(){
-  if(document.querySelector('.page.active')?.id!=='p-tx')setPg('tx');
+export function ocultarBusquedaInicio(){
   const w=document.getElementById('searchWrap');
-  w?.classList.add('show');
-  document.getElementById('searchInp')?.focus();
+  if(w){w.hidden=true;w.classList.remove('show');}
+  const buscador=document.getElementById('searchInp');
+  if(buscador)buscador.value='';
+  busqueda='';
+  document.getElementById('searchToggle')?.setAttribute('aria-expanded','false');
+}
+
+export function toggleSearch(){
+  mostrarMovimientosInicio();
+  const w=document.getElementById('searchWrap');
+  if(!w)return;
+  const mostrar=w.hidden||!w.classList.contains('show');
+  w.hidden=!mostrar;w.classList.toggle('show',mostrar);
+  document.getElementById('searchToggle')?.setAttribute('aria-expanded',String(mostrar));
+  const buscador=document.getElementById('searchInp');
+  if(mostrar)buscador?.focus();
+  else{
+    ocultarBusquedaInicio();render();
+  }
 }
 
 export function filtrarBusqueda(){busqueda=document.getElementById('searchInp').value;render();}

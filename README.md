@@ -2,6 +2,13 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.04.03
+
+- Inicio abre con el resumen del saldo, sin una vista previa de movimientos. Un segundo toque en Inicio despliega el historial y las categorías con una animación; otro toque vuelve a plegarlos.
+- La navegación principal es Inicio, Portafolio, Tarjetas, Estadísticas y Más. Más conserva sus accesos a Estadísticas, Presupuestos, Deudas y Configuración; Presupuestos mantiene su página independiente.
+- Configuración se abre desde Más. El buscador permanece oculto hasta tocar la lupa y se limpia y oculta al plegar el historial.
+- El historial comparte el período de Inicio. Sus filtros de cuenta, categoría, tipo y dólares, y la búsqueda, conservan el balance y los indicadores del resumen.
+
 ## Versión 2026.10.04.02
 
 - Inicio muestra el resumen y los cinco movimientos más recientes de su período. Movimientos tiene su propia página con búsqueda, período, cuenta, categoría, tipo y filtro de dólares; sus filtros no cambian el resumen y conserva el desplazamiento al volver.

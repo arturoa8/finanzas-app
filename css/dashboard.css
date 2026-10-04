@@ -59,8 +59,12 @@
 .mp-cell-no-data .mp-cell-val{visibility:hidden;}
 .mp-aplicar{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto;background:var(--red);color:#fff;border:none;border-radius:30px;padding:14px 36px;font-size:0.95rem;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 20px rgba(255,59,107,0.35);}
 .mp-aplicar:active{transform:scale(0.97);}
-.recent-section{grid-column:1/-1;}
-.recent-section .s-title{margin:0;}
+.home-movements{grid-column:1/-1;display:grid;grid-template-rows:0fr;opacity:0;transform:translateY(10px);transition:grid-template-rows .34s cubic-bezier(.2,.7,.2,1),opacity .26s ease,transform .34s ease;}
+.home-movements.expanded{grid-template-rows:1fr;opacity:1;transform:translateY(0);}
+.home-movements-inner{min-height:0;min-width:0;overflow:hidden;}
+.home-movements-body{padding-top:24px;}
+.home-movements-body>.s-head .s-title{margin:0;}
+@media(prefers-reduced-motion:reduce){.home-movements{transition:none;transform:none;}}
 .movements-filters{display:grid;gap:12px;margin-bottom:16px;}
 .movements-period,.movements-types{display:flex;gap:8px;flex-wrap:wrap;}
 .movements-filters .mp-pill{min-height:42px;padding:10px 14px;font-size:.8rem;}
@@ -68,7 +72,7 @@
 .movements-account label{font-size:.8rem;color:var(--dim);}
 .movements-account .sel{min-width:0;}
 .movements-types .mp-pill.active,#txUsd.active{background:var(--card2);border-color:var(--accent);color:var(--accent);}
-.nav #nav-tx{letter-spacing:0;}
+.nav #nav-bud{letter-spacing:0;}
 .mc-title-big{font-size:1.5rem;font-weight:800;letter-spacing:-0.02em;color:var(--text);}
 
 /* Section */

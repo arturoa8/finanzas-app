@@ -6,8 +6,8 @@ const {entornoPrueba,modulo,appRoot}=require('./helpers/app-root.cjs');
 entornoPrueba();process.env.TZ='America/Lima';
 const timerReal=setTimeout;
 const nodos=new Map(),pinturas=new Map(),rafPendientes=[],peticiones=[];
-const paginas=['dash','tx','ana','card','bud','pres','deb'];
-const principales=['dash','tx','ana','card','more'];
+const paginas=['dash','ana','card','bud','pres','deb'];
+const principales=['dash','ana','card','bud','more'];
 const eventosDocumento=new Map();
 
 function nodo(id){
@@ -25,7 +25,8 @@ function nodo(id){
     },
     get textContent(){return texto;},set textContent(v){texto=String(v);pinturas.set(id,(pinturas.get(id)||0)+1);},
     get value(){return valor;},set value(v){valor=String(v??'');},
-    setAttribute(k,v){attrs.set(k,String(v));},getAttribute:k=>attrs.get(k)??null,removeAttribute:k=>attrs.delete(k),hasAttribute:k=>attrs.has(k),
+    setAttribute(k,v){attrs.set(k,String(v));if(k==='inert'||k==='hidden')this[k]=true;},getAttribute:k=>attrs.get(k)??null,
+    removeAttribute(k){attrs.delete(k);if(k==='inert'||k==='hidden')this[k]=false;},hasAttribute:k=>attrs.has(k),
     querySelector:()=>null,querySelectorAll:()=>[],getClientRects:()=>[{}],closest:()=>null,contains:()=>false,
     getBoundingClientRect:()=>({top:0,bottom:640,left:0,right:390,width:390,height:640}),
     focus(){document.activeElement=this;},blur(){if(document.activeElement===this)document.activeElement=null;},
@@ -55,6 +56,9 @@ globalThis.fetch=async(url,opts={})=>{
 };
 for(const p of principales){el('nav-'+p).dataset.page=p;el('nav-'+p).classList.add('nt');}
 el('p-dash').classList.add('active');el('nav-dash').classList.add('active');
+el('homeMovements').inert=true;
+el('homeMovements').contains=n=>['searchInp','txCuenta','txs','cats','searchCount'].includes(n?.id);
+el('searchInp').closest=s=>s==='#homeMovements'||s==='.home-movements'?el('homeMovements'):null;
 el('iMoneda').value='PEN';
 localStorage.setItem('sb_session',JSON.stringify({user_id:'usuario-demo',access_token:'token-demo',expires_at:Date.now()+3600000}));
 
@@ -67,7 +71,7 @@ async function pintarPendientes(){
   assert.fail('La navegación no termina de restaurar el desplazamiento');
 }
 function cerrarModales(){for(const id of ['modal','modalDeuda','cardPaymentModal','presupuestoModal','settingsModal','moreModal'])el(id).classList.remove('active');}
-function principalEsperado(p){return ['bud','pres','deb'].includes(p)?'more':p;}
+function principalEsperado(p){return ['pres','deb'].includes(p)?'more':p;}
 function comprobarPagina(p){
   assert.equal(activa()?.id,'p-'+p);
   assert.equal(paginas.filter(x=>el('p-'+x).classList.contains('active')).length,1,'una sola página visible');
@@ -86,24 +90,42 @@ function comprobarPagina(p){
   const ids=[...indice.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
   assert.equal(new Set(ids).size,ids.length,'el historial movido no duplica IDs con Inicio');
   const navIds=[...indice.matchAll(/<button\b[^>]*\bid="(nav-[^"]+)"/g)].map(m=>m[1]);
-  assert.deepEqual(navIds,['nav-dash','nav-tx','nav-ana','nav-card','nav-more']);
+  assert.deepEqual(navIds,['nav-dash','nav-ana','nav-card','nav-bud','nav-more']);
   const seccion=p=>{
     const inicio=indice.indexOf('id="p-'+p+'"');assert.ok(inicio>=0,'existe '+p);
     const despues=indice.slice(inicio).search(/\n<div class="page(?: active)?"/);
     return indice.slice(inicio,despues<0?indice.indexOf('<!-- FAB -->',inicio):inicio+despues);
   };
-  assert.match(seccion('tx'),/id="txs"/);assert.doesNotMatch(seccion('dash'),/id="txs"/);
+  assert.doesNotMatch(indice,/id="p-tx"|id="recentTxs"/);
+  assert.match(seccion('dash'),/id="homeMovements"[^>]*\binert\b/);assert.match(seccion('dash'),/id="txs"/);assert.match(seccion('dash'),/id="cats"/);
   assert.match(seccion('pres'),/id="presupuestosSeccion"/);assert.doesNotMatch(seccion('bud'),/id="presupuestosSeccion"/);
   assert.match(indice,/<button\b[^>]*id="nav-more"[^>]*aria-controls="moreModal"/);
 
-  // Abrir/cerrar Más conserva el lugar de lectura de Movimientos.
-  nav.setPg('tx');await pintarPendientes();comprobarPagina('tx');
+  // Inicio se muestra compacto al entrar; volver a tocarlo revela el historial.
+  nav.setPg('card');await pintarPendientes();
+  nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');
+  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
+  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'false');
+  nav.setPg('dash');await pintarPendientes();
+  assert.equal(el('homeMovements').classList.contains('expanded'),true);assert.equal(el('homeMovements').inert,false);
+  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'true');
+  nav.mostrarMovimientosInicio();nav.mostrarMovimientosInicio();await pintarPendientes();
+  assert.equal(el('homeMovements').classList.contains('expanded'),true,'mostrar varias veces no vuelve a ocultar');
+  document.activeElement=el('searchInp');nav.alternarMovimientosInicio();await pintarPendientes();
+  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
+  assert.equal(document.activeElement,el('nav-dash'),'al cerrar el buscador no queda foco dentro del contenido inert');
+  nav.setPg('tx');await pintarPendientes();comprobarPagina('dash');
+  assert.equal(el('homeMovements').classList.contains('expanded'),true,'el antiguo destino tx abre Inicio con historial');
+  console.log('PASS: Inicio compacto, segundo toque, cierre accesible y alias de Movimientos.');
+
+  // Abrir/cerrar Más conserva el lugar de lectura del historial desplegado.
   window.scrollY=725;
   nav.abrirMas();
-  assert.equal(el('moreModal').classList.contains('active'),true);assert.equal(activa().id,'p-tx');assert.equal(window.scrollY,725);
+  assert.equal(el('moreModal').classList.contains('active'),true);assert.equal(activa().id,'p-dash');assert.equal(window.scrollY,725);
   assert.equal(el('nav-more').getAttribute('aria-expanded'),'true');
   nav.cerrarMas();
-  assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(activa().id,'p-tx');assert.equal(window.scrollY,725);
+  assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(activa().id,'p-dash');assert.equal(window.scrollY,725);
+  assert.equal(el('homeMovements').classList.contains('expanded'),true);
   assert.equal(el('nav-more').getAttribute('aria-expanded'),'false');
   console.log('PASS: Más abre y cierra sin cambiar página ni desplazamiento.');
 
@@ -122,48 +144,64 @@ function comprobarPagina(p){
   pres.cerrarPresupuestoForm();
   console.log('PASS: Estadísticas y Presupuestos independientes; FAB crea presupuesto.');
 
-  // Volver desde una secundaria restaura Movimientos tras el nuevo pintado.
-  nav.setPg('tx');await pintarPendientes();comprobarPagina('tx');assert.equal(window.scrollY,725);
-  window.scrollY=1080;nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');assert.equal(window.scrollY,0);
-  nav.setPg('tx');await pintarPendientes();comprobarPagina('tx');assert.equal(window.scrollY,1080);
-  // Navegación inmediata cancela restauraciones viejas de Portafolio.
+  // Volver a Inicio desde otra vista lo presenta compacto y desde arriba.
+  nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');assert.equal(window.scrollY,0);
+  assert.equal(el('homeMovements').classList.contains('expanded'),false);assert.equal(el('homeMovements').inert,true);
+  nav.mostrarMovimientosInicio();await pintarPendientes();
+  nav.setPg('card');
+  assert.equal(el('homeMovements').classList.contains('expanded'),false,'salir de Inicio cierra su panel');
+  assert.equal(el('nav-dash').getAttribute('aria-expanded'),'false','Inicio no anuncia un panel oculto por otra página');
+  nav.setPg('dash');await pintarPendientes();
+  assert.equal(el('homeMovements').classList.contains('expanded'),false,'volver desde Tarjetas no conserva un historial abierto');
+  // Navegación inmediata cancela trabajos viejos de Portafolio.
   nav.setPg('ana');assert.equal(el('fab').hidden,true);
-  nav.setPg('tx');await pintarPendientes();comprobarPagina('tx');assert.equal(window.scrollY,1080,'Portafolio no reinicia el scroll después de volver');
-  console.log('PASS: Movimientos conserva scroll y una carga anterior no lo sobrescribe.');
+  nav.mostrarMovimientosInicio();await pintarPendientes();comprobarPagina('dash');
+  assert.equal(el('homeMovements').classList.contains('expanded'),true,'la carga anterior no vuelve a colapsar el historial');
+  console.log('PASS: regresar a Inicio colapsa el historial; abrirlo cancela navegación anterior.');
 
   // Cada acción flotante abre únicamente su formulario contextual.
-  for(const [p,modal,label] of [['dash','modal','Nueva transacción'],['tx','modal','Nueva transacción'],['card','cardPaymentModal','Registrar pago'],['deb','modalDeuda','Nueva deuda']]){
+  for(const [p,modal,label] of [['dash','modal','Nueva transacción'],['card','cardPaymentModal','Registrar pago'],['deb','modalDeuda','Nueva deuda']]){
     cerrarModales();nav.setPg(p);await pintarPendientes();comprobarPagina(p);
     assert.equal(el('fab').hidden,false);assert.equal(el('fab').getAttribute('aria-label'),label);
     nav.handleFab();assert.equal(el(modal).classList.contains('active'),true);
     for(const otro of ['modal','modalDeuda','cardPaymentModal','presupuestoModal'])if(otro!==modal)assert.equal(el(otro).classList.contains('active'),false,p+' no abre '+otro);
   }
   cerrarModales();
-  console.log('PASS: FAB contextual en Inicio, Movimientos, Tarjetas y Deudas.');
+  // Los formularios tienen foco aplazado; terminarlo antes de comprobar el buscador.
+  await new Promise(r=>timerReal(r,110));
+  console.log('PASS: FAB contextual en Inicio, Tarjetas y Deudas.');
 
   // Configuración se abre como modal desde Más, sin cambiar el destino activo.
-  nav.setPg('tx');await pintarPendientes();window.scrollY=420;
+  nav.mostrarMovimientosInicio();await pintarPendientes();window.scrollY=420;
   nav.abrirMas();nav.abrirConfiguracionDesdeMas();
   assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(el('settingsModal').classList.contains('active'),true);
-  assert.equal(activa().id,'p-tx');assert.equal(window.scrollY,420);
+  assert.equal(activa().id,'p-dash');assert.equal(window.scrollY,420);assert.equal(el('homeMovements').classList.contains('expanded'),true);
   console.log('PASS: Configuración desde Más conserva la página y no escribe datos.');
 
-  // El mismo calendario edita únicamente el período desde el que se abrió.
+  // Resumen e historial de Inicio comparten el mismo período del calendario.
   cerrarModales();
-  const inicioOriginal=nav.getMesActivo(),movimientosOriginal=dashboard.getPeriodoMovimientos();
+  const inicioOriginal=nav.getMesActivo();
+  datos.transacciones=[
+    [String(inicioOriginal.getFullYear()-1)+'-09-01','Gasto septiembre','Compras','Gasto',10,'Plin','septiembre-demo'],
+    [String(inicioOriginal.getFullYear()-1)+'-10-01','Gasto octubre','Compras','Gasto',20,'Plin','octubre-demo'],
+  ];
   nav.abrirMesPicker('movimientos');nav.cambiarAnioPicker(-1);nav.seleccionarMesPicker(8);nav.aplicarMesPicker();
-  assert.deepEqual(dashboard.getPeriodoMovimientos(),{anio:movimientosOriginal.anio-1,mes:8});
-  assert.equal(nav.getMesActivo().getTime(),inicioOriginal.getTime(),'cambiar Movimientos conserva el resumen de Inicio');
-  assert.equal(nav.vista,'mes');
-  const movimientosElegidos=dashboard.getPeriodoMovimientos();
-  nav.abrirMesPicker();nav.cambiarAnioPicker(-2);nav.seleccionarMesPicker(2);nav.aplicarMesPicker();
-  assert.equal(nav.getMesActivo().getFullYear(),inicioOriginal.getFullYear()-2);assert.equal(nav.getMesActivo().getMonth(),2);
-  assert.deepEqual(dashboard.getPeriodoMovimientos(),movimientosElegidos,'cambiar Inicio conserva el período del historial');
-  const inicioElegido=nav.getMesActivo().getTime();
+  assert.equal(nav.getMesActivo().getFullYear(),inicioOriginal.getFullYear()-1);assert.equal(nav.getMesActivo().getMonth(),8);assert.equal(nav.vista,'mes');
+  assert.deepEqual(dashboard.filtrarInicio().map(t=>t[6]),['septiembre-demo']);
+  assert.deepEqual(dashboard.filtrar().map(t=>t[6]),dashboard.filtrarInicio().map(t=>t[6]),'historial y resumen usan el mismo mes');
   nav.abrirMesPicker('movimientos');nav.seleccionarTodoTiempo();nav.aplicarMesPicker();
-  assert.equal(dashboard.getPeriodoMovimientos(),null);assert.equal(nav.vista,'mes');assert.equal(nav.getMesActivo().getTime(),inicioElegido);
-  dashboard.setPeriodoMovimientos(movimientosOriginal);
-  nav.abrirMesPicker();nav.seleccionarTodoTiempo();nav.aplicarMesPicker();
-  assert.equal(nav.vista,'total');assert.deepEqual(dashboard.getPeriodoMovimientos(),movimientosOriginal);
-  console.log('PASS: calendarios de Inicio y Movimientos independientes, incluidos todos los períodos.');
+  assert.equal(nav.vista,'total');assert.equal(el('chipPeriodoLbl').textContent,'Todo el tiempo');
+  assert.deepEqual(dashboard.filtrar().map(t=>t[6]),['septiembre-demo','octubre-demo']);
+  assert.deepEqual(dashboard.filtrar().map(t=>t[6]),dashboard.filtrarInicio().map(t=>t[6]));
+  console.log('PASS: calendario compartido por el resumen y el historial de Inicio.');
+
+  // Buscar abre el historial incluso si estaba cerrado, sin alternar al repetir.
+  nav.alternarMovimientosInicio();await pintarPendientes();assert.equal(el('homeMovements').inert,true);
+  dashboard.toggleSearch();await pintarPendientes();await new Promise(r=>timerReal(r,110));
+  assert.equal(el('homeMovements').classList.contains('expanded'),true);assert.equal(el('homeMovements').inert,false);
+  assert.equal(document.activeElement,el('searchInp'));
+  dashboard.toggleSearch();await pintarPendientes();assert.equal(el('homeMovements').classList.contains('expanded'),true);
+  const estilos=['dashboard.css','theme.css'].map(f=>fs.readFileSync(path.join(appRoot,'css',f),'utf8')).join('\n');
+  assert.match(estilos,/@media\s*\(prefers-reduced-motion:\s*reduce\)/,'se respeta la preferencia de movimiento reducido');
+  console.log('PASS: buscar revela el historial sin cerrarlo y se respeta movimiento reducido.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{globalThis.setTimeout=timerReal;});

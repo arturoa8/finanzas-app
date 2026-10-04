@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.04.02">
+<meta name="version-app" content="2026.10.04.03">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -152,10 +152,7 @@ try{
     <header class="header">
       <div class="logo">Mis <span>Finanzas</span></div>
       <div class="actions-row">
-        <button class="icon-btn" onclick="abrirConfiguracion()" aria-label="Abrir configuración" title="Configuración">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-        <button class="icon-btn" onclick="toggleSearch()" aria-label="Buscar">
+        <button class="icon-btn" id="searchToggle" onclick="toggleSearch()" aria-label="Buscar" aria-controls="searchWrap" aria-expanded="false">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
         <button class="icon-btn" id="refreshBtn" onclick="cargar()" aria-label="Actualizar">
@@ -175,8 +172,8 @@ try{
         <div class="currency">S/</div>
       </div>
       <div class="kpi-row" id="kpiRow">
-        <div class="kpi neg" id="kpiOut" onclick="togglePillTipo('gastos')">- S/ 0</div>
-        <div class="kpi pos" id="kpiIn" onclick="togglePillTipo('ingresos')">+ S/ 0</div>
+        <div class="kpi neg" id="kpiOut" onclick="togglePillTipo('gastos',true)">- S/ 0</div>
+        <div class="kpi pos" id="kpiIn" onclick="togglePillTipo('ingresos',true)">+ S/ 0</div>
         <button type="button" class="kpi kpi-usd" id="btnUsd" aria-pressed="false" aria-label="Ver en dólares" onclick="toggleVistaUSD()">US$</button>
       </div>
       <div class="bal-nota" id="balNota" hidden></div>
@@ -193,19 +190,15 @@ try{
       <button class="seg-btn" id="segPatrimonio" role="tab" aria-selected="false" onclick="setModoBalance('patrimonio')">Patrimonio</button>
     </div>
 
-    <div class="section recent-section">
-      <div class="s-head"><h2 class="s-title">Últimos movimientos</h2><button type="button" class="pay-small-btn" onclick="setPg('tx')">Ver todos →</button></div>
-      <div id="recentTxs"></div>
+    <div class="home-movements" id="homeMovements" inert aria-hidden="true">
+      <div class="home-movements-inner">
+        <div class="home-movements-body">
+          <div class="s-head"><h2 class="s-title">Movimientos</h2><button type="button" class="pay-small-btn" onclick="alternarMovimientosInicio()">Ocultar ⌃</button></div>
+    <div class="search-wrap" id="searchWrap" hidden>
+      <input type="text" class="search-inp" id="searchInp" aria-label="Buscar movimientos" placeholder="Buscar descripción, categoría, cuenta o monto…" oninput="filtrarBusqueda()">
     </div>
-  </div>
-</div>
-
-<!-- MOVIMIENTOS -->
-<div class="page" id="p-tx">
-  <div class="container">
-    <header class="header"><div class="page-title">Movimientos</div><button type="button" class="icon-btn" onclick="cargar()" aria-label="Actualizar movimientos"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.4 2.6L21 8"/><path d="M21 3v5h-5"/></svg></button></header>
     <div class="movements-filters">
-      <div class="movements-period"><button type="button" class="mp-pill" onclick="abrirMesPicker('movimientos')" aria-label="Seleccionar período de movimientos"><span id="txPeriodoLbl">Este mes</span> ⌄</button><button type="button" class="mp-pill" id="txUsd" aria-label="Mostrar solo movimientos en dólares" aria-pressed="false" onclick="toggleMovimientosUSD()">Solo US$</button></div>
+      <div class="movements-period"><button type="button" class="mp-pill" id="txUsd" aria-label="Mostrar solo movimientos en dólares" aria-pressed="false" onclick="toggleMovimientosUSD()">Solo US$</button></div>
       <div class="movements-types" aria-label="Tipo de movimiento">
         <button type="button" class="mp-pill active" id="txTipoTodos" aria-pressed="true" onclick="togglePillTipo('todos')">Todos</button>
         <button type="button" class="mp-pill" id="txTipoGastos" aria-pressed="false" onclick="togglePillTipo('gastos')">Gastos</button>
@@ -214,9 +207,7 @@ try{
       </div>
       <div class="movements-account"><label for="txCuenta">Cuenta</label><select class="sel" id="txCuenta" onchange="filtrarCuentaMovimientos()"><option value="">Todas las cuentas</option></select></div>
     </div>
-    <div class="search-wrap show" id="searchWrap">
-      <input type="text" class="search-inp" id="searchInp" aria-label="Buscar movimientos" placeholder="Buscar descripción, categoría, cuenta o monto…" oninput="filtrarBusqueda()">
-    </div>
+
 
     <div id="filterPill"></div>
 
@@ -226,8 +217,12 @@ try{
     </div>
 
     <div class="section">
-      <div class="s-head"><div class="s-title">Historial</div></div>
+      <div class="s-head"><div class="s-title">Todos los movimientos</div></div>
       <div id="searchCount" class="s-sub" aria-live="polite"></div><div id="txs"></div>
+    </div>
+
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -908,13 +903,9 @@ try{
 
 <!-- Bottom nav (5 tabs) -->
 <nav class="nav" aria-label="Navegación principal">
-  <button type="button" class="nt active" id="nav-dash" data-page="dash" aria-current="page" onclick="setPg('dash',this)">
+  <button type="button" class="nt active" id="nav-dash" data-page="dash" aria-current="page" aria-controls="homeMovements" aria-expanded="false" onclick="setPg('dash',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
     Inicio
-  </button>
-  <button type="button" class="nt" id="nav-tx" data-page="tx" onclick="setPg('tx',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l3 3v15H5V3z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-    Movimientos
   </button>
   <button type="button" class="nt" id="nav-ana" data-page="ana" onclick="setPg('ana',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -923,6 +914,10 @@ try{
   <button type="button" class="nt" id="nav-card" data-page="card" onclick="setPg('card',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
     Tarjetas
+  </button>
+  <button type="button" class="nt" id="nav-bud" data-page="bud" onclick="setPg('bud',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+    Estadísticas
   </button>
   <button type="button" class="nt" id="nav-more" data-page="more" aria-haspopup="dialog" aria-controls="moreModal" aria-expanded="false" onclick="abrirMas()">
     <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
