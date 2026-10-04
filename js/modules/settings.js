@@ -14,7 +14,7 @@ const APP_PREFS_KEY='finanzas.appearance.v1';
 // usa la última. index.html repite el número en <meta name="version-app">
 // (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
 // una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
-export const VERSION_APP='2026.10.03.18';
+export const VERSION_APP='2026.10.04.01';
 
 function pintarVersion(){
   const el=document.getElementById('settingsVersion');if(!el)return;
@@ -51,10 +51,16 @@ export function abrirConfiguracion(seccion){
  cancelarCategoria();
  renderCategoriasConfig();
  pintarVersion();
- document.getElementById('settingsModal').classList.add('active');
+ const modal=document.getElementById('settingsModal');
+ modal.querySelectorAll('.settings-group,.settings-help').forEach(grupo=>{grupo.open=false;});
+ modal.classList.add('active');
+ const hoja=modal.querySelector('.mc');
+ if(hoja)hoja.scrollTop=0;
  if(seccion==='cuentas'||seccion==='categorias'){
   const s=document.getElementById(seccion==='cuentas'?'cuentasConfigSection':'categoriasConfigSection');
-  if(s)setTimeout(()=>s.scrollIntoView({block:'start',behavior:'smooth'}),60);
+  const grupo=s?.closest('.settings-group');
+  if(grupo)grupo.open=true;
+  if(s)setTimeout(()=>s.scrollIntoView({block:'nearest',behavior:'smooth'}),60);
  }
 }
 

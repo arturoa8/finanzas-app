@@ -83,7 +83,7 @@ function renderMesPickerGrid(){
       valStr=(v<0?'-S/ ':'S/ ')+cstr;
       valCls=v>=0?'in':'out';
     }
-    return `<div class="mp-cell ${sel?'selected':''} ${empty?'empty':''}" onclick="seleccionarMesPicker(${i})"><div class="mp-cell-mes">${mc}.</div><div class="mp-cell-val ${valCls}">${valStr||'S/ 0'}</div></div>`;
+    return `<div class="mp-cell ${sel?'selected':''} ${empty?'mp-cell-no-data':''}" onclick="seleccionarMesPicker(${i})"><div class="mp-cell-mes">${mc}.</div><div class="mp-cell-val ${valCls}">${valStr||'S/ 0'}</div></div>`;
   }).join('');
 }
 

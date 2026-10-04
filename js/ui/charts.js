@@ -14,8 +14,7 @@ let chartTipo='bar';
 
 export function setChart(t,b){
   chartTipo=t;
-  // segundas tabs
-  const tabs=document.querySelectorAll('#p-bud .an-tabs')[1];
+  const tabs=document.getElementById('statsChartTabs')||b.closest?.('.an-tabs');
   if(tabs){tabs.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));}
   b.classList.add('active');
   renderChart();

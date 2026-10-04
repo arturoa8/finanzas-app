@@ -5,6 +5,11 @@
 .an-tabs{display:flex;gap:8px;margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;}
 .antb{flex:1;padding:10px;background:transparent;border:none;color:var(--muted);font-size:0.8rem;font-weight:600;cursor:pointer;border-radius:10px;font-family:inherit;}
 .antb.active{background:var(--card2);color:var(--text);}
+/* La vista y el período son controles independientes. */
+.stats-view-tabs{margin-bottom:20px;}
+.stats-view-tabs .antb{min-height:42px;font-size:.88rem;}
+.stats-view-tabs .antb:focus-visible{outline:2px solid var(--green);outline-offset:-2px;}
+#statsPanelResumen[hidden],#statsPanelPresupuestos[hidden]{display:none;}
 .metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
 .metric{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;}
 .metric.full{grid-column:1/-1;}
@@ -41,7 +46,7 @@
 .balance-guide .balance-scope strong{color:var(--text);}
 @media(min-width:700px){.balance-guide-content dl{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;}}
 
-/* Presupuestos: primera sección de Estadísticas. Las tarjetas reutilizan
+/* Presupuestos: vista propia de Estadísticas. Las tarjetas reutilizan
    .bitem/.bbar/.bfill; el estado se dice con texto, no solo con color. */
 .pres-section{margin:0 0 28px;}
 .pres-head{align-items:flex-start;gap:12px;}

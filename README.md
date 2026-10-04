@@ -2,6 +2,13 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.04.01
+
+- El calendario conserva el tamaño de sus celdas en los meses sin movimientos y mantiene «Aplicar» visible al desplazarse dentro del modal.
+- Estadísticas separa «Resumen» y «Presupuestos» en pestañas, con navegación mediante teclado.
+- Configuración agrupa cuentas, categorías, preferencias y datos en secciones desplegables; las explicaciones extensas se consultan bajo demanda.
+- Patrimonio conserva el tamaño de la tarjeta mientras carga los valores.
+
 ## Versión 2026.10.03.16
 
 - Presupuestos en Estadísticas: general o por categoría, mensuales (mes calendario) o semanales (lunes a domingo), con repetición. Cada tarjeta muestra gastado, límite, porcentaje real, disponible o exceso, y avisa desde el 80 %.

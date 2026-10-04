@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.03.18">
+<meta name="version-app" content="2026.10.04.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -363,23 +363,13 @@ try{
   <div class="container">
     <header class="header"><div class="page-title">Estadísticas</div></header>
 
-    <section class="pres-section" id="presupuestosSeccion" aria-labelledby="presTitulo">
-      <div class="s-head pres-head"><div><h2 class="s-title" id="presTitulo">Presupuestos</h2><div class="s-sub" id="presGastado"></div></div><button type="button" class="line-edit-btn" onclick="abrirNuevoPresupuesto()">＋ Crear presupuesto</button></div>
-      <div class="an-tabs pres-tabs" role="tablist" aria-label="Tipo de período">
-        <button type="button" class="antb active" id="presTabMes" role="tab" aria-selected="true" onclick="setPresVista('mensual')">Mes</button>
-        <button type="button" class="antb" id="presTabSemana" role="tab" aria-selected="false" onclick="setPresVista('semanal')">Semana</button>
-      </div>
-      <div class="pres-nav">
-        <button type="button" class="icon-btn" onclick="moverPresPeriodo(-1)" aria-label="Período anterior">‹</button>
-        <div class="pres-nav-label" aria-live="polite"><strong id="presPeriodoNombre">Este mes</strong><span id="presPeriodoFechas"></span></div>
-        <button type="button" class="icon-btn" onclick="moverPresPeriodo(1)" aria-label="Período siguiente">›</button>
-      </div>
-      <button type="button" class="pres-actual" id="presActual" onclick="irPresPeriodoActual()" hidden>Ir a este mes</button>
-      <div id="presupuestosLista"></div>
-    </section>
-
+    <div class="an-tabs stats-view-tabs" id="statsViewTabs" role="tablist" aria-label="Vista de estadísticas">
+      <button type="button" class="antb active" id="statsTabResumen" role="tab" aria-selected="true" aria-controls="statsPanelResumen" tabindex="0" onclick="setEstadisticasVista('resumen')">Resumen</button>
+      <button type="button" class="antb" id="statsTabPresupuestos" role="tab" aria-selected="false" aria-controls="statsPanelPresupuestos" tabindex="-1" onclick="setEstadisticasVista('presupuestos')">Presupuestos</button>
+    </div>
+    <div id="statsPanelResumen" class="stats-panel" role="tabpanel" aria-labelledby="statsTabResumen">
     <div class="s-head an-head"><h2 class="s-title">Resumen</h2></div>
-    <div class="an-tabs">
+    <div class="an-tabs" id="statsPeriodoTabs">
       <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
       <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
     </div>
@@ -400,7 +390,7 @@ try{
 
     <div class="chart-card">
       <div class="s-head" style="margin-bottom:14px"><div class="s-title">Gastos por categoría</div></div>
-      <div class="an-tabs" style="margin-bottom:12px">
+      <div class="an-tabs" id="statsChartTabs" style="margin-bottom:12px">
         <button class="antb active" onclick="setChart('bar',this)">Barras</button>
         <button class="antb" onclick="setChart('donut',this)">Circular</button>
         <button class="antb" onclick="setChart('trend',this)">Tendencia</button>
@@ -428,6 +418,23 @@ try{
         </div>
       </details>
     </div>
+    </div>
+    <div id="statsPanelPresupuestos" class="stats-panel" role="tabpanel" aria-labelledby="statsTabPresupuestos" hidden>
+    <section class="pres-section" id="presupuestosSeccion" aria-labelledby="presTitulo">
+      <div class="s-head pres-head"><div><h2 class="s-title" id="presTitulo">Presupuestos</h2><div class="s-sub" id="presGastado"></div></div><button type="button" class="line-edit-btn" onclick="abrirNuevoPresupuesto()">＋ Crear presupuesto</button></div>
+      <div class="an-tabs pres-tabs" role="tablist" aria-label="Tipo de período">
+        <button type="button" class="antb active" id="presTabMes" role="tab" aria-selected="true" onclick="setPresVista('mensual')">Mes</button>
+        <button type="button" class="antb" id="presTabSemana" role="tab" aria-selected="false" onclick="setPresVista('semanal')">Semana</button>
+      </div>
+      <div class="pres-nav">
+        <button type="button" class="icon-btn" onclick="moverPresPeriodo(-1)" aria-label="Período anterior">‹</button>
+        <div class="pres-nav-label" aria-live="polite"><strong id="presPeriodoNombre">Este mes</strong><span id="presPeriodoFechas"></span></div>
+        <button type="button" class="icon-btn" onclick="moverPresPeriodo(1)" aria-label="Período siguiente">›</button>
+      </div>
+      <button type="button" class="pres-actual" id="presActual" onclick="irPresPeriodoActual()" hidden>Ir a este mes</button>
+      <div id="presupuestosLista"></div>
+    </section>
+    </div>
   </div>
 </div>
 
@@ -452,7 +459,8 @@ try{
 
 <!-- MES PICKER MODAL -->
 <div class="modal centered" id="mesPicker">
-  <div class="mc compact-mc">
+  <div class="mc compact-mc calendar-sheet">
+    <div class="calendar-body">
     <div class="mc-top">
       <div class="mc-title-big">Mes</div>
       <button class="mh-x" onclick="cerrarMesPicker()">
@@ -468,9 +476,12 @@ try{
       </div>
     </div>
     <div class="mp-grid" id="mpGrid"></div>
+    </div>
+    <div class="calendar-footer">
     <button class="mp-aplicar" onclick="aplicarMesPicker()">
 ✓
  Aplicar</button>
+    </div>
   </div>
 </div>
 
@@ -541,7 +552,8 @@ try{
 
 <!-- CARD CYCLE PICKER MODAL -->
 <div class="modal centered" id="cardCyclePicker">
-  <div class="mc compact-mc">
+  <div class="mc compact-mc calendar-sheet">
+    <div class="calendar-body">
     <div class="mc-top">
       <div class="mc-title-big">Ciclo</div>
       <button class="mh-x" onclick="cerrarCardCyclePicker()">✕</button>
@@ -555,7 +567,10 @@ try{
       </div>
     </div>
     <div class="mp-grid" id="cardPickerGrid"></div>
+    </div>
+    <div class="calendar-footer">
     <button class="mp-aplicar" onclick="aplicarCardCyclePicker()">✓ Aplicar</button>
+    </div>
   </div>
 </div>
 
@@ -606,8 +621,11 @@ try{
 <div class="modal centered" id="settingsModal">
   <div class="mc compact-mc">
     <div class="mc-top"><div><div class="mc-title-big" id="settingsTitle">Configuración</div><div class="settings-version" id="settingsVersion" aria-live="polite"></div></div><button class="mh-x" onclick="cerrarConfiguracion()">✕</button></div>
-    <div class="line-config-grid">
-      <section class="line-config-item" id="cuentasConfigSection"><h3 class="line-config-name">Cuentas</h3>
+    <div class="line-config-grid settings-groups">
+      <details class="settings-group" id="settingsCuentas">
+        <summary><span><strong>Cuentas</strong><small>Bancos, billeteras y tarjetas</small></span></summary>
+        <div class="settings-group-body">
+          <section class="line-config-item" id="cuentasConfigSection"><h3 class="line-config-name">Cuentas</h3>
         <div id="cuentasLista"></div>
         <div class="line-config-row" style="margin-top:10px">
           <div class="line-field"><label for="newCuentaNombre">Nombre</label><input id="newCuentaNombre" type="text" placeholder="Ej. BCP" autocomplete="off"></div>
@@ -617,9 +635,15 @@ try{
           <div class="line-field"><label for="newCuentaMoneda">Moneda</label><select class="sel" id="newCuentaMoneda"><option value="PEN">PEN · soles</option><option value="USD">USD · dólares</option></select></div>
           <button class="btn btn-p" style="align-self:end" onclick="agregarCuenta()">Agregar cuenta</button>
         </div>
-        <p class="hint">Renombrar cambia también el nombre en todos los movimientos y pagos de esa cuenta, así que no se pierde ningún saldo. Las cuentas no se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p>
+        <details class="settings-help"><summary>Cómo funcionan las cuentas</summary><p class="hint">Renombrar cambia también el nombre en todos los movimientos y pagos de esa cuenta, así que no se pierde ningún saldo. Las cuentas no se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p></details>
       </section>
-      <section class="line-config-item" id="categoriasConfigSection" aria-busy="false">
+          <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
+        </div>
+      </details>
+      <details class="settings-group" id="settingsCategorias">
+        <summary><span><strong>Categorías</strong><small>Organiza tus movimientos</small></span></summary>
+        <div class="settings-group-body">
+          <section class="line-config-item" id="categoriasConfigSection" aria-busy="false">
         <div class="category-config-header"><h3 class="line-config-name">Categorías</h3><button type="button" class="line-edit-btn" id="categoryAdd" onclick="agregarCategoria()">+ Agregar categoría</button></div>
         <div id="categoriasLista"></div>
         <div class="category-config-form" id="categoryForm" hidden>
@@ -632,19 +656,32 @@ try{
           <h4>Eliminar <span id="categoryDeleteName"></span></h4><p class="hint" id="categoryDeleteNote"></p><p class="category-config-error" id="categoryDeleteError" role="alert" hidden></p>
           <div class="category-config-buttons"><button type="button" class="btn btn-s" onclick="cancelarCategoria()">Cancelar</button><button type="button" class="btn btn-d" id="categoryDeleteConfirm" onclick="confirmarEliminarCategoria()">Eliminar categoría</button></div>
         </div>
-        <p class="hint">Los cambios se aplican al catálogo para nuevos movimientos. Renombrar o eliminar una categoría conserva los movimientos, presupuestos y recurrentes existentes con su nombre original.</p>
+        <details class="settings-help"><summary>Qué ocurre al cambiar una categoría</summary><p class="hint">Los cambios se aplican al catálogo para nuevos movimientos. Renombrar o eliminar una categoría conserva los movimientos, presupuestos y recurrentes existentes con su nombre original.</p></details>
       </section>
-      <section class="line-config-item" id="tipoCambioSection"><h3 class="line-config-name">Tipo de cambio</h3>
+        </div>
+      </details>
+      <details class="settings-group" id="settingsPreferencias">
+        <summary><span><strong>Preferencias</strong><small>Apariencia, tipo de cambio y gráficos</small></span></summary>
+        <div class="settings-group-body">
+          <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
+          <section class="line-config-item" id="tipoCambioSection"><h3 class="line-config-name">Tipo de cambio</h3>
         <div class="line-config-row" style="grid-template-columns:1fr auto">
           <div class="line-field"><label for="tcUsdPen">USD → PEN</label><input id="tcUsdPen" type="number" inputmode="decimal" step="0.001" min="0" placeholder="Ej. 3.750"></div>
           <button class="btn btn-p" style="align-self:end" onclick="guardarTipoCambio()">Guardar</button>
         </div>
-        <p class="hint">El modo Patrimonio convierte IBKR con el tipo de cambio de mercado de hoy. Este valor solo se usa si no hay uno de mercado (por ejemplo, sin conexión). Todavía no hay serie histórica del patrimonio.</p>
+        <details class="settings-help"><summary>Cómo se usa el tipo de cambio</summary><p class="hint">El modo Patrimonio convierte IBKR con el tipo de cambio de mercado de hoy. Este valor solo se usa si no hay uno de mercado (por ejemplo, sin conexión). Todavía no hay serie histórica del patrimonio.</p></details>
       </section>
-      <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="cerrarConfiguracion();abrirLineasCredito()">Gestionar tarjetas</button></section>
-      <section class="line-config-item"><h3 class="line-config-name">Apariencia</h3><label for="appAccent">Color de acento</label><select class="sel" id="appAccent" onchange="guardarPreferencias()"><option value="green">Verde</option><option value="blue">Azul</option><option value="violet">Violeta</option></select><p class="hint">Se guarda en este navegador. Los colores de ingresos y gastos conservan su significado.</p></section>
-      <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p></section>
-      <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></section>
+          <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><details class="settings-help"><summary>Cómo funcionan las escalas</summary><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></details>
+      </section>
+        </div>
+      </details>
+      <details class="settings-group" id="settingsDatos">
+        <summary><span><strong>Datos</strong><small>Descargas y respaldo</small></span></summary>
+        <div class="settings-group-body">
+          <section class="line-config-item"><h3 class="line-config-name">Descargar mis datos</h3><div class="backup-actions"><button type="button" class="btn btn-s" id="exportCSV">Movimientos CSV</button><button type="button" class="btn btn-p" id="exportBackup">Respaldo JSON</button></div><details class="settings-help"><summary>Qué incluyen las descargas</summary><p class="hint">Incluye todos los períodos cargados. El respaldo conserva movimientos, cuentas, tarjetas y deudas; no incluye tu contraseña ni la sesión.</p></details>
+      </section>
+        </div>
+      </details>
     </div>
   </div>
 </div>

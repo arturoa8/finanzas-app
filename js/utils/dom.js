@@ -33,13 +33,13 @@ export function initializeAccessibility(){
   // Sin overflow:hidden en body ni desplazamientos por foco: en iPhone, cambiar
   // el desplazamiento de la página con scroll hecho deja la barra inferior, el
   // botón + y las ventanas corridos hacia arriba hasta el siguiente gesto.
-  if(active!==lastModal){if(active){if(!lastModal)lastFocus=document.activeElement;active.querySelector('input,button,select,textarea,[tabindex="0"]')?.focus({preventScroll:true});}else{lastFocus?.focus({preventScroll:true});lastFocus=null;}lastModal=active;}
+  if(active!==lastModal){if(active){if(!lastModal)lastFocus=document.activeElement;active.querySelector('input,button,select,textarea,summary,[tabindex="0"]')?.focus({preventScroll:true});}else{lastFocus?.focus({preventScroll:true});lastFocus=null;}lastModal=active;}
  };
  const observer=new MutationObserver(syncAccessibility);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});syncAccessibility();
  // El fondo de una ventana no arrastra la página. Dentro de la ventana el
  // contenido sigue desplazándose y overscroll-behavior evita el encadenado.
  document.addEventListener('touchmove',e=>{if(e.target.classList?.contains('modal')&&e.target.classList.contains('active'))e.preventDefault();},{passive:false});
- document.addEventListener('keydown',e=>{const active=[...document.querySelectorAll('.modal.active')].at(-1);if(e.key==='Escape'&&active){active.querySelector('.mh-x')?.click();return;}if(e.key==='Tab'&&active){const els=[...active.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);const first=els[0],last=els.at(-1);if(e.shiftKey&&(document.activeElement===first||!active.contains(document.activeElement))){e.preventDefault();last?.focus();}else if(!e.shiftKey&&(document.activeElement===last||!active.contains(document.activeElement))){e.preventDefault();first?.focus();}}if(['Enter',' '].includes(e.key)&&e.target.matches('[role="button"][onclick]:not(button):not(a)')){e.preventDefault();e.target.click();}});
+ document.addEventListener('keydown',e=>{const active=[...document.querySelectorAll('.modal.active')].at(-1);if(e.key==='Escape'&&active){active.querySelector('.mh-x')?.click();return;}if(e.key==='Tab'&&active){const els=[...active.querySelectorAll('button,input,select,textarea,summary,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);const first=els[0],last=els.at(-1);if(e.shiftKey&&(document.activeElement===first||!active.contains(document.activeElement))){e.preventDefault();last?.focus();}else if(!e.shiftKey&&(document.activeElement===last||!active.contains(document.activeElement))){e.preventDefault();first?.focus();}}if(['Enter',' '].includes(e.key)&&e.target.matches('[role="button"][onclick]:not(button):not(a)')){e.preventDefault();e.target.click();}});
 }
 
 // Bloquear doble-toque para evitar zoom

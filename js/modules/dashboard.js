@@ -224,8 +224,11 @@ export function renderBal(){
   }
   if(nota){
     // Inicio solo muestra el estado cuando aún no hay un importe fiable.
+    // Su espacio queda reservado en el hero para no mover la pantalla.
     // La composición del saldo y sus fuentes se explican en Estadísticas.
     const estados={idle:'Cargando patrimonio…',loading:'Cargando patrimonio…',sin_datos:'Sin datos de portafolio',sin_tc:'Falta tipo de cambio',error:'No se pudo cargar'};
+    nota.setAttribute('role','status');
+    nota.setAttribute('aria-live','polite');
     nota.hidden=!textoAlterno;
     nota.textContent=textoAlterno?(estados[patrimonio.estado]||'Patrimonio no disponible'):'';
   }

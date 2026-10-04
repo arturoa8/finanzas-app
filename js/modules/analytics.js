@@ -11,10 +11,46 @@ import {hoyLocal, parseDateOnly, pf} from '../utils/dates.js';
 import {escHtml, fmt, getEmoji, norm} from '../utils/formatters.js';
 
 export let anPeriodo='mes';
+let estadisticasVista='resumen';
+
+function sincronizarEstadisticasVista(){
+  const vistas=[['resumen','statsTabResumen','statsPanelResumen'],['presupuestos','statsTabPresupuestos','statsPanelPresupuestos']];
+  for(const [vista,tabId,panelId] of vistas){
+    const activa=estadisticasVista===vista;
+    const tab=document.getElementById(tabId),panel=document.getElementById(panelId);
+    if(tab){tab.classList.toggle('active',activa);tab.setAttribute('aria-selected',String(activa));tab.tabIndex=activa?0:-1;}
+    if(panel)panel.hidden=!activa;
+  }
+  const tabs=document.getElementById('statsViewTabs');
+  if(!tabs||tabs.dataset.statsKeyboard)return;
+  tabs.dataset.statsKeyboard='true';
+  tabs.addEventListener('keydown',e=>{
+    const botones=vistas.map(([,tabId])=>document.getElementById(tabId));
+    const actual=botones.indexOf(e.target);
+    if(actual<0)return;
+    let siguiente;
+    if(e.key==='ArrowRight')siguiente=(actual+1)%vistas.length;
+    else if(e.key==='ArrowLeft')siguiente=(actual+vistas.length-1)%vistas.length;
+    else if(e.key==='Home')siguiente=0;
+    else if(e.key==='End')siguiente=vistas.length-1;
+    else return;
+    e.preventDefault();
+    setEstadisticasVista(vistas[siguiente][0]);
+    botones[siguiente]?.focus();
+  });
+}
+
+export function setEstadisticasVista(vista){
+  estadisticasVista=vista==='presupuestos'?'presupuestos':'resumen';
+  sincronizarEstadisticasVista();
+  if(estadisticasVista==='presupuestos')renderPresupuestos();
+  else renderAnalisis();
+}
 
 export function setAnPeriodo(p,b){
   anPeriodo=p;
-  document.querySelectorAll('#p-bud .an-tabs').forEach((tabs,idx)=>{if(idx===0){tabs.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));}});
+  const tabs=document.getElementById('statsPeriodoTabs')||b.closest?.('.an-tabs');
+  tabs?.querySelectorAll('.antb').forEach(x=>x.classList.remove('active'));
   b.classList.add('active');
   document.getElementById('yearCard').style.display=p==='anio'?'block':'none';
   renderAnalisis();
@@ -56,6 +92,7 @@ export function filtrarPorPeriodo(rows,periodo,campoFecha){
 
 export function renderAnalisis(){
   renderPresupuestos();
+  sincronizarEstadisticasVista();
   const tx=getTxAn();const tot=totales(tx);
   // Tasa de ahorro
   const ahorro=tot.i>0?((tot.bal/tot.i)*100):0;
