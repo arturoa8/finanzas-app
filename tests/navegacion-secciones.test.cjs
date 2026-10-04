@@ -6,8 +6,9 @@ const {entornoPrueba,modulo,appRoot}=require('./helpers/app-root.cjs');
 entornoPrueba();process.env.TZ='America/Lima';
 const timerReal=setTimeout;
 const nodos=new Map(),pinturas=new Map(),rafPendientes=[],peticiones=[];
-const paginas=['dash','ana','card','bud','pres','deb'];
+const paginas=['dash','ana','card','bud','pres','deb','settings'];
 const principales=['dash','ana','card','bud','more'];
+const modales=['modal','modalDeuda','cardPaymentModal','presupuestoModal','creditLineModal','moreModal'];
 const eventosDocumento=new Map();
 
 function nodo(id){
@@ -39,7 +40,8 @@ document.getElementById=el;
 document.body=nodo('body');document.documentElement=nodo('html');document.activeElement=null;document.hidden=false;
 document.querySelector=s=>s==='.page.active'?activa():s==='.fab'?el('fab'):s.startsWith('.nt[data-page=')?
   principales.map(p=>el('nav-'+p)).find(b=>s.includes('"'+b.dataset.page+'"')||s.includes("'"+b.dataset.page+"'"))||null:null;
-document.querySelectorAll=s=>s==='.page'?paginas.map(p=>el('p-'+p)):s==='.nt'?principales.map(p=>el('nav-'+p)):[];
+document.querySelectorAll=s=>s==='.page'?paginas.map(p=>el('p-'+p)):s==='.nt'?principales.map(p=>el('nav-'+p)):
+  s==='.modal.active'?modales.map(el).filter(m=>m.classList.contains('active')):[];
 document.createElement=tag=>nodo(tag);document.createElementNS=(_,tag)=>nodo(tag);
 document.addEventListener=(tipo,fn)=>{if(!eventosDocumento.has(tipo))eventosDocumento.set(tipo,[]);eventosDocumento.get(tipo).push(fn);};
 globalThis.window={innerHeight:844,scrollX:0,scrollY:0,
@@ -60,7 +62,8 @@ el('homeMovements').inert=true;
 el('homeMovements').setAttribute('aria-hidden','true');
 el('homeMovements').contains=n=>['searchInp','txs','cats','searchCount'].includes(n?.id);
 el('homeSummary').classList.add('expanded');el('homeSummary').setAttribute('aria-hidden','false');
-el('homeSummary').contains=n=>['kpiOut','kpiIn','segPeriodo','segAcumulado','segNeto','segPatrimonio'].includes(n?.id);
+el('homeSummary').contains=n=>['summaryShortcut','quickInsight'].includes(n?.id);
+el('modal').contains=n=>['iDesc','iMonto','gestionarCuentas'].includes(n?.id);
 el('nav-dash').setAttribute('aria-expanded','false');
 el('searchInp').closest=s=>s==='#homeMovements'||s==='.home-movements'?el('homeMovements'):null;
 el('iMoneda').value='PEN';
@@ -74,8 +77,8 @@ async function pintarPendientes(){
   }
   assert.fail('La navegación no termina de restaurar el desplazamiento');
 }
-function cerrarModales(){for(const id of ['modal','modalDeuda','cardPaymentModal','presupuestoModal','settingsModal','moreModal'])el(id).classList.remove('active');}
-function principalEsperado(p){return ['pres','deb'].includes(p)?'more':p;}
+function cerrarModales(){for(const id of modales)el(id).classList.remove('active');}
+function principalEsperado(p){return ['pres','deb','settings'].includes(p)?'more':p;}
 function comprobarPagina(p){
   assert.equal(activa()?.id,'p-'+p);
   assert.equal(paginas.filter(x=>el('p-'+x).classList.contains('active')).length,1,'una sola página visible');
@@ -92,7 +95,7 @@ function comprobarPanel(abierto){
 }
 
 (async()=>{
-  const [nav,{datos},pres,dashboard]=await Promise.all([modulo('ui/navigation.js'),modulo('state.js'),modulo('modules/presupuestos.js'),modulo('modules/dashboard.js')]);
+  const [nav,{datos},pres,dashboard,settings]=await Promise.all([modulo('ui/navigation.js'),modulo('state.js'),modulo('modules/presupuestos.js'),modulo('modules/dashboard.js'),modulo('modules/settings.js')]);
   Object.assign(datos,{cargados:true,categoriasCargadas:true,cuentas:[['Plin','billetera','PEN',false,'cuenta-demo']],categorias:[['Compras','#00d68f']],
     transacciones:[],configTarjetas:[['Visa demo',1000,30,'Visa demo','💳',24,15]],pagosTarjetas:[],ciclosOverride:[],
     presupuestos:[],deudas:[],deudasArchivadas:[],deudasAbonos:[],recurrentes:[]});
@@ -109,6 +112,8 @@ function comprobarPanel(abierto){
     return indice.slice(inicio,despues<0?indice.indexOf('<!-- FAB -->',inicio):inicio+despues);
   };
   assert.doesNotMatch(indice,/id="p-tx"|id="recentTxs"/);
+  assert.doesNotMatch(indice,/id="settingsModal"/,'Configuración tiene una página propia');
+  assert.match(seccion('settings'),/id="settingsBack"/);
   assert.match(seccion('dash'),/class="[^"]*expanded[^"]*"[^>]*id="homeSummary"/);
   assert.match(seccion('dash'),/id="homeMovements"[^>]*\binert\b/);assert.match(seccion('dash'),/id="txs"/);assert.match(seccion('dash'),/id="cats"/);
   assert.doesNotMatch(seccion('dash'),/id="txUsd"|id="txTipoTodos"|id="txCuenta"/,'el historial no conserva los filtros retirados');
@@ -180,8 +185,11 @@ function comprobarPanel(abierto){
     nav.setPg(p);nav.setPg('dash');await pintarPendientes();comprobarPagina('dash');comprobarPanel(false);
     assert.equal(window.scrollY,0,p+' vuelve al resumen que se había elegido');
   }
-  document.activeElement=el('kpiOut');nav.mostrarMovimientosInicio();await pintarPendientes();comprobarPanel(true);
+  document.activeElement=el('summaryShortcut');nav.mostrarMovimientosInicio();await pintarPendientes();comprobarPanel(true);
   assert.equal(document.activeElement,el('nav-dash'),'abrir el historial saca el foco del resumen antes de inert');
+  nav.alternarMovimientosInicio();await pintarPendientes();document.activeElement=el('kpiOut');
+  nav.mostrarMovimientosInicio();await pintarPendientes();
+  assert.equal(document.activeElement,el('kpiOut'),'el balance permanece visible y conserva su foco al abrir el historial');
   console.log('PASS: ambas vistas de Inicio persisten por todas las páginas; historial conserva búsqueda y scroll.');
 
   // Cada acción flotante abre únicamente su formulario contextual.
@@ -196,12 +204,36 @@ function comprobarPanel(abierto){
   await new Promise(r=>timerReal(r,110));
   console.log('PASS: FAB contextual en Inicio, Tarjetas y Deudas.');
 
-  // Configuración se abre como modal desde Más, sin cambiar el destino activo.
+  // Configuración tiene página completa y vuelve al origen sin alternar Inicio.
   nav.mostrarMovimientosInicio();await pintarPendientes();window.scrollY=420;
   nav.abrirMas();nav.abrirConfiguracionDesdeMas();
-  assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(el('settingsModal').classList.contains('active'),true);
-  assert.equal(activa().id,'p-dash');assert.equal(window.scrollY,420);assert.equal(el('homeMovements').classList.contains('expanded'),true);
-  console.log('PASS: Configuración desde Más conserva la página y no escribe datos.');
+  await pintarPendientes();comprobarPagina('settings');
+  assert.equal(el('moreModal').classList.contains('active'),false);assert.equal(window.scrollY,0);
+  assert.equal(el('fab').hidden,true);assert.equal(document.activeElement,el('settingsBack'));comprobarPanel(true);
+  nav.handleFab();assert.equal(el('modal').classList.contains('active'),false,'Configuración no abre un formulario desde su FAB');
+  settings.cerrarConfiguracion();await pintarPendientes();comprobarPagina('dash');comprobarPanel(true);
+  assert.equal(window.scrollY,420);assert.equal(document.activeElement,el('nav-dash'));
+  settings.cerrarConfiguracion();await pintarPendientes();comprobarPanel(true);
+  assert.equal(window.scrollY,420,'un segundo cierre no alterna Inicio ni desplaza su historial');
+  for(const p of ['card','ana','bud','pres','deb']){
+    nav.setPg(p);window.scrollY=340;settings.abrirConfiguracion();await pintarPendientes();comprobarPagina('settings');
+    // Abrir otra sección desde Configuración no puede reemplazar su origen.
+    settings.abrirConfiguracion('cuentas');await pintarPendientes();comprobarPagina('settings');
+    settings.cerrarConfiguracion();await pintarPendientes();comprobarPagina(p);assert.equal(window.scrollY,0);
+  }
+  console.log('PASS: Configuración completa vuelve a cada origen, conserva Inicio y limita su FAB.');
+
+  // Gestionar cuentas desde un formulario conserva sus valores y devuelve el foco.
+  nav.setPg('dash');await pintarPendientes();window.scrollY=510;
+  el('modal').classList.add('active');el('iDesc').value='Movimiento sin guardar';el('iMonto').value='27.50';el('iDesc').focus();
+  settings.abrirConfiguracion('cuentas');await pintarPendientes();comprobarPagina('settings');
+  assert.equal(el('modal').classList.contains('active'),false,'el formulario no cubre Configuración');
+  assert.equal(el('iDesc').value,'Movimiento sin guardar');assert.equal(el('iMonto').value,'27.50');
+  settings.cerrarConfiguracion();await pintarPendientes();comprobarPagina('dash');comprobarPanel(true);
+  assert.equal(el('modal').classList.contains('active'),true);assert.equal(document.activeElement,el('iDesc'));
+  assert.equal(el('iDesc').value,'Movimiento sin guardar');assert.equal(el('iMonto').value,'27.50');assert.equal(window.scrollY,510);
+  cerrarModales();
+  console.log('PASS: Configuración desde un formulario conserva borrador, modal y foco sin escribir datos.');
 
   // Resumen e historial de Inicio comparten el mismo período del calendario.
   cerrarModales();

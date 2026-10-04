@@ -2,6 +2,13 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.04.05
+
+- Inicio permite ordenar, mostrar y ocultar sus widgets desde Configuración → Inicio. Las preferencias se conservan en este navegador y se pueden restaurar.
+- Rentabilidad muestra los porcentajes diario y total con sus referencias de fecha, reutilizando los cálculos de Portafolio. El resumen añade presupuesto disponible o excedido y fechas de pago o cobro para tarjetas y deudas.
+- Configuración ocupa una pantalla completa y su botón Volver regresa al origen. Gestionar cuentas desde un formulario conserva el borrador y restaura su foco al volver.
+- Se redujo el espacio entre el balance, sus modos y el resumen. Las tarjetas del resumen usan dos columnas; rentabilidad y período conservan el ancho completo.
+
 ## Versión 2026.10.04.04
 
 - Inicio mantiene el saldo y sus modos arriba. Debajo alterna entre un resumen de pendientes y el historial con categorías; la vista elegida se conserva al navegar y solo cambia al volver a tocar Inicio.

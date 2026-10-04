@@ -63,7 +63,10 @@ export let patrimonio={estado:'idle',soles:null,valorBase:null,moneda:null,fecha
 let cierreDirecto=null;
 
 // Precios nuevos de Yahoo o una base nueva del portafolio cambian el valor.
-globalThis.addEventListener?.('finanzas:portafolio',()=>{if(modoBalance==='patrimonio'&&patrimonio.estado!=='idle'&&patrimonio.estado!=='loading')renderBal();});
+globalThis.addEventListener?.('finanzas:portafolio',()=>{
+  if(document.querySelector('.page.active')?.id==='p-dash'&&document.getElementById('homeSummary')?.classList.contains('expanded'))render();
+  else if(modoBalance==='patrimonio'&&patrimonio.estado!=='idle'&&patrimonio.estado!=='loading')renderBal();
+});
 
 let acumuladoMode=false;
 

@@ -2,7 +2,7 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {pfAportesSinReflejar, pfCostosInversion, pfModeloCapital, renderPfCostosEditor} from './capital.js';
-import {cuentasInversionHistoricas, pfFlujos, pfResumenPosiciones} from './performance.js';
+import {cuentasInversionHistoricas, pfFlujos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfModeloRentabilidadCambio} from './fx-performance.js';
 import {renderPfResultadoCambio} from './fx-ui.js';
 import {cuentasApp} from '../accounts.js';
@@ -309,6 +309,30 @@ function pfSubtituloDia(d){
   if(d.fuente==='YAHOO')return d.sesion&&d.sesion!==pfLondonDay()?'Sesión del '+pfFechaCorta(d.sesion)+' · desde el cierre anterior':'Desde el cierre anterior';
   if(d.fuente==='IBKR_BASE')return 'Desde el cierre IBKR del '+pfFechaCorta(pfCierreAnterior()?.fecha_valoracion)+' · base de respaldo';
   return 'Entre los dos últimos cierres oficiales ('+pfFechaCorta(d.sesion)+')';
+}
+
+// Lectura del caché para Inicio: las mismas bases que Portafolio, sin red.
+// El cambio desde un cierre IBKR de respaldo puede abarcar varios días y no
+// se presenta como diario. Entre cierres se aíslan aportes/retiros con TWR.
+export function pfResumenRentabilidadInicio(now=Date.now()){
+  const d=pfModeloDia(now),official=pfCierreAnterior();
+  const r={diaria:null,total:null,fuente:d.fuente,fecha:null,etiqueta:'Sin cierre disponible',motivoDiaria:d.motivo,motivoTotal:''};
+  if(!official)return r;
+  const fl=pfFlujos(),v=d.v;
+  r.fecha=d.sesion||(v.fuente==='YAHOO'?pfIso(new Date(v.timestamp)):official.fecha_valoracion);
+  r.etiqueta=d.fuente==='IBKR_BASE'?'Último precio':pfEtiquetaDia(d);
+  if(d.ok&&d.fuente==='YAHOO'&&Number.isFinite(d.pct))r.diaria=d.pct;
+  else if(d.fuente==='IBKR_CIERRES'){
+    const cierres=pfHistoricoCache.filter(row=>Number(row.valor_total)>0).slice(-2);
+    const intervalo=pfRendimientoPortafolio(cierres,fl);
+    if(intervalo.ok&&Number.isFinite(intervalo.pct))r.diaria=intervalo.pct;
+    else r.motivoDiaria=intervalo.mensaje||'Faltan dólares confirmados para aislar los aportes de estos cierres.';
+  }
+  const fecha=v.fuente==='YAHOO'?pfIso(new Date(now)):official.fecha_valoracion;
+  const capital=pfModeloCapital({...official,valor_total:v.valor,fecha_valoracion:fecha},fl,pfCostosInversion());
+  if(capital.ok&&Number.isFinite(capital.pct))r.total=capital.pct;
+  else r.motivoTotal=capital.mensaje||'Rentabilidad total no disponible.';
+  return r;
 }
 
 function pintarPfHeroHoy(){

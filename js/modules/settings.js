@@ -3,10 +3,12 @@
 
 import {renderCuentasConfig} from './accounts.js';
 import {cancelarCategoria, renderCategoriasConfig} from './categories.js';
+import {renderHomeWidgetsConfig} from './home-widgets.js';
 import {renderPfModalChart} from './portfolio/portfolio-ui.js';
 import {pfHistoricoCache, renderPfChart} from './portfolio/portfolio.js';
 import {leerTipoCambio, tcUsdPen} from '../services/exchange-rate.js';
 import {toast} from '../ui/toast.js';
+import {setPg, volverDesdeConfiguracion} from '../ui/navigation.js';
 
 const APP_PREFS_KEY='finanzas.appearance.v1';
 
@@ -14,7 +16,10 @@ const APP_PREFS_KEY='finanzas.appearance.v1';
 // usa la última. index.html repite el número en <meta name="version-app">
 // (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
 // una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
-export const VERSION_APP='2026.10.04.04';
+export const VERSION_APP='2026.10.04.05';
+let seccionSolicitada='inicio';
+let revisionSeccion=0;
+const seccionesConfig={inicio:'settingsInicio',cuentas:'settingsCuentas',categorias:'settingsCategorias',apariencia:'settingsPreferencias',preferencias:'settingsPreferencias',datos:'settingsDatos'};
 
 function pintarVersion(){
   const el=document.getElementById('settingsVersion');if(!el)return;
@@ -39,6 +44,27 @@ export function aplicarPreferencias(){
 }
 
 export function abrirConfiguracion(seccion){
+ if(document.getElementById('p-settings')?.classList.contains('active')){
+  mostrarSeccionConfiguracion(seccion);
+  return;
+ }
+ seccionSolicitada=typeof seccion==='string'?seccion:'inicio';
+ setPg('settings');
+}
+
+function mostrarSeccionConfiguracion(seccion,desplazar=true){
+ const destino=seccionesConfig[seccion]||seccionesConfig.inicio;
+ const grupo=document.getElementById(destino);
+ if(grupo)grupo.open=true;
+ const revision=++revisionSeccion;
+ if(desplazar)setTimeout(()=>{
+  if(revision!==revisionSeccion||!document.getElementById('p-settings')?.classList.contains('active'))return;
+  const reducir=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  grupo?.scrollIntoView({block:'start',behavior:reducir?'auto':'smooth'});
+ },60);
+}
+
+export function renderConfiguracion(){
  document.getElementById('appAccent').value=appPreferences.accent||'green';
  document.getElementById('appChartScale').value=escalaGrafico();
  const tcEl=document.getElementById('tcUsdPen');
@@ -50,26 +76,21 @@ export function abrirConfiguracion(seccion){
  renderCuentasConfig();
  cancelarCategoria();
  renderCategoriasConfig();
+ renderHomeWidgetsConfig();
  pintarVersion();
- const modal=document.getElementById('settingsModal');
- modal.querySelectorAll('.settings-group,.settings-help').forEach(grupo=>{grupo.open=false;});
- modal.classList.add('active');
- const hoja=modal.querySelector('.mc');
- if(hoja)hoja.scrollTop=0;
- if(seccion==='cuentas'||seccion==='categorias'){
-  const s=document.getElementById(seccion==='cuentas'?'cuentasConfigSection':'categoriasConfigSection');
-  const grupo=s?.closest('.settings-group');
-  if(grupo)grupo.open=true;
-  if(s)setTimeout(()=>s.scrollIntoView({block:'nearest',behavior:'smooth'}),60);
- }
+ const pagina=document.getElementById('p-settings');
+ pagina?.querySelectorAll('.settings-group,.settings-help').forEach(grupo=>{grupo.open=false;});
+ mostrarSeccionConfiguracion(seccionSolicitada,seccionSolicitada!=='inicio');
+ const estado=document.getElementById('homeWidgetsStatus');if(estado)estado.textContent='';
+ seccionSolicitada='inicio';
 }
 
-export function cerrarConfiguracion(){document.getElementById('settingsModal').classList.remove('active');}
+export function cerrarConfiguracion(){volverDesdeConfiguracion();}
 
 export function guardarPreferencias(){
- appPreferences={accent:document.getElementById('appAccent').value,chartScale:document.getElementById('appChartScale').value};
+ appPreferences={...appPreferences,accent:document.getElementById('appAccent').value,chartScale:document.getElementById('appChartScale').value};
  aplicarPreferencias();
  try{localStorage.setItem(APP_PREFS_KEY,JSON.stringify(appPreferences));}catch(e){toast('Preferencia aplicada; este navegador no permite guardarla','error');}
  if(pfHistoricoCache.length)renderPfChart();
- if(document.getElementById('pfPosModal').classList.contains('active'))renderPfModalChart();
+ if(document.getElementById('pfPosModal')?.classList.contains('active'))renderPfModalChart();
 }

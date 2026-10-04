@@ -8,7 +8,7 @@ import {ocultarBusquedaInicio, render} from '../modules/dashboard.js';
 import {abrirModalDeuda, renderDeb} from '../modules/debts.js';
 import {renderPortafolio} from '../modules/portfolio/portfolio.js';
 import {abrirM} from '../modules/transactions.js';
-import {abrirConfiguracion} from '../modules/settings.js';
+import {abrirConfiguracion, renderConfiguracion} from '../modules/settings.js';
 import {abrirNuevoPresupuesto, renderPresupuestos} from '../modules/presupuestos.js';
 import {stopPfYahoo} from '../services/market-data.js';
 import {datos} from '../state.js';
@@ -27,6 +27,7 @@ let mesPickerMes=new Date().getMonth();
 
 let mesPickerTodo=false;
 let scrollMovimientosInicio=0;
+let origenConfiguracion=null;
 
 export function getMesActivo(){const a=new Date();return new Date(a.getFullYear(),a.getMonth()+mesOffset,1);}
 
@@ -141,15 +142,22 @@ export function setPg(p,b){
   if(!destino)return;
   const actual=document.querySelector('.page.active');
   if(p==='dash'&&actual?.id==='p-dash'){alternarMovimientosInicio();return;}
+  if(p==='settings'){
+    if(actual?.id==='p-settings'){renderConfiguracion();return;}
+    origenConfiguracion={pagina:actual?.id?.replace(/^p-/, '')||'dash',foco:document.activeElement,
+      modales:[...document.querySelectorAll('.modal.active')].filter(x=>x.id!=='moreModal')};
+    document.querySelectorAll('.modal.active').forEach(x=>x.classList.remove('active'));
+    cerrarMas();
+  }else if(actual?.id==='p-settings')origenConfiguracion=null;
   if(actual?.id==='p-dash'&&document.getElementById('homeMovements')?.classList.contains('expanded'))scrollMovimientosInicio=Math.max(0,window.scrollY||0);
   const saliendoDelPortafolio=document.getElementById('p-ana').classList.contains('active');
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   destino.classList.add('active');
   document.querySelectorAll('.nt').forEach(x=>{x.classList.remove('active');x.removeAttribute('aria-current');});
-  const nav=document.getElementById('nav-'+(['pres','deb'].includes(p)?'more':p))||b;
+  const nav=document.getElementById('nav-'+(['pres','deb','settings'].includes(p)?'more':p))||b;
   if(nav){nav.classList.add('active');nav.setAttribute('aria-current','page');}
   const fab=document.querySelector('.fab');
-  if(fab){fab.hidden=p==='ana'||p==='bud';fab.setAttribute('aria-label',p==='card'?'Registrar pago':p==='deb'?'Nueva deuda':p==='pres'?'Crear presupuesto':'Nueva transacción');}
+  if(fab){fab.hidden=['ana','bud','settings'].includes(p);fab.setAttribute('aria-label',p==='card'?'Registrar pago':p==='deb'?'Nueva deuda':p==='pres'?'Crear presupuesto':'Nueva transacción');}
   const restaurarScroll=()=>{
     if(destino.classList.contains('active'))window.scrollTo(0,p==='dash'&&document.getElementById('homeMovements')?.classList.contains('expanded')?scrollMovimientosInicio:0);
   };
@@ -172,9 +180,27 @@ export function setPg(p,b){
   if(p==='deb')renderDeb();
   if(p==='bud')renderAnalisis();
   if(p==='pres')renderPresupuestos();
+  if(p==='settings'){
+    renderConfiguracion();
+    despuesDelPintado(()=>{if(destino.classList.contains('active'))document.getElementById('settingsBack')?.focus({preventScroll:true});});
+  }
   if(p==='dash')render();
   if(p!=='ana')despuesDelPintado(restaurarScroll);
   if(p!=='ana'&&saliendoDelPortafolio)stopPfYahoo({preservarConsulta:true});
+}
+
+export function volverDesdeConfiguracion(){
+  if(!document.getElementById('p-settings')?.classList.contains('active'))return;
+  const origen=origenConfiguracion||{pagina:'dash',modales:[]};
+  setPg(origen.pagina);
+  origen.modales.forEach(x=>x.classList.add('active'));
+  despuesDelPintado(()=>{
+    if(!document.getElementById('p-'+origen.pagina)?.classList.contains('active'))return;
+    const modal=origen.modales.filter(x=>x.classList.contains('active')).at(-1);
+    const foco=modal?(origen.foco?.isConnected!==false&&modal.contains(origen.foco)?origen.foco:modal.querySelector('input,button,select,textarea,[tabindex="0"]'))
+      :document.getElementById('nav-'+(['pres','deb'].includes(origen.pagina)?'more':origen.pagina));
+    foco?.focus({preventScroll:true});
+  });
 }
 
 export function abrirMas(){
@@ -197,6 +223,6 @@ export function handleFab(){
   if(pg&&pg.id==='p-deb')abrirModalDeuda();
   else if(pg&&pg.id==='p-card')abrirPagoTarjeta();
   else if(pg&&pg.id==='p-pres')abrirNuevoPresupuesto();
-  else if(pg&&['p-ana','p-bud'].includes(pg.id))return;
+  else if(pg&&['p-ana','p-bud','p-settings'].includes(pg.id))return;
   else abrirM();
 }
