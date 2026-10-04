@@ -2,6 +2,13 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.04.02
+
+- Inicio muestra el resumen y los cinco movimientos más recientes de su período. Movimientos tiene su propia página con búsqueda, período, cuenta, categoría, tipo y filtro de dólares; sus filtros no cambian el resumen y conserva el desplazamiento al volver.
+- La navegación principal es Inicio, Movimientos, Portafolio, Tarjetas y Más. Más abre Estadísticas, Presupuestos, Deudas y Configuración.
+- Presupuestos tiene una página independiente de Estadísticas, con sus límites mensuales y semanales. La acción flotante se adapta a cada pantalla.
+- El historial conserva los reembolsos a otra cuenta al filtrar. Los formularios de movimientos y presupuestos mantienen selecciones de categoría independientes.
+
 ## Versión 2026.10.04.01
 
 - El calendario conserva el tamaño de sus celdas en los meses sin movimientos y mantiene «Aplicar» visible al desplazarse dentro del modal.

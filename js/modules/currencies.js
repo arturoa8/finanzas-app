@@ -4,7 +4,7 @@
 import {cuentaPorNombre, cuentasApp, cuentasSaldos, estadoCuentas} from './accounts.js';
 import {deudaUSDTotal} from './cards/cards.js';
 import {pagoEsUSD, pagoSalidaSoles} from './cards/payments.js';
-import {filtrar, render} from './dashboard.js';
+import {filtrarInicio, render} from './dashboard.js';
 import {editando, efectoResultado, sameAccount, seleccionarGastoReembolso, tipoA} from './transactions.js';
 import {tcMercado, tcMercadoFecha, tcUsdPen} from '../services/exchange-rate.js';
 import {datos} from '../state.js';
@@ -183,7 +183,7 @@ export function aplicarVistaUSD(){
   const cur=document.querySelector('.hero2 .currency');
   if(cur)cur.textContent=verUSD?'US$':'S/';
   if(!verUSD)return;
-  const saldo=efectivoPorMoneda().USD,{i,g}=totalesUSD(filtrar());
+  const saldo=efectivoPorMoneda().USD,{i,g}=totalesUSD(filtrarInicio());
   smoothSetText(document.getElementById('balAmt'),fmtN(Math.abs(saldo)),Math.abs(saldo));
   const dot=document.getElementById('balDot');
   dot.textContent=saldo>=0?'+':'−';dot.classList.toggle('neg',saldo<0);

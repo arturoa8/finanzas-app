@@ -1,4 +1,4 @@
-// Inicio: balance, categorias, lista y filtros.
+// Inicio y Movimientos: resumen independiente del historial y sus filtros.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {aportesNetosInversion, esCuentaInversion, esCuentaUSDNoInversion, fueraDePerimetro} from './accounts.js';
@@ -10,13 +10,14 @@ import {pagoEnSoles, pagoEsUSD} from './cards/payments.js';
 import {notaCreditoUSD} from './cards/usd-credit.js';
 import {aplicarVistaUSD, monedaCuenta, verUSD} from './currencies.js';
 import {renderDeb} from './debts.js';
+import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
 import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './transactions.js';
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
-import {abrirMesPicker, getMesActivo, vista} from '../ui/navigation.js';
+import {abrirMesPicker, getMesActivo, setPg, vista} from '../ui/navigation.js';
 import {dayLabel, fmtDateShort, parseDateOnly, pf} from '../utils/dates.js';
 import {smoothSetText} from '../utils/dom.js';
 import {cleanName, esc, escHtml, fmt, fmtC, fmtMoneda, fmtN, getEmoji, meses, norm} from '../utils/formatters.js';
@@ -27,6 +28,44 @@ let filtroTipo='todos';
 
  // 'todos' | 'gastos' | 'ingresos'
 let busqueda='';
+let filtroCuentaMovimientos=null;
+
+// El historial tiene su propio período y moneda. Buscar o filtrar aquí no
+// altera el balance, los KPI ni los últimos movimientos de Inicio.
+let periodoMovimientos={anio:new Date().getFullYear(),mes:new Date().getMonth()};
+let movimientosUSD=false;
+
+export function getPeriodoMovimientos(){return periodoMovimientos?{...periodoMovimientos}:null;}
+
+export function setPeriodoMovimientos(periodo){
+  if(periodo===null)periodoMovimientos=null;
+  else{
+    const anio=Number(periodo?.anio),mes=Number(periodo?.mes);
+    if(!Number.isInteger(anio)||anio<1||anio>9999||!Number.isInteger(mes)||mes<0||mes>11)return;
+    periodoMovimientos={anio,mes};
+  }
+  render();
+}
+
+export function toggleMovimientosUSD(){movimientosUSD=!movimientosUSD;render();}
+
+export function filtrarCuentaMovimientos(){
+  filtroCuentaMovimientos=document.getElementById('txCuenta')?.value||null;
+  render();
+}
+
+function movimientosDelPeriodo(){
+  let tx=datos.transacciones;
+  if(periodoMovimientos){
+    const {anio,mes}=periodoMovimientos;
+    tx=tx.filter(t=>{const f=pf(t[0]);return f.getFullYear()===anio&&f.getMonth()===mes;});
+  }
+  if(movimientosUSD)tx=tx.filter(t=>
+    (t[9]==='USD'&&Number(t[10])>0)||(t[3]==='Transferencia'&&t[13]==='USD'&&Number(t[14])>0));
+  if(filtroCuentaMovimientos)tx=tx.filter(t=>norm(t[5])===norm(filtroCuentaMovimientos)
+    ||(t[3]==='Transferencia'&&norm(t[7])===norm(filtroCuentaMovimientos)));
+  return tx;
+}
 
 // 'periodo' | 'acumulado' | 'neto' | 'patrimonio'. acumuladoMode y netaMode
 // se derivan de aquí para no cambiar renderBal ni el resto de consumidores.
@@ -46,13 +85,18 @@ let acumuladoMode=false;
 
 let netaMode=false;
 
-export function filtrar(){
+export function filtrarInicio(){
   let tx=datos.transacciones;
   if(vista==='mes'){
     const ma=getMesActivo();
     const m=ma.getMonth(),y=ma.getFullYear();
     tx=tx.filter(t=>{const f=pf(t[0]);return f.getMonth()===m&&f.getFullYear()===y;});
   }
+  return tx;
+}
+
+export function filtrar(){
+  let tx=movimientosDelPeriodo();
   if(filtroCategoria){tx=tx.filter(t=>norm(t[2])===norm(filtroCategoria));}
   if(filtroTipo==='gastos')tx=tx.filter(t=>gastoNeto(t)!==0);
   else if(filtroTipo==='ingresos')tx=tx.filter(t=>t[3]==='Ingreso');
@@ -69,6 +113,7 @@ export function renderBase(){
   renderBal();
   renderCat();
   renderTx();
+  renderRecentTx();
   // Las otras páginas se pintan al abrirlas. Sus cálculos recorren el
   // historial completo y no deben retrasar el primer resumen de Inicio.
   const pagina=document.querySelector('.page.active')?.id;
@@ -77,10 +122,12 @@ export function renderBase(){
   llenarSel();
   renderFilterPill();
   if(pagina==='p-bud')renderAnalisis();
+  if(pagina==='p-pres')renderPresupuestos();
 }
 
 function renderFilterPill(){
   const c=document.getElementById('filterPill');
+  if(!c)return;
   if(filtroCategoria){
     const em=getEmoji(filtroCategoria);
     c.innerHTML=`<div class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()">${em.e} ${escHtml(cleanName(filtroCategoria))} <span style="font-weight:700;margin-left:4px">
@@ -108,14 +155,47 @@ function actualizarChips(){
     b.classList.toggle('active',modoBalance===modo);
     b.setAttribute('aria-selected',String(modoBalance===modo));
   });
-  // KPI pills active state
+  const periodo=document.getElementById('txPeriodoLbl');
+  if(periodo){
+    const hoy=new Date(),p=periodoMovimientos;
+    periodo.textContent=!p?'Todo el tiempo':p.anio===hoy.getFullYear()&&p.mes===hoy.getMonth()?'Este mes':meses[p.mes]+' '+p.anio;
+  }
+  [['todos','txTipoTodos'],['gastos','txTipoGastos'],['ingresos','txTipoIngresos'],['transferencias','txTipoTransferencias']].forEach(([tipo,id])=>{
+    const b=document.getElementById(id);if(!b)return;
+    b.classList.toggle('active',filtroTipo===tipo);
+    b.setAttribute('aria-pressed',String(filtroTipo===tipo));
+  });
+  const usd=document.getElementById('txUsd');
+  if(usd){usd.classList.toggle('active',movimientosUSD);usd.setAttribute('aria-pressed',String(movimientosUSD));}
+  const cuenta=document.getElementById('txCuenta');
+  if(cuenta){
+    const observadas=new Map();
+    datos.transacciones.forEach(t=>[t[5],t[3]==='Transferencia'?t[7]:null].filter(Boolean).forEach(nombre=>observadas.set(norm(nombre),String(nombre))));
+    // Una cuenta archivada sigue apareciendo en sus movimientos. Si el
+    // nombre dejó de existir (por ejemplo, tras renombrarla), quitar el
+    // filtro evita conservar una opción antigua que vacíe el historial.
+    if(filtroCuentaMovimientos&&!observadas.has(norm(filtroCuentaMovimientos)))filtroCuentaMovimientos=null;
+    const opciones=[...observadas.values()].sort((a,b)=>a.localeCompare(b,'es'));
+    cuenta.innerHTML='<option value="">Todas las cuentas</option>'+opciones.map(nombre=>`<option value="${esc(nombre)}">${escHtml(nombre)}</option>`).join('');
+    cuenta.value=filtroCuentaMovimientos?observadas.get(norm(filtroCuentaMovimientos)):'';
+  }
+  // Los KPI de Inicio enlazan al historial sin cambiar el resumen.
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
-  out.classList.toggle('active-pill',filtroTipo==='gastos');
-  inn.classList.toggle('active-pill',filtroTipo==='ingresos');
+  out?.classList.remove('active-pill');
+  inn?.classList.remove('active-pill');
 }
 
 // === KPI PILLS COMO FILTROS ===
 export function togglePillTipo(t){
+  if(document.querySelector('.page.active')?.id==='p-dash'){
+    const ma=getMesActivo();
+    periodoMovimientos=vista==='mes'?{anio:ma.getFullYear(),mes:ma.getMonth()}:null;
+    movimientosUSD=verUSD;filtroCategoria=null;busqueda='';filtroCuentaMovimientos=null;
+    const buscador=document.getElementById('searchInp');if(buscador)buscador.value='';
+    filtroTipo=t;
+    setPg('tx');
+    return;
+  }
   filtroTipo=filtroTipo===t?'todos':t;
   render();
 }
@@ -135,12 +215,11 @@ function toggleAcumulado(){setModoBalance(modoBalance==='acumulado'?'periodo':'a
 
 function toggleNeta(){setModoBalance(modoBalance==='neto'?'periodo':'neto');}
 
-// Una selección hecha solo de transferencias (p. ej. al tocar la categoría
-// "Inversión IBKR") no es ingreso ni gasto: el balance daría 0. En ese caso se
-// muestra cuánto dinero se movió, sin sumarlo a nada.
+// Un período con solo transferencias no es ingreso ni gasto: muestra lo que
+// se movió sin sumarlo a nada. Los filtros del historial no intervienen.
 function seleccionSoloTransferencias(){
   if(modoBalance!=='periodo')return false;
-  const rows=filtrar();
+  const rows=filtrarInicio();
   return rows.length>0&&rows.every(t=>t[3]==='Transferencia');
 }
 
@@ -152,9 +231,9 @@ export function renderBal(){
   } else if(acumuladoMode){
     txBalance = datos.transacciones.filter(t=>{ try{return pf(t[0])<=hoy;}catch(e){return true;} });
   } else {
-    txBalance = filtrar();
+    txBalance = filtrarInicio();
   }
-  const txPeriodo = filtrar();
+  const txPeriodo = filtrarInicio();
   const pagosDesdeUSD=acumuladoMode?(datos.pagosTarjetas||[]).filter(p=>
     pagoEsUSD(p)&&esCuentaUSDNoInversion(p[6]||'')&&pf(p[4])<=hoy):[];
   const ajustesDePagosUSD=new Set(pagosDesdeUSD.map(p=>String(p[11]||'')).filter(Boolean));
@@ -257,8 +336,9 @@ export function renderBal(){
 }
 
 function renderCat(){
-  const tx=vista==='mes'?datos.transacciones.filter(t=>{const f=pf(t[0]);const ma=getMesActivo();return f.getMonth()===ma.getMonth()&&f.getFullYear()===ma.getFullYear();}):datos.transacciones;
+  const tx=movimientosDelPeriodo();
   const g=document.getElementById('cats');
+  if(!g)return;
   const t={},c={};
   // Los reembolsos no se cuentan aparte: su efecto ya está plegado en el
   // gasto original vía gastoNeto, así que la compra sigue siendo un solo
@@ -295,7 +375,7 @@ function filaReembolsoAnidada(r){
 function filaTxPrincipal(t){
   const c=cleanName(t[2]);
   const em=getEmoji(c);
-  const i=t[3]==='Ingreso',transfer=t[3]==='Transferencia';
+  const reembolso=t[3]==='Reembolso',i=t[3]==='Ingreso'||reembolso,transfer=t[3]==='Transferencia';
   const m=parseFloat(t[4])||0;
   // En divisa el importe que se ve primero es el que pagaste; el
   // equivalente en soles y el tipo de cambio van en la segunda línea.
@@ -323,13 +403,30 @@ function filaTxPrincipal(t){
   const pill=dual
     ? `<div class="tamt-pill transfer dual"><span class="pdot"></span><span class="leg-out">− ${enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m)}</span><span class="leg-in">+ ${fmtMoneda(Number(t[14]),t[13]||monedaCuenta(t[7]||''))}</span></div>`
     : `<div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div>`;
-  return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div>${pill}</div>${nested}`;
+  return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(reembolso?'Reembolso · '+(c||'—'):c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div>${pill}</div>${nested}`;
+}
+
+function movimientosVisibles(tx){
+  // Una devolución se anida solo si su gasto está entre las filas visibles.
+  // Al buscarla o filtrar por su cuenta receptora, sigue siendo una fila
+  // editable aunque el gasto original quede fuera de la selección.
+  const anidados=new Set(tx.filter(t=>t[3]==='Gasto').flatMap(t=>reembolsosDe(t[6]).map(r=>String(r[6]))));
+  return tx.filter(t=>t[3]!=='Reembolso'||!anidados.has(String(t[6])));
 }
 
 function renderTx(){
-  // Los reembolsos no se listan como filas propias: aparecen anidados bajo
-  // su gasto original (filaTxPrincipal), dondequiera que ese gasto caiga.
-  const tx=filtrar().filter(t=>t[3]!=='Reembolso');const l=document.getElementById('txs');
+  renderListaTx(movimientosVisibles(filtrar()),document.getElementById('txs'));
+}
+
+function renderRecentTx(){
+  const hoy=new Date();hoy.setHours(23,59,59,999);
+  const tx=filtrarInicio().filter(t=>t[3]!=='Reembolso'&&pf(t[0])<=hoy)
+    .sort((a,b)=>pf(b[0])-pf(a[0])).slice(0,5);
+  renderListaTx(tx,document.getElementById('recentTxs'),false);
+}
+
+function renderListaTx(tx,l,mostrarTotales=true){
+  if(!l)return;
   if(tx.length===0){l.innerHTML='<div class="empty">Sin transacciones</div>';return;}
   const o=[...tx].sort((a,b)=>pf(b[0])-pf(a[0]));
   // Agrupar por día
@@ -340,7 +437,7 @@ function renderTx(){
     const key=f.getFullYear()+'-'+f.getMonth()+'-'+f.getDate();
     if(!groups[key]){groups[key]={date:f,items:[],in:0,out:0};order.push(key);}
     const m=parseFloat(t[4])||0;
-    if(t[3]==='Ingreso')groups[key].in+=m;groups[key].out+=gastoNeto(t);
+    if(t[3]==='Ingreso'||t[3]==='Reembolso')groups[key].in+=m;groups[key].out+=gastoNeto(t);
     groups[key].items.push(t);
   });
   l.innerHTML=order.map(key=>{
@@ -349,7 +446,8 @@ function renderTx(){
     const totalCls=net>=0?'in':'out';
     const totalSign=net>=0?'+':'−';
     const items=g.items.map(filaTxPrincipal).join('');
-    return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span><span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span></div>${items}</div>`;
+    const total=mostrarTotales?`<span class="day-total ${totalCls}">${totalSign} ${fmt(Math.abs(net))}</span>`:'';
+    return `<div class="day-group"><div class="day-head"><span class="day-label">${dayLabel(g.date)}</span>${total}</div>${items}</div>`;
   }).join('');
 }
 
@@ -364,10 +462,10 @@ function renderRec(){
 }
 
 export function toggleSearch(){
+  if(document.querySelector('.page.active')?.id!=='p-tx')setPg('tx');
   const w=document.getElementById('searchWrap');
-  w.classList.toggle('show');
-  if(w.classList.contains('show')){document.getElementById('searchInp').focus();}
-  else{document.getElementById('searchInp').value='';busqueda='';render();}
+  w?.classList.add('show');
+  document.getElementById('searchInp')?.focus();
 }
 
 export function filtrarBusqueda(){busqueda=document.getElementById('searchInp').value;render();}
@@ -414,4 +512,17 @@ export async function cargarPatrimonio(forzar){
  if(modoBalance==='patrimonio')renderBal();
 }
 
-export function render(){renderBase();const rows=filtrar(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);const soloTr=seleccionSoloTransferencias();const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados. Los filtros también afectan este resumen.`:'No hay ingresos en la selección actual. Revisa los filtros o registra un ingreso para comparar.';document.getElementById('quickInsight').innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';document.getElementById('searchCount').textContent=rows.length+' movimiento'+(rows.length===1?'':'s')+(busqueda?(rows.length===1?' encontrado':' encontrados'):' en este período');document.getElementById('balLbl').textContent=verUSD?'Dólares en tus cuentas':soloTr?'Transferido en la selección':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Efectivo hasta hoy':(busqueda||filtroCategoria||filtroTipo!=='todos')?'Balance de la selección':'Balance del período';}
+export function render(){
+  renderBase();
+  const rows=filtrarInicio(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);
+  const soloTr=seleccionSoloTransferencias();
+  const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';
+  const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0
+    ?`Gasto neto equivalente al ${Math.round(expense/income*100)}% de los ingresos registrados en este período.`
+    :'No hay ingresos en este período. Registra un ingreso para comparar.';
+  const insight=document.getElementById('quickInsight');
+  if(insight)insight.innerHTML='<span class="symbol" aria-hidden="true">↗</span><div><strong>'+title+'</strong><p>'+detail+'</p></div>';
+  const count=document.getElementById('searchCount'),movimientos=movimientosVisibles(filtrar());
+  if(count)count.textContent=movimientos.length+' movimiento'+(movimientos.length===1?'':'s')+(busqueda?(movimientos.length===1?' encontrado':' encontrados'):' en este período');
+  document.getElementById('balLbl').textContent=verUSD?'Dólares en tus cuentas':soloTr?'Transferido en el período':modoBalance==='patrimonio'?'Patrimonio estimado':netaMode?'Balance de todos los registros':acumuladoMode?'Efectivo hasta hoy':'Balance del período';
+}

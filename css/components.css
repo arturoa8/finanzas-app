@@ -9,6 +9,8 @@
 .nt{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 6px;font-family:inherit;font-size:0.58rem;font-weight:600;letter-spacing:0.03em;flex:1;}
 .nt.active{color:var(--green);}
 .nt svg{width:20px;height:20px;stroke-width:2;}
+.nav .nt{min-width:0;}
+@media(min-width:1050px){.nav .nt{flex-direction:row;justify-content:flex-start;gap:12px;min-height:48px;padding:12px;font-size:.85rem;letter-spacing:0;}}
 .page{display:none;}.page.active{display:block;animation:fadeIn 0.3s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
@@ -174,3 +176,15 @@ button:disabled{opacity:.45;cursor:wait;}
 #settingsModal .settings-help{margin-top:12px;}
 #settingsModal .settings-help>summary{color:var(--dim);font-size:.78rem;line-height:1.6;cursor:pointer;}
 #settingsModal .settings-help .hint{font-size:.78rem;}
+
+/* Destinos secundarios accesibles desde la barra principal. */
+.fab[hidden]{display:none;}
+.more-sheet{max-width:460px;}
+.more-subtitle{font-size:.8rem;color:var(--dim);margin:6px 0 0;}
+.more-options{display:grid;gap:8px;}
+.more-option{display:grid;grid-template-columns:42px minmax(0,1fr) 12px;align-items:center;gap:12px;width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);text-align:left;font:inherit;cursor:pointer;}
+.more-option strong{display:block;font-size:.94rem;}
+.more-option small{display:block;color:var(--dim);font-size:.75rem;line-height:1.5;margin-top:4px;}
+.more-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;background:var(--card2);border-radius:12px;color:var(--accent);}
+.more-icon svg{width:23px;height:23px;}
+.more-option>span:last-child{color:var(--dim);font-size:1.35rem;}

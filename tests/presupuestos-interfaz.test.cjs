@@ -1,4 +1,4 @@
-// Sección Presupuestos de Estadísticas con DOM y API ficticios: ninguna
+// Página Presupuestos con DOM y API ficticios: ninguna
 // petición de esta prueba puede leer o cambiar datos reales.
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
@@ -176,14 +176,17 @@ const gasto=(fecha,cat,monto,id)=>[fecha,cat,cat,'Gasto',monto,'Yape',id||cat+fe
       ui.renderPresupuestos();
       assert.match(tarjetas().find(t=>/Comer afuera/.test(t)),/S\/ 0\.00<\/strong> de S\/ 100\.00/);assert.equal(pedidos.length,0);
     }],
-    ['Estadísticas pinta los presupuestos; Inicio no los calcula',()=>{
+    ['Presupuestos tiene una página independiente de Estadísticas',()=>{
       const analisis=fs.readFileSync(path.join(appRoot,'js/modules/analytics.js'),'utf8');
-      assert.match(analisis,/export function renderAnalisis\(\)\{\n  renderPresupuestos\(\);/);
+      assert.doesNotMatch(analisis,/renderPresupuestos|setEstadisticasVista|statsPanelPresupuestos/,'Estadísticas no pinta ni contiene la vista de presupuestos');
       const inicio=fs.readFileSync(path.join(appRoot,'js/modules/dashboard.js'),'utf8');
-      assert.doesNotMatch(inicio,/renderPresupuestos/);assert.match(inicio,/if\(pagina==='p-bud'\)renderAnalisis\(\);/);
+      assert.match(inicio,/if\(pagina==='p-pres'\)renderPresupuestos\(\);/,'se actualiza al volver a pintar la página de Presupuestos');
+      assert.match(inicio,/if\(pagina==='p-bud'\)renderAnalisis\(\);/,'Estadísticas sigue actualizando su propio resumen');
       const indice=fs.readFileSync(path.join(appRoot,'index.html'),'utf8');
-      const bud=indice.indexOf('id="p-bud"'),seccion=indice.indexOf('id="presupuestosSeccion"'),deb=indice.indexOf('id="p-deb"'),dash=indice.indexOf('id="p-dash"');
-      assert.ok(bud<seccion&&seccion<deb&&!(dash<seccion&&seccion<indice.indexOf('id="p-ana"')),'la sección vive en Estadísticas');
+      const paginas=[...indice.matchAll(/<div class="page" id="([^"]+)"/g)];
+      const contenidoPagina=id=>{const i=paginas.findIndex(p=>p[1]===id);assert.ok(i>=0,'existe '+id);return indice.slice(paginas[i].index,paginas[i+1]?.index??indice.length);};
+      assert.match(contenidoPagina('p-pres'),/id="presupuestosSeccion"/,'la sección vive en su página propia');
+      assert.doesNotMatch(contenidoPagina('p-bud'),/id="presupuestosSeccion"|statsViewTabs|statsPanelPresupuestos/,'Estadísticas sólo contiene su resumen');
     }],
   ];
   let fallos=0;

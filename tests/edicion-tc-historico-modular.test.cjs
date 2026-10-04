@@ -30,8 +30,8 @@ function nodo(id){
 }
 const el=id=>{if(!nodos.has(id))nodos.set(id,nodo(id));return nodos.get(id);};
 document.getElementById=el;
-document.querySelector=s=>s==='.cchip.selected'?chips.find(c=>c.classList.contains('selected'))||null:null;
-document.querySelectorAll=s=>s==='.cchip'?chips:[];
+document.querySelector=s=>s==='#catChips .cchip.selected'?chips.find(c=>c.classList.contains('selected'))||null:null;
+document.querySelectorAll=s=>s==='#catChips .cchip'?chips:[];
 document.body=nodo('body');
 globalThis.matchMedia=()=>({matches:true});
 globalThis.window={matchMedia};
@@ -69,7 +69,7 @@ const movimiento=({id='histórico',tipo='Gasto',cuenta='BCP Dólares',tc=3.7,fue
   }
   async function abrirEdicion(t){
     tx.editarTx(t[6]);
-    // La categoría histórica se selecciona en el timeout real del formulario.
+    // Dejar terminar también los callbacks de foco del formulario.
     await new Promise(r=>realTimeout(r,65));
     assert.equal(el('iMoneda').value,'USD','abrir la edición conserva la moneda original');
     assert.equal(Number(el('iMon').value),100,'abrir la edición conserva el nominal en dólares');

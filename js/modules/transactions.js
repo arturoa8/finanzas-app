@@ -155,12 +155,12 @@ export function llenarSel(){
 }
 
 export function seleccionarCat(el){
-  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('selected'));
+  document.querySelectorAll('#catChips .cchip').forEach(c=>c.classList.remove('selected'));
   el.classList.add('selected');
 }
 
 function getCatSeleccionada(){
-  const sel=document.querySelector('.cchip.selected');
+  const sel=document.querySelector('#catChips .cchip.selected');
   return sel?sel.dataset.cat:'';
 }
 
@@ -168,7 +168,7 @@ export function abrirM(){
   if(guardandoTx)return;
   editando=null;
   editandoFecha=null;
-  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('selected'));
+  document.querySelectorAll('#catChips .cchip').forEach(c=>c.classList.remove('selected'));
   document.getElementById('modalTitle').textContent='Nueva transacción';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   const hoy=new Date();
@@ -195,6 +195,9 @@ export function editarTx(row){
   if(t[2]==='Diferencia de cambio'&&!String(t[5]||'').trim()){toast('Es la diferencia de cambio de un pago en dólares. Se quita eliminando ese pago en Tarjetas.');return;}
   editando=String(getTxRow(t));
   editandoFecha=t[0];
+  // La edición parte de su categoría original, sin heredar otra operación
+  // ni los chips del formulario de presupuestos.
+  document.querySelectorAll('#catChips .cchip').forEach(c=>c.classList.remove('selected'));
   document.getElementById('modalTitle').textContent='Editar transacción';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-d" onclick="eliminar()">Eliminar</button><button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   const f=pf(t[0]);
@@ -220,11 +223,9 @@ export function editarTx(row){
   sincronizarCamposMoneda();
   // Pre-seleccionar categoría
   const cn=cleanName(t[2]);
-  setTimeout(()=>{
-    document.querySelectorAll('.cchip').forEach(c=>{
-      if(norm(c.dataset.cat)===norm(cn))c.classList.add('selected');
-    });
-  },50);
+  document.querySelectorAll('#catChips .cchip').forEach(c=>{
+    c.classList.toggle('selected',norm(cleanName(c.dataset.cat))===norm(cn));
+  });
   document.getElementById('modal').classList.add('active');
 }
 

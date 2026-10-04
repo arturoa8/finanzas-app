@@ -33,8 +33,8 @@ function nodo(id){
 }
 const el=id=>{if(!nodos.has(id))nodos.set(id,nodo(id));return nodos.get(id);};
 document.getElementById=el;
-document.querySelector=s=>s==='.cchip.selected'?chips.find(c=>c.classList.contains('selected'))||null:null;
-document.querySelectorAll=s=>s==='.cchip'?chips:[];document.body=nodo('body');
+document.querySelector=s=>s==='#catChips .cchip.selected'?chips.find(c=>c.classList.contains('selected'))||null:null;
+document.querySelectorAll=s=>s==='#catChips .cchip'?chips:[];document.body=nodo('body');
 globalThis.matchMedia=()=>({matches:true});globalThis.window={matchMedia};
 globalThis.setTimeout=(fn,ms,...args)=>{const timer=realTimeout(fn,ms,...args);if(ms>=1000)timer.unref?.();return timer;};
 const sesion=()=>localStorage.setItem('sb_session',JSON.stringify({user_id:'usuario-demo',access_token:'token-demo',expires_at:ahora+3600000}));
