@@ -40,3 +40,64 @@
 .balance-guide .balance-scope{border-top:1px solid var(--border);margin:18px 0 0;padding-top:14px;color:var(--dim);}
 .balance-guide .balance-scope strong{color:var(--text);}
 @media(min-width:700px){.balance-guide-content dl{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;}}
+
+/* Presupuestos: primera sección de Estadísticas. Las tarjetas reutilizan
+   .bitem/.bbar/.bfill; el estado se dice con texto, no solo con color. */
+.pres-section{margin:0 0 28px;}
+.pres-head{align-items:flex-start;gap:12px;}
+.pres-head .s-sub{margin-top:4px;color:var(--dim);font-variant-numeric:tabular-nums;}
+.pres-tabs{margin-bottom:12px;}
+.pres-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin-bottom:12px;}
+.pres-nav .icon-btn{font-size:1.35rem;line-height:1;color:var(--text);font-family:inherit;}
+.pres-nav-label{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;min-width:0;}
+.pres-nav-label strong{font-size:.92rem;font-weight:750;}
+.pres-nav-label span{font-size:.74rem;color:var(--dim);font-variant-numeric:tabular-nums;}
+.pres-actual{display:block;margin:-6px auto 10px;min-height:32px;padding:6px 10px;background:none;border:0;color:var(--accent);font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;}
+.pres-actual[hidden]{display:none;}
+.pres-item{padding:16px;}
+.pres-item-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.pres-icon{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border-radius:12px;font-size:1.1rem;}
+.pres-item-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.pres-item-title strong{font-size:.9rem;overflow-wrap:anywhere;}
+.pres-item-title span{font-size:.72rem;color:var(--dim);line-height:1.35;}
+.pres-item-actions{display:flex;gap:6px;margin-left:auto;}
+.pres-estado{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0;}
+.pres-delete{color:var(--red);}
+.pres-amounts{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 10px;margin-bottom:8px;font-size:.8rem;color:var(--dim);font-variant-numeric:tabular-nums;}
+.pres-amounts strong{font-size:1.05rem;font-weight:800;color:var(--text);}
+.pres-pct{font-weight:700;color:var(--text);}
+.pres-bar{height:8px;border-radius:999px;}
+.pres-bar .bfill{border-radius:999px;}
+.pres-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 10px;margin-top:10px;font-size:.78rem;}
+.pres-left{font-weight:700;font-variant-numeric:tabular-nums;}
+.pres-alcanzado .pres-left{color:var(--yellow);}
+.pres-excedido .pres-left{color:var(--red);}
+.pres-chip{padding:3px 9px;border:1px solid rgba(255,184,77,.35);border-radius:999px;color:var(--yellow);font-size:.7rem;font-weight:700;}
+.pres-incompleto{margin-top:8px;color:var(--yellow);font-size:.72rem;line-height:1.5;}
+.pres-empty{padding:20px;border:1px dashed var(--border);border-radius:20px;background:var(--card);}
+.pres-empty p{margin-bottom:14px;color:var(--dim);font-size:.82rem;line-height:1.6;}
+.pres-empty strong{color:var(--text);}
+.pres-empty .btn{width:100%;}
+.pres-empty-line{padding:14px 4px;color:var(--dim);font-size:.8rem;}
+.an-head{margin-top:4px;}
+
+/* Formulario y borrado de presupuestos (hoja de Transferencia). */
+.pres-form .card-payment-label{margin-top:2px;}
+#presInicioCampo .sel{min-width:0;width:100%;}
+.pres-form-resumen{display:flex;flex-direction:column;gap:4px;margin-bottom:18px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);}
+.pres-form-resumen strong{font-size:.95rem;overflow-wrap:anywhere;}
+.pres-form-resumen span{font-size:.75rem;color:var(--dim);line-height:1.4;}
+.pres-alcance{display:grid;gap:8px;margin:0 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;}
+.pres-alcance legend{padding:0 6px;color:var(--dim);font-size:.75rem;font-weight:600;}
+.pres-alcance label{display:flex;align-items:center;gap:10px;min-height:36px;font-size:.88rem;cursor:pointer;}
+.pres-alcance input,.pres-check input{width:20px;height:20px;flex:0 0 20px;accent-color:var(--accent);}
+.pres-alcance .hint{margin:0;color:var(--dim);font-size:.74rem;}
+.pres-check{display:flex;align-items:center;gap:10px;min-height:40px;margin:0 0 14px;font-size:.88rem;cursor:pointer;}
+.pres-form-error{margin:0 0 12px;color:var(--red);font-size:.8rem;line-height:1.5;}
+.pres-duplicado{margin:0 0 12px;padding:12px 14px;border:1px solid rgba(255,184,77,.35);border-radius:14px;background:rgba(255,184,77,.06);}
+.pres-duplicado p{margin-bottom:10px;font-size:.8rem;line-height:1.5;}
+#presFormCampos[hidden],#presFormResumen[hidden],#presCategoriaCampo[hidden],#presInicioCampo[hidden],#presAlcanceCampo[hidden],#presRepetirCampo[hidden],#presFormError[hidden],#presDuplicado[hidden],#presEliminarError[hidden]{display:none;}
+.pres-eliminar-titulo{font-size:1.15rem;overflow-wrap:anywhere;}
+.pres-eliminar-texto{margin:0 0 16px;color:var(--dim);font-size:.86rem;line-height:1.6;}
+.pres-eliminar-acciones{flex-wrap:wrap;}
+.pres-eliminar-acciones .btn{flex:1 1 auto;}

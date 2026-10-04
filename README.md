@@ -2,6 +2,12 @@
 
 Aplicación de finanzas personales publicada en https://arturoa8.github.io/finanzas-app/.
 
+## Versión 2026.10.03.16
+
+- Presupuestos en Estadísticas: general o por categoría, mensuales (mes calendario) o semanales (lunes a domingo), con repetición. Cada tarjeta muestra gastado, límite, porcentaje real, disponible o exceso, y avisa desde el 80 %.
+- El consumo es el gasto neto de reembolsos en la fecha del consumo, en hora de Lima. Pagos de tarjeta, transferencias, compras de dólares, aportes a IBKR e ingresos no lo consumen; el excedente de un reembolso no amplía el límite.
+- Editar uno que se repite distingue entre "solo este período" y "este período y los siguientes"; dejar de repetirlo conserva los límites de los períodos anteriores. Los presupuestos se guardan en Supabase y se comparten entre dispositivos.
+
 ## Versión 2026.10.03.1
 
 - Inicio prepara movimientos y portafolio en paralelo. Precarga las curvas de 1 día, 1 semana y 1 mes antes de abrir esa pestaña.

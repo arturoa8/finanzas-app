@@ -16,7 +16,9 @@ function categoriaPorNombre(nombre){return (datos.categorias||[]).find(c=>c[0]==
 
 function usoCategoria(nombre){
  const movimientos=(datos.transacciones||[]).filter(t=>t[2]===nombre).length;
- const presupuestos=(datos.presupuestos||[]).filter(p=>p[0]===nombre).length;
+ // Un presupuesto que se repite puede tener varias versiones y ajustes: se
+ // cuenta una vez por serie (índice 9; las filas sin serie, una por fila).
+ const presupuestos=new Set((datos.presupuestos||[]).map((p,i)=>p[0]===nombre?(p[9]??'fila-'+i):null).filter(Boolean)).size;
  const recurrentes=(datos.recurrentes||[]).filter(r=>r[1]===nombre).length;
  return {movimientos,presupuestos,recurrentes};
 }

@@ -7,6 +7,7 @@ import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {filaPago} from './cards/payments.js';
+import {filaPresupuesto} from './presupuestos-calculo.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
 import {render} from './dashboard.js';
 import {cargarTcMercado} from '../services/exchange-rate.js';
@@ -73,7 +74,9 @@ async function cargar__base(){
       sbSelect('categorias','?select=nombre,color'),
       sbSelectTodo('deudas_resumen','?select=id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo&order=id.asc'),
       sbSelectTodo('deudas_abonos','?select=id,deuda_id,monto,fecha,nota,tx_id&order=id.asc'),
-      sbSelectTodo('presupuestos','?select=id,categoria,monto_limite,mes&order=id.asc'),
+      // select=* también funciona antes de la migración de presupuestos por
+      // período: filaPresupuesto lee las filas en ambos formatos.
+      sbSelectTodo('presupuestos','?select=*&order=id.asc'),
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
     const cuentasRes=await cuentasReq;
@@ -87,7 +90,7 @@ async function cargar__base(){
     datos.deudas=deu.filter(d=>!d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo]);
     datos.deudasArchivadas=deu.filter(d=>d.archivado).map(d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado,d.fecha_inicio,d.fecha_venc,d.tipo,d.motivo_archivo,d.fecha_archivo]);
     datos.deudasAbonos=abonos.map(a=>[a.id,a.deuda_id,a.monto,a.fecha,a.nota,a.tx_id]);
-    datos.presupuestos=pres.map(p=>[p.categoria,p.monto_limite,p.mes]);
+    datos.presupuestos=pres.map(filaPresupuesto);
     datos.recurrentes=rec.map(r=>[r.descripcion,r.categoria,r.tipo,r.monto,r.dia_mes,r.activo]);
     const sinTabla=cuentasRes?.falla&&(['PGRST205','42P01'].includes(cuentasRes.falla.code)||/relation .*cuentas.* does not exist/i.test(cuentasRes.falla.message||''));
     if(cuentasRes&&cuentasRes.falla&&!sinTabla){

@@ -10,7 +10,7 @@
      iOS lee esta etiqueta al instalar: hay que volver a añadir la app. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<meta name="version-app" content="2026.10.03.15">
+<meta name="version-app" content="2026.10.03.16">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -82,6 +82,8 @@ try{
   <link rel="modulepreload" href="./js/modules/portfolio/intraday.js">
   <link rel="modulepreload" href="./js/modules/portfolio/portfolio-ui.js">
   <link rel="modulepreload" href="./js/modules/portfolio/risk.js">
+  <link rel="modulepreload" href="./js/modules/presupuestos.js">
+  <link rel="modulepreload" href="./js/modules/presupuestos-calculo.js">
   <link rel="modulepreload" href="./js/modules/reconciliation.js">
   <link rel="modulepreload" href="./js/modules/transactions.js">
   <link rel="modulepreload" href="./js/services/exchange-rate.js">
@@ -361,6 +363,22 @@ try{
   <div class="container">
     <header class="header"><div class="page-title">Estadísticas</div></header>
 
+    <section class="pres-section" id="presupuestosSeccion" aria-labelledby="presTitulo">
+      <div class="s-head pres-head"><div><h2 class="s-title" id="presTitulo">Presupuestos</h2><div class="s-sub" id="presGastado"></div></div><button type="button" class="line-edit-btn" onclick="abrirNuevoPresupuesto()">＋ Crear presupuesto</button></div>
+      <div class="an-tabs pres-tabs" role="tablist" aria-label="Tipo de período">
+        <button type="button" class="antb active" id="presTabMes" role="tab" aria-selected="true" onclick="setPresVista('mensual')">Mes</button>
+        <button type="button" class="antb" id="presTabSemana" role="tab" aria-selected="false" onclick="setPresVista('semanal')">Semana</button>
+      </div>
+      <div class="pres-nav">
+        <button type="button" class="icon-btn" onclick="moverPresPeriodo(-1)" aria-label="Período anterior">‹</button>
+        <div class="pres-nav-label" aria-live="polite"><strong id="presPeriodoNombre">Este mes</strong><span id="presPeriodoFechas"></span></div>
+        <button type="button" class="icon-btn" onclick="moverPresPeriodo(1)" aria-label="Período siguiente">›</button>
+      </div>
+      <button type="button" class="pres-actual" id="presActual" onclick="irPresPeriodoActual()" hidden>Ir a este mes</button>
+      <div id="presupuestosLista"></div>
+    </section>
+
+    <div class="s-head an-head"><h2 class="s-title">Resumen</h2></div>
     <div class="an-tabs">
       <button class="antb active" onclick="setAnPeriodo('mes',this)">Mes</button>
       <button class="antb" onclick="setAnPeriodo('anio',this)">Año</button>
@@ -662,6 +680,62 @@ try{
       <button class="btn btn-s" onclick="cerrarEditPago()">Cancelar</button>
       <button class="btn btn-p" onclick="guardarEditPago()">Guardar</button>
     </div>
+  </div>
+</div>
+
+<!-- CREAR / EDITAR PRESUPUESTO -->
+<div class="modal" id="presupuestoModal">
+  <div class="mc card-payment-sheet pres-form">
+    <div class="mc-top">
+      <div class="mt" id="presFormTitle">Crear presupuesto</div>
+      <button type="button" class="mh-x" onclick="cerrarPresupuestoForm()" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="presFormCampos">
+      <span class="card-payment-label">Ámbito</span>
+      <div class="tt card-payment-tabs" role="group" aria-label="Ámbito">
+        <button type="button" class="ttb active" id="presAmbGeneral" onclick="setPresAmbito('general')">General</button>
+        <button type="button" class="ttb" id="presAmbCategoria" onclick="setPresAmbito('categoria')">Categoría</button>
+      </div>
+      <div id="presCategoriaCampo" hidden>
+        <span class="card-payment-label">Categoría</span>
+        <div class="cat-chips" id="presCategorias" role="group" aria-label="Categoría"></div>
+      </div>
+      <span class="card-payment-label">Período</span>
+      <div class="tt card-payment-tabs" role="group" aria-label="Período">
+        <button type="button" class="ttb active" id="presPerMensual" onclick="setPresTipo('mensual')">Mensual</button>
+        <button type="button" class="ttb" id="presPerSemanal" onclick="setPresTipo('semanal')">Semanal</button>
+      </div>
+    </div>
+    <div class="pres-form-resumen" id="presFormResumen" hidden></div>
+    <label class="card-payment-label" for="presMonto">Límite en soles</label>
+    <div class="monto-row card-payment-amount"><span>S/</span><input type="number" class="big-input muto" id="presMonto" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal"></div>
+    <div class="cuenta-row" id="presInicioCampo"><label class="cuenta-lbl" for="presInicio">Desde</label><select class="sel" id="presInicio" onchange="cambiarPresInicio()"></select></div>
+    <fieldset class="pres-alcance" id="presAlcanceCampo" hidden>
+      <legend>¿A qué períodos aplica el cambio?</legend>
+      <label><input type="radio" name="presAlcance" id="presAlcancePeriodo" value="periodo" onchange="setPresAlcance('periodo')"> Solo este período</label>
+      <label><input type="radio" name="presAlcance" id="presAlcanceSiguientes" value="siguientes" onchange="setPresAlcance('siguientes')"> Este período y los siguientes</label>
+      <p class="hint" id="presAlcanceNota"></p>
+    </fieldset>
+    <label class="pres-check" id="presRepetirCampo"><input type="checkbox" id="presRepetir" checked onchange="cambiarPresRepetir()"> <span id="presRepetirTexto">Repetir cada mes</span></label>
+    <p class="pres-form-error" id="presFormError" role="alert" hidden></p>
+    <div class="pres-duplicado" id="presDuplicado" role="alert" hidden><p id="presDuplicadoTexto"></p><button type="button" class="line-edit-btn" onclick="editarPresupuestoExistente()">Editar ese presupuesto</button></div>
+    <div class="brow">
+      <button type="button" class="btn btn-s" onclick="cerrarPresupuestoForm()">Cancelar</button>
+      <button type="button" class="btn btn-p" id="presGuardar" onclick="guardarPresupuesto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ELIMINAR PRESUPUESTO -->
+<div class="modal centered" id="presEliminarModal">
+  <div class="mc compact-mc">
+    <div class="mc-top">
+      <div class="mc-title-big pres-eliminar-titulo" id="presEliminarTitle">Eliminar presupuesto</div>
+      <button type="button" class="mh-x" onclick="cerrarEliminarPresupuesto()" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="pres-eliminar-texto" id="presEliminarTexto"></p>
+    <p class="pres-form-error" id="presEliminarError" role="alert" hidden></p>
+    <div class="brow pres-eliminar-acciones" id="presEliminarAcciones"></div>
   </div>
 </div>
 

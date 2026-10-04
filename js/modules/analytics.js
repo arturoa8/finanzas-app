@@ -2,6 +2,7 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {renderSaldoCuentas} from './accounts.js';
+import {renderPresupuestos} from './presupuestos.js';
 import {gastoNeto, gastosPorCat, reembolsado, totales} from './transactions.js';
 import {datos} from '../state.js';
 import {renderChart, renderYearMini} from '../ui/charts.js';
@@ -54,6 +55,7 @@ export function filtrarPorPeriodo(rows,periodo,campoFecha){
 }
 
 export function renderAnalisis(){
+  renderPresupuestos();
   const tx=getTxAn();const tot=totales(tx);
   // Tasa de ahorro
   const ahorro=tot.i>0?((tot.bal/tot.i)*100):0;

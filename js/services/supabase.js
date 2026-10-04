@@ -8,7 +8,7 @@ import {SUPABASE_ANON_KEY, SUPABASE_URL} from './supabase-config.js';
 async function sbRespuesta(path,opts={}){
   const headers={apikey:SUPABASE_ANON_KEY,'Content-Type':'application/json',Authorization:await authHeader(),...(opts.headers||{})};
   const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{...opts,headers});
-  if(!r.ok){const body=await r.text();let data;try{data=JSON.parse(body);}catch(e){}const error=new Error(data?.message||body||('HTTP '+r.status));error.status=r.status;error.code=data?.code;throw error;}
+  if(!r.ok){const body=await r.text();let data;try{data=JSON.parse(body);}catch(e){}const error=new Error(data?.message||body||('HTTP '+r.status));error.status=r.status;error.code=data?.code;error.details=data?.details;throw error;}
   return r;
 }
 
