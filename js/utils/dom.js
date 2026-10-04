@@ -30,9 +30,15 @@ export function initializeAccessibility(){
   document.querySelectorAll('[onclick]:not(button):not(a):not(input):not(select)').forEach(el=>{el.setAttribute('role','button');el.setAttribute('tabindex','0');});
   document.querySelectorAll('.modal').forEach(m=>{m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');const title=m.querySelector('[id$="Title"],.mc-title-big,.mh-title');if(title&&title.id)m.setAttribute('aria-labelledby',title.id);else m.setAttribute('aria-label','Detalle o edición');});
   const active=[...document.querySelectorAll('.modal.active')].at(-1)||null;
-  if(active!==lastModal){if(active){if(!lastModal)lastFocus=document.activeElement;active.querySelector('input,button,select,textarea,[tabindex="0"]')?.focus();}else{lastFocus?.focus();lastFocus=null;}lastModal=active;document.body.style.overflow=active?'hidden':'';}
+  // Sin overflow:hidden en body ni desplazamientos por foco: en iPhone, cambiar
+  // el desplazamiento de la página con scroll hecho deja la barra inferior, el
+  // botón + y las ventanas corridos hacia arriba hasta el siguiente gesto.
+  if(active!==lastModal){if(active){if(!lastModal)lastFocus=document.activeElement;active.querySelector('input,button,select,textarea,[tabindex="0"]')?.focus({preventScroll:true});}else{lastFocus?.focus({preventScroll:true});lastFocus=null;}lastModal=active;}
  };
  const observer=new MutationObserver(syncAccessibility);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});syncAccessibility();
+ // El fondo de una ventana no arrastra la página. Dentro de la ventana el
+ // contenido sigue desplazándose y overscroll-behavior evita el encadenado.
+ document.addEventListener('touchmove',e=>{if(e.target.classList?.contains('modal')&&e.target.classList.contains('active'))e.preventDefault();},{passive:false});
  document.addEventListener('keydown',e=>{const active=[...document.querySelectorAll('.modal.active')].at(-1);if(e.key==='Escape'&&active){active.querySelector('.mh-x')?.click();return;}if(e.key==='Tab'&&active){const els=[...active.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);const first=els[0],last=els.at(-1);if(e.shiftKey&&(document.activeElement===first||!active.contains(document.activeElement))){e.preventDefault();last?.focus();}else if(!e.shiftKey&&(document.activeElement===last||!active.contains(document.activeElement))){e.preventDefault();first?.focus();}}if(['Enter',' '].includes(e.key)&&e.target.matches('[role="button"][onclick]:not(button):not(a)')){e.preventDefault();e.target.click();}});
 }
 
