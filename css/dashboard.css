@@ -24,6 +24,12 @@
 .seg-btn{flex:1;min-width:0;white-space:nowrap;background:transparent;border:none;border-radius:11px;color:var(--dim);font-family:inherit;font-size:0.76rem;font-weight:700;padding:9px 6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;}
 .seg-btn svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.5;fill:none;}
 .seg-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.3);}
+/* Con JS, una sola pieza de fondo recorre las opciones en 200 ms en vez de
+   saltar. clip-path recorta la pieza a la opción activa sin recalcular diseño. */
+.mode-seg{position:relative;}
+.mode-seg .seg-btn{position:relative;z-index:1;}
+.seg-thumb{position:absolute;inset:4px;border-radius:11px;background:var(--card);pointer-events:none;clip-path:inset(0 100% 0 0 round 11px);transition:clip-path .2s cubic-bezier(.2,.8,.2,1);}
+.mode-seg.con-thumb .seg-btn.active{background:transparent;box-shadow:none;}
 .bal-nota{font-size:0.72rem;color:var(--dim);line-height:1.55;margin-top:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* Filter chips */

@@ -27,12 +27,32 @@
 /* Los cambios de sección y la restauración de iOS necesitan scroll inmediato.
    Los saltos que sí lo requieren solicitan behavior:smooth explícitamente. */
 html{scroll-behavior:auto;}
-.icon-btn,.chip,.kpi,.ccard,.tx,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;}
-.icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-pill:active,.cchip:active{transform:scale(.97);}
+.icon-btn,.chip,.kpi,.ccard,.tx,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip,.seg-btn,.fab{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;}
+.icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-pill:active,.cchip:active,.seg-btn:active{transform:scale(.97);}
+.fab:active{transform:scale(.95);}
 .page.active{animation:softPageIn .38s cubic-bezier(.2,.8,.2,1);}
 @keyframes softPageIn{from{opacity:0;}to{opacity:1;}}
-.mc{animation:softSlideUp .36s cubic-bezier(.2,.8,.2,1);}
-@keyframes softSlideUp{from{transform:translateY(100%);opacity:.8;}to{transform:translateY(0);opacity:1;}}
+/* Ventanas. Al abrir, el velo se funde (200 ms) y la hoja sube (360 ms); al
+   cerrar, la hoja baja por el mismo borde (240 ms) y el velo se apaga. La
+   entrada es animación porque corre siempre al pasar de display:none; la
+   salida es transición, y allow-discrete mantiene display hasta que termina.
+   Sin allow-discrete (navegadores viejos) se cierra al instante, como antes.
+   Las centradas no viajan: aparecen desde 0.96 y se van igual. */
+.modal{transition:display .24s allow-discrete;}
+.modal:not(.active){pointer-events:none;}
+.modal::before{opacity:0;transition:opacity .2s ease-out;}
+.modal.active::before{opacity:1;animation:veloEntra .2s ease-out;}
+.mc{transform:translateY(100%);transition:transform .24s cubic-bezier(.2,.8,.2,1);}
+.modal.active .mc{transform:none;animation:softSlideUp .36s cubic-bezier(.2,.8,.2,1);}
+.modal.centered .mc{transform:scale(.96);opacity:0;transition:transform .2s cubic-bezier(.2,.8,.2,1),opacity .2s ease-out;}
+.modal.centered.active .mc{transform:none;opacity:1;animation:centradaEntra .28s cubic-bezier(.2,.8,.2,1);}
+@keyframes veloEntra{from{opacity:0;}}
+@keyframes softSlideUp{from{transform:translateY(100%);}}
+@keyframes centradaEntra{from{opacity:0;transform:scale(.96);}}
+/* Mientras el dedo arrastra la hoja (js/ui/sheet-drag.js), nada se anima:
+   la hoja sigue al dedo y el velo se aclara según lo que bajó. */
+.modal.arrastrando .mc{transition:none;}
+.modal.arrastrando::before{transition:none;opacity:var(--velo,1);}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
 
 /* Card detail / payments */

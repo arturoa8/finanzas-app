@@ -12,6 +12,8 @@ import {bootAuth} from './services/auth.js';
 import {pfYahoo, renderPfYahoo, startPfYahoo, stopPfYahoo} from './services/market-data.js';
 import {guardedOnce} from './utils/async.js';
 import {initializeAccessibility} from './utils/dom.js';
+import {initializeSheetDrag} from './ui/sheet-drag.js';
+import {initializeSegmentedThumb} from './ui/segmented-thumb.js';
 import {exportarMovimientosCSV, descargarRespaldo} from './modules/backup.js';
 import {detenerPrecargaPortafolio, limpiarCachePortafolio, precargarPortafolio} from './modules/portfolio/portfolio.js';
 
@@ -39,6 +41,8 @@ window.addEventListener('storage',e=>{if(e.key==='sb_session'){
   stopPfYahoo();limpiarCachePortafolio();pfYahoo.quotes=[];pfYahoo.lastAttempt=0;pfYahoo.scope='';renderPfYahoo();location.reload();
 }});
 initializeAccessibility();
+initializeSheetDrag();
+initializeSegmentedThumb();
 document.getElementById('exportCSV')?.addEventListener('click',exportarMovimientosCSV);
 document.getElementById('exportBackup')?.addEventListener('click',descargarRespaldo);
 bootAuth();
