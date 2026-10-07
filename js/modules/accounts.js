@@ -165,6 +165,13 @@ function totalEfectivoSoles(hasta=endOfDay(new Date())){
   return cuentasEfectivoSoles().reduce((sum,c)=>sum+getCuentaBalanceMoneda(c[0],hasta).saldo,0);
 }
 
+// Para el bloque Efectivo de Inicio: las mismas cuentas y saldos que suma
+// "Saldos registrados en cuentas en soles", con el detalle por cuenta.
+export function resumenEfectivoSoles(hasta=endOfDay(new Date())){
+  const cuentas=cuentasEfectivoSoles().map(c=>({nombre:c[0],saldo:getCuentaBalanceMoneda(c[0],hasta).saldo}));
+  return {total:Math.round(cuentas.reduce((sum,c)=>sum+c.saldo,0)*100)/100,cuentas};
+}
+
 function totalPendienteTarjetasGlobal(){
   return CREDIT_CARDS.reduce((sum,card)=>sum+getCardOutstandingTotal(card),0);
 }

@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.06.02">
+<meta name="version-app" content="2026.10.07.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <title>Mis Finanzas · Mejorada</title>
@@ -63,6 +63,9 @@ try{
   <link rel="modulepreload" href="./js/modules/categories.js">
   <link rel="modulepreload" href="./js/services/refund-operations.js">
   <link rel="modulepreload" href="./js/modules/settings.js">
+  <link rel="modulepreload" href="./js/modules/cards/orden.js">
+  <link rel="modulepreload" href="./js/modules/cards/orden-ui.js">
+  <link rel="modulepreload" href="./js/ui/reorder-drag.js">
   <link rel="modulepreload" href="./js/services/auth.js">
   <link rel="modulepreload" href="./js/services/market-data.js">
   <link rel="modulepreload" href="./js/utils/async.js">
@@ -650,7 +653,8 @@ try{
       <details class="settings-group" id="settingsInicio" open>
         <summary><span><strong>Inicio personalizado</strong><small>Elige qué ves y en qué orden</small></span></summary>
         <div class="settings-group-body">
-          <p class="hint">Marca los bloques que quieres ver y usa las flechas para ordenarlos. Los cambios se guardan en este navegador.</p>
+          <p class="hint">Activa los bloques que quieres ver, elige su tamaño y ordénalos arrastrando el asa o con las flechas. Los cambios se guardan en este navegador.</p>
+          <div class="home-preview" id="homeWidgetsPreview" aria-hidden="true"></div>
           <ol class="home-widgets-config" id="homeWidgetsConfig" aria-label="Orden de los bloques de Inicio"></ol>
           <div class="home-widgets-footer"><button type="button" class="line-edit-btn" id="homeWidgetsReset" onclick="restaurarWidgetsInicio()">Restaurar Inicio</button><p class="home-widgets-status" id="homeWidgetsStatus" role="status" aria-live="polite" aria-atomic="true"></p></div>
         </div>
@@ -671,6 +675,7 @@ try{
         <details class="settings-help"><summary>Cómo funcionan las cuentas</summary><p class="hint">Renombrar cambia también el nombre en todos los movimientos y pagos de esa cuenta, así que no se pierde ningún saldo. Las cuentas no se borran: archiva la que dejes de usar y sus movimientos se conservan. Las tarjetas de crédito se gestionan abajo.</p></details>
       </section>
           <section class="line-config-item"><h3 class="line-config-name">Tarjetas de crédito</h3><p class="hint">Agrega tarjetas y ajusta sus líneas, días de corte, pago y metas de uso.</p><button class="btn btn-p" onclick="abrirLineasCredito()">Gestionar tarjetas</button></section>
+          <section class="line-config-item" id="cardsOrderSection"><h3 class="line-config-name">Orden de las tarjetas</h3><p class="hint">Elige cuál aparece primero en Tarjetas, Inicio y al registrar un pago. Arrastra el asa o usa las flechas. Se guarda en este navegador.</p><p class="hint" id="cardsOrderEmpty"></p><ol class="reorder-list" id="cardsOrderConfig" aria-label="Orden de las tarjetas de crédito"></ol><div class="cards-order-footer" id="cardsOrderFooter"><button type="button" class="line-edit-btn" onclick="restaurarOrdenTarjetas()">Orden original</button><p class="home-widgets-status" id="cardsOrderStatus" role="status" aria-live="polite" aria-atomic="true"></p></div></section>
         </div>
       </details>
       <details class="settings-group" id="settingsCategorias">

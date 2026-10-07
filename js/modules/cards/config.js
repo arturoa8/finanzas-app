@@ -3,6 +3,7 @@
 
 import {renderCardDetail, renderCardsPage} from './cards-ui.js';
 import {inicioFromFin} from './cycles.js';
+import {ordenarTarjetas, quitarDeOrden, renombrarEnOrden} from './orden.js';
 import {sbDelete, sbInsert, sbUpdate} from '../../services/supabase.js';
 import {datos} from '../../state.js';
 import {toast} from '../../ui/toast.js';
@@ -60,7 +61,7 @@ function getCreditCards(){
       };
     }
   });
-  return Object.values(byCuenta);
+  return ordenarTarjetas(Object.values(byCuenta));
 }
 
 // Proxy con .map/.forEach/.find/.reduce/.length que delega a getCreditCards()
@@ -148,6 +149,9 @@ export function abrirLineasCredito(){
 
 export function cerrarLineasCredito(){document.getElementById('creditLineModal').classList.remove('active');}
 
+// Avisa a Configuración (lista de orden) sin importarla: evita un ciclo.
+const avisarTarjetas=()=>globalThis.dispatchEvent?.(new Event('finanzas:tarjetas'));
+
 function renderLineasCreditoConfig(){
   const cont=document.getElementById('creditLineConfig'); if(!cont)return;
   const goal=getCreditGoalPct();
@@ -229,7 +233,7 @@ async function guardarTarjetaInline__base(i){
   if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
   try{
     await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct,oldCuenta});
-    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta guardada','success');
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); avisarTarjetas(); toast('Tarjeta guardada','success');
   }catch(e){toast(e.message||'Error al guardar','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -262,7 +266,7 @@ async function agregarTarjeta__base(){
   if(getCreditCards().some(c=>norm(c.cuenta)===norm(nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
   try{
     await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct});
-    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta agregada','success');
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); avisarTarjetas(); toast('Tarjeta agregada','success');
   }catch(e){toast(e.message||'Error al agregar','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -274,7 +278,8 @@ async function eliminarTarjeta__base(cuenta){
   try{
     await sbDelete('config_tarjetas',cuenta,'tarjeta');
     datos.configTarjetas=datos.configTarjetas.filter(r=>norm(String(r[0]))!==norm(cuenta));
-    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); toast('Tarjeta eliminada','success');
+    quitarDeOrden(cuenta);
+    renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); avisarTarjetas(); toast('Tarjeta eliminada','success');
   }catch(e){
     const msg=/foreign key|violat/i.test(e.message||'')?'No se puede eliminar: tiene pagos o ajustes de ciclo registrados':(e.message||'Error al eliminar');
     toast(msg,'error');
@@ -294,6 +299,7 @@ async function saveCardConfig({cuenta,nombre,emoji,corteDia,pagoDia,limiteCredit
     const cfg=datos.configTarjetas.find(r=>norm(String(r[0]))===norm(oldCuenta));
     if(cfg){cfg[0]=row.tarjeta;cfg[1]=row.limite_credito;cfg[2]=row.meta_pct;cfg[3]=row.nombre;cfg[4]=row.emoji;cfg[5]=row.corte_dia;cfg[6]=row.pago_dia;}
     if(norm(oldCuenta)!==norm(cuenta)){
+      renombrarEnOrden(oldCuenta,cuenta);
       // Postgres ya propaga el rename a pagos_tarjetas/ciclos_override vía ON UPDATE CASCADE;
       // replicamos el mismo efecto en el estado local para no tener que recargar todo.
       datos.pagosTarjetas.forEach(r=>{if(norm(String(r[1]))===norm(oldCuenta))r[1]=cuenta;});
