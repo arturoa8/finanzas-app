@@ -16,7 +16,7 @@ const APP_PREFS_KEY='finanzas.appearance.v1';
 // usa la última. index.html repite el número en <meta name="version-app">
 // (modular-integridad.test.cjs exige que coincidan): si el teléfono guardó
 // una página de otra versión que estos módulos, se avisa en vez de ocultarlo.
-export const VERSION_APP='2026.10.04.05';
+export const VERSION_APP='2026.10.06.01';
 let seccionSolicitada='inicio';
 let revisionSeccion=0;
 const seccionesConfig={inicio:'settingsInicio',cuentas:'settingsCuentas',categorias:'settingsCategorias',apariencia:'settingsPreferencias',preferencias:'settingsPreferencias',datos:'settingsDatos'};

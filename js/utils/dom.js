@@ -18,8 +18,6 @@ export function smoothSetText(el,newText,newValue=null){
   textUpdates.set(el,setTimeout(aplicar,90));
 }
 
-let lastTouchEnd=0;
-
 function togglePrivacy(btn){const active=document.body.classList.toggle('private');btn.setAttribute('aria-pressed',String(active));btn.setAttribute('aria-label',active?'Mostrar importes del resumen':'Ocultar importes del resumen');toast(active?'Importes ocultos en el resumen':'Importes visibles');}
 
 export function initializeAccessibility(){
@@ -42,7 +40,5 @@ export function initializeAccessibility(){
  document.addEventListener('keydown',e=>{const active=[...document.querySelectorAll('.modal.active')].at(-1);if(e.key==='Escape'&&active){active.querySelector('.mh-x')?.click();return;}if(e.key==='Tab'&&active){const els=[...active.querySelectorAll('button,input,select,textarea,summary,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);const first=els[0],last=els.at(-1);if(e.shiftKey&&(document.activeElement===first||!active.contains(document.activeElement))){e.preventDefault();last?.focus();}else if(!e.shiftKey&&(document.activeElement===last||!active.contains(document.activeElement))){e.preventDefault();first?.focus();}}if(['Enter',' '].includes(e.key)&&e.target.matches('[role="button"][onclick]:not(button):not(a)')){e.preventDefault();e.target.click();}});
 }
 
-// Bloquear doble-toque para evitar zoom
-document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
-
-document.addEventListener('touchend',e=>{const now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now;},{passive:false});
+// El zoom por doble toque lo evita touch-action:manipulation (css/base.css).
+// No cancelar touchend en JS: eso descartaba el segundo de dos toques rápidos.
