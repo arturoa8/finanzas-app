@@ -1,0 +1,98 @@
+/* CAPA DE MOVIMIENTO Y MATERIALES (principios de diseño fluido de Apple).
+   Va la ÚLTIMA en index.html a propósito: solo añade o afina, no mueve nada.
+
+   · Resortes: curvas linear() calculadas con la ecuación de un resorte
+     (respuesta 0.4 s). `--resorte` está críticamente amortiguado (sin rebote)
+     y es el de uso general; `--resorte-rebote` (amortiguación 0.8) queda para
+     gestos que traían impulso. Safari anterior a 17.2 ignora linear() y usa
+     la curva de respaldo de cada declaración.
+   · Presionar responde al instante (70 ms) y suelta con resorte.
+   · Las hojas entran y salen por el mismo camino (simetría espacial).
+   · Materiales translúcidos con alternativas para menos transparencia y
+     mayor contraste. Movimiento reducido = fundidos cortos, sin traslados. */
+
+:root{
+  --muted:#868690;                       /* 5,2:1 sobre --card (antes #52525b, 2,4:1) */
+  --resorte:cubic-bezier(.2,.8,.2,1);
+  --resorte-rebote:cubic-bezier(.2,.8,.2,1);
+  --salida-hoja:cubic-bezier(.32,.72,0,1);
+}
+@supports (transition-timing-function:linear(0,1)){
+  :root{
+    --resorte:linear(0,.036,.119,.223,.331,.435,.529,.613,.684,.744,.794,.836,.869,.896,.918,.936,.949,.96,.969,.976,.981,.986,.989,.991,.993,.995,.996,.997,.998,.998,.999,.999,.999,.999,1);
+    --resorte-rebote:linear(0,.037,.127,.243,.368,.49,.601,.697,.779,.845,.896,.936,.965,.985,.999,1.008,1.013,1.015,1.015,1.014,1.013,1.011,1.009,1.007,1.006,1.004,1.003,1.002,1.001,1.001,1,1,1,1,1);
+  }
+}
+
+/* ── Presionar: instantáneo al bajar, resorte al soltar ─────────────────── */
+.icon-btn,.chip,.btn,.nt,.antb,.dt,.card-tab,.credit-card,.mp-cell,.mp-pill,.cchip,.seg-btn,.fab,.ccard,.dcard-btn,.card-cycle-main,.card-cycle-next{
+  transition:transform .64s var(--resorte),background-color .28s ease,border-color .28s ease,color .28s ease,opacity .28s ease,box-shadow .28s ease;
+}
+.kpi{transition:transform .64s var(--resorte),background-color .28s ease,border-color .28s ease,color .28s ease,opacity .18s ease,filter .22s ease,box-shadow .28s ease;}
+.tx,.home-highlight,.tx-refund-line{transition:background-color .35s ease;}
+.icon-btn:active,.chip:active,.btn:active,.nt:active,.antb:active,.dt:active,.card-tab:active,.credit-card:active,.mp-cell:active,.mp-pill:active,.cchip:active,.seg-btn:active,.fab:active,.ccard:active,.dcard-btn:active,.card-cycle-main:active,.card-cycle-next:active,.kpi:active,.tx:active,.home-highlight:active,.tx-refund-line:active{
+  transition-duration:.07s;transition-timing-function:ease-out;
+}
+
+/* ── Hojas: entrada con resorte, salida por el mismo camino ─────────────── */
+.mc{transition:transform .24s var(--salida-hoja);}
+.modal.active .mc{animation:hojaEntra .64s var(--resorte);}
+.modal.centered .mc{transition:transform .22s var(--salida-hoja),opacity .2s ease-out;}
+.modal.centered.active .mc{animation:hojaCentradaEntra .64s var(--resorte);}
+@keyframes hojaEntra{from{transform:translateY(100%);}}
+@keyframes hojaCentradaEntra{from{opacity:0;transform:scale(.94);}}
+/* Tirador: indica que la hoja se puede arrastrar hacia abajo. */
+.modal:not(.centered)>.mc::before{content:"";display:block;width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);margin:-10px auto 14px;}
+
+/* ── Materiales ─────────────────────────────────────────────────────────── */
+.nav{
+  background:rgba(10,10,10,.72);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+@media(max-width:1049px){.nav{border-top-color:rgba(255,255,255,.08);}}
+.modal::before{-webkit-backdrop-filter:blur(10px);}
+.mc{box-shadow:0 -12px 40px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);}
+
+/* Etiquetas de la barra: antes 9,3 px. */
+.nt{font-size:.66rem;letter-spacing:.01em;}
+@media(max-width:340px){.nt{font-size:.6rem;letter-spacing:0;}}
+/* El icono de la pestaña activa se asienta con un pequeño rebote. */
+.nt.active svg{animation:pestanaAsienta .64s var(--resorte-rebote);}
+@keyframes pestanaAsienta{from{transform:scale(.84);}}
+
+/* ── Foco: anillo suave en campos, contorno nítido en el resto ──────────── */
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+input,textarea{caret-color:var(--green);}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,214,143,.3);}
+/* Los campos grandes sin borde (descripción, monto) solo muestran el cursor. */
+.big-input:focus-visible{box-shadow:none;}
+input::placeholder,textarea::placeholder,.big-input::placeholder{color:var(--muted);opacity:1;}
+
+/* ── Tipografía: el seguimiento crece al reducirse el tamaño ────────────── */
+.tcat,.ccnt,.cname,.hint,.card-detail-sub,.day-label{letter-spacing:.01em;}
+
+/* ── Accesibilidad ──────────────────────────────────────────────────────── */
+@media(prefers-reduced-transparency:reduce){
+  .nav{background:#0a0a0a;-webkit-backdrop-filter:none;backdrop-filter:none;}
+  .modal::before{background:rgba(0,0,0,.94);-webkit-backdrop-filter:none;backdrop-filter:none;}
+}
+@media(prefers-contrast:more){
+  :root{--muted:#b4b4bd;--border:#3a3a40;}
+  .nav{background:#0a0a0a;-webkit-backdrop-filter:none;backdrop-filter:none;}
+  .mc,.ccard,.credit-card,.hero2,.kpi{border-color:#52525b;}
+}
+/* Movimiento reducido no es "sin respuesta": los cambios se resuelven con
+   fundidos cortos y se quitan los traslados y escalas. Los indicadores de
+   actividad siguen girando porque no son movimiento de contenido. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation:none!important;
+    transition-property:opacity,background-color,border-color,color!important;
+    transition-duration:.18s!important;transition-timing-function:ease-out!important;
+    scroll-behavior:auto!important;
+  }
+  .page.active,.card-panel,.modal.active .mc,.modal.centered.active .mc{animation:fundidoCorto .18s ease-out!important;}
+  .icon-btn.loading svg,.pf-spinner svg,.pf-chart-loading-dot{animation:spin 1s linear infinite!important;}
+}
+@keyframes fundidoCorto{from{opacity:0;}}

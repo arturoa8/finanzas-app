@@ -15,7 +15,7 @@ function el(id){
   return nodos.get(id);
 }
 document.getElementById=el;document.documentElement=el('html');document.activeElement=null;
-document.querySelector=s=>s==='meta[name="version-app"]'?{content:'2026.10.07.02'}:s==='.page.active'?el('p-settings'):null;
+document.querySelector=s=>s==='meta[name="version-app"]'?{content:'2026.10.08.01'}:s==='.page.active'?el('p-settings'):null;
 globalThis.window={matchMedia:()=>({matches:true}),scrollTo(){}};globalThis.matchMedia=window.matchMedia;
 globalThis.fetch=async(url,opts={})=>{assert.equal(opts.method||'GET','GET','preparar Configuración no escribe datos');return new Response('[]',{headers:{'content-type':'application/json','content-range':'*/0'}});};
 almacen.set('sb_session',JSON.stringify({user_id:'usuario-demo',access_token:'token-demo',expires_at:Date.now()+3600000}));
@@ -28,7 +28,7 @@ el('p-settings').classList.add('active');
   settings.renderConfiguracion();
   assert.equal(el('settingsInicio').open,true);for(const id of grupos.slice(1))assert.equal(el(id).open,false);
   assert.match(el('homeWidgetsConfig').innerHTML,/home-widget-rentabilidad/);assert.equal(el('appAccent').value,'blue');assert.equal(el('appChartScale').value,'cero');
-  assert.equal(settings.VERSION_APP,'2026.10.07.02');assert.equal(el('settingsVersion').textContent,'Versión 2026.10.07.02');
+  assert.equal(settings.VERSION_APP,'2026.10.08.01');assert.equal(el('settingsVersion').textContent,'Versión 2026.10.08.01');
   console.log('PASS: Configuración prepara Inicio personalizado y mantiene apariencia y versión.');
 
   categorias.agregarCategoria();el('categoryName').value='Salud sin guardar';el('categoryColor').value='#123456';el('newCuentaNombre').value='Cuenta en preparación';
