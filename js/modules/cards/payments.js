@@ -441,23 +441,30 @@ function ajusteCambioTarjeta(card,fecha,diferencia,detalle){
 
 function renderCreditoUSD(card){
   const d=deudaTarjetaUSD(card);if(!(d.saldoFavor>0))return '';
-  return `<section class="card-usd-credit"><div class="pay-history-title">Saldo a favor en dólares</div><div class="credit-mini-val green" id="cardUsdCredit">+US$ ${fmtN(d.saldoFavor)}</div><p class="hint">Se aplica a tus próximos consumos en dólares.</p><details class="credit-conversion"><summary>Registrar conversión del banco a soles</summary><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares convertidos</label><input id="cardCreditUsd" type="number" inputmode="decimal" min="0.01" step="0.01" value="${d.saldoFavor.toFixed(2)}" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>TC del banco · S/ por US$</label><input id="cardCreditTc" type="number" inputmode="decimal" min="0" step="0.0001" placeholder="Ej. 3.5000" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>Fecha de conversión</label><input id="cardCreditDate" type="date" value="${hoyISO()}" onchange="actualizarConversionCreditoUSD()"></div></div><button class="btn btn-p" onclick="guardarConversionCreditoUSD()">Registrar conversión</button></div><p class="hint" id="cardCreditPreview">Escribe el tipo de cambio que aplicó el banco.</p></details></section>`;
+  return `<section class="card-usd-credit"><div class="pay-history-title">Saldo a favor en dólares</div><div class="credit-mini-val green" id="cardUsdCredit">+US$ ${fmtN(d.saldoFavor)}</div><p class="hint">Se aplica a tus próximos consumos en dólares.</p><details class="credit-conversion"><summary>Registrar conversión del banco a soles</summary><div class="pay-form-grid"><div class="pay-form-fields"><div class="pay-field"><label>Dólares convertidos</label><input id="cardCreditUsd" type="number" inputmode="decimal" min="0.01" step="0.01" value="${d.saldoFavor.toFixed(2)}" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>Soles que bajó tu línea usada · S/</label><input id="cardCreditSoles" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ej. 1.98" oninput="actualizarConversionCreditoUSD()"></div><div class="pay-field"><label>Fecha de conversión</label><input id="cardCreditDate" type="date" value="${hoyISO()}" onchange="actualizarConversionCreditoUSD()"></div></div><button class="btn btn-p" onclick="guardarConversionCreditoUSD()">Registrar conversión</button></div><p class="hint" id="cardCreditPreview">Escribe cuánto bajó tu línea usada tras la conversión.</p><p class="hint">El banco no informa el tipo de cambio: se calcula solo. Ejemplo: si la línea usada pasó de 616.50 a 614.52, escribe 1.98.</p></details></section>`;
 }
 
-export function costoConversionCreditoUSD(card,usd,tc,fecha){
+// El banco no suele informar el tipo de cambio: descuenta soles de la línea
+// usada. Si se da `solesBanco`, ese es el importe acreditado y el tipo de
+// cambio se deduce (soles ÷ dólares). Sin él, se usa `tc` como antes.
+export function costoConversionCreditoUSD(card,usd,tc,fecha,solesBanco=null){
   if(!Number.isFinite(usd)||usd<=0)return{ok:false,mensaje:'Escribe los dólares que convirtió el banco.'};
-  if(!Number.isFinite(tc)||tc<=0)return{ok:false,mensaje:'Escribe el tipo de cambio que aplicó el banco.'};
+  const porSoles=solesBanco!==null&&solesBanco!==undefined;
+  if(porSoles){
+    if(!Number.isFinite(solesBanco)||solesBanco<=0)return{ok:false,mensaje:'Escribe cuánto bajó tu línea usada tras la conversión.'};
+    solesBanco=Math.round(solesBanco*100)/100;tc=solesBanco/usd;
+  }else if(!Number.isFinite(tc)||tc<=0)return{ok:false,mensaje:'Escribe el tipo de cambio que aplicó el banco.'};
   if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)||!Number.isFinite(+pf(fecha)))return{ok:false,mensaje:'Elige la fecha de conversión.'};
   const modelo=modeloCreditoTarjetaUSD(card,endOfDay(pf(fecha)));
   if(usd>modelo.saldoFavor+0.004)return{ok:false,mensaje:'En esa fecha hay US$ '+fmtN(modelo.saldoFavor)+' a favor.'};
-  const uso=modelo.consumirCredito(Math.round(usd*100)),soles=Math.round(usd*tc*100)/100;
+  const uso=modelo.consumirCredito(Math.round(usd*100)),soles=porSoles?solesBanco:Math.round(usd*tc*100)/100;
   if(!Number.isFinite(soles)||!(soles>0))return{ok:false,mensaje:'El importe convertido en soles debe ser mayor que cero.'};
   return{ok:true,usd,tc,soles,costo:uso.costo/100,origenes:uso.origenes,
-    mensaje:'El banco acreditó '+fmt(soles)+' a tu tarjeta. Quedarán +US$ '+fmtN(Math.max(0,Math.round((modelo.saldoFavor-usd)*100)/100))+' en dólares.'};
+    mensaje:'El banco acreditó '+fmt(soles)+' a tu tarjeta (cambio de '+tc.toFixed(4)+' por dólar). Quedarán +US$ '+fmtN(Math.max(0,Math.round((modelo.saldoFavor-usd)*100)/100))+' en dólares.'};
 }
 export function actualizarConversionCreditoUSD(){
   const ctx=contextoPagoTarjeta(),el=document.getElementById('cardCreditPreview');if(!ctx||!el)return;
-  try{el.textContent=costoConversionCreditoUSD(ctx.card,Number(elv('cardCreditUsd')),Number(elv('cardCreditTc')),elv('cardCreditDate')).mensaje;}
+  try{el.textContent=costoConversionCreditoUSD(ctx.card,Number(elv('cardCreditUsd')),0,elv('cardCreditDate'),Number(elv('cardCreditSoles'))).mensaje;}
   catch(e){el.textContent=e.message;}
 }
 async function guardarConversionCreditoUSD__base(){
@@ -465,7 +472,7 @@ async function guardarConversionCreditoUSD__base(){
   marcarGuardadoPago(true);
   try{
     validarCuentasDisponibles();
-    const fecha=elv('cardCreditDate'),r=costoConversionCreditoUSD(ctx.card,Math.round(Number(elv('cardCreditUsd'))*100)/100,Number(elv('cardCreditTc')),fecha);
+    const fecha=elv('cardCreditDate'),r=costoConversionCreditoUSD(ctx.card,Math.round(Number(elv('cardCreditUsd'))*100)/100,0,fecha,Number(elv('cardCreditSoles')));
     if(!r.ok){toast(r.mensaje,'error');return;}
     const id=crypto.randomUUID(),momento=fecha+'T23:59:59-05:00';
     const ajuste=ajusteCambioTarjeta(ctx.card,momento,Math.round((r.costo-r.soles)*100)/100,'Conversión del saldo a favor USD');
