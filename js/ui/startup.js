@@ -106,11 +106,7 @@ export async function revelarInicio(){
     const borde=caja?.height>0&&Number.isFinite(caja.bottom)?caja.bottom:alto;
     const final=hayLogo?hasta.top+hasta.height/2-borde:-1.06*alto;
     const recorrido=[[0,0],[.42,.3*final],[1,final]];
-    // La curva se abre a mitad del recorrido y se aplana al llegar. La esquina
-    // izquierda queda casi recta: ahí viaja el nombre, y con la esquina
-    // redondeada el borde pasaba por encima de él (y, al llegar, a más de
-    // 100 pt por encima del título).
-    const curvas=['0 0 0 0 / 0 0 0 0','0 0 44% 8% / 0 0 18% 4%','0 0 0 0 / 0 0 0 0'];
+    const curvas=['0 0 0 0 / 0 0 0 0','0 0 44% 18% / 0 0 18% 10%','0 0 52% 24% / 0 0 24% 14%'];
     const salida=pantalla.animate(recorrido.map(([offset,y],i)=>({offset,transform:`translateY(${y}px)`,borderRadius:curvas[i]})),opciones);
     const capa=pantalla.querySelector?.('.startup-content');
     const fija=capa?.animate?.(recorrido.map(([offset,y])=>({offset,transform:`translateY(${-y}px)`})),opciones);
@@ -132,7 +128,7 @@ export async function revelarInicio(){
     const estilo=globalThis.getComputedStyle?.(pantalla);
     const opaca=estilo?{backgroundColor:estilo.backgroundColor,boxShadow:estilo.boxShadow}:{};
     if(hayLogo)pantalla.animate([
-      {offset:0,...opaca},{offset:.7,...opaca},
+      {offset:0,...opaca},{offset:.85,...opaca},
       {offset:1,backgroundColor:'rgba(0,0,0,0)',boxShadow:'0 1px 0 rgba(0,0,0,0),0 18px 48px -14px rgba(0,0,0,0)'}
     ],opciones);
     animacionesSalida=[fija,viaje].filter(Boolean);
