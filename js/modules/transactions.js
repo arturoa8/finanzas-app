@@ -6,6 +6,7 @@ import {recuperarAbonosPendientes} from '../services/debt-operations.js';
 import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
+import {HISTORIAL_LIMITES_SELECT, filaLimite} from './cards/historial-limites.js';
 import {cobradoDeuda, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos} from './por-cobrar.js';
 import {filaPago} from './cards/payments.js';
 import {filaPresupuesto} from './presupuestos-calculo.js';
@@ -65,6 +66,9 @@ async function cargar__base({silencioso=false}={}){
   // tabla inexistente (migración sin aplicar) se acepta en silencio.
   const pedirCuentas=()=>sbSelect('cuentas','?select=id,nombre,tipo,moneda,archivada&order=nombre.asc');
   const cuentasReq=pedirCuentas().catch(()=>pedirCuentas()).catch(e=>({falla:e}));
+  // El historial de líneas solo afecta las estadísticas de uso: si falla (o la
+  // migración no está aplicada) se conserva lo que había y la app sigue igual.
+  const historialReq=sbSelect('limites_tarjetas_historial',HISTORIAL_LIMITES_SELECT).catch(()=>null);
   try{
     await recuperarAbonosPendientes();
     await recuperarPagosTarjetaPendientes();
@@ -84,7 +88,9 @@ async function cargar__base({silencioso=false}={}){
       sbSelect('recurrentes','?select=descripcion,categoria,tipo,monto,dia_mes,activo'),
     ]);
     const cuentasRes=await cuentasReq;
+    const historialLimites=await historialReq;
     comprobarSesion();
+    if(Array.isArray(historialLimites))datos.historialLimites=historialLimites.map(filaLimite);
     datos.transacciones=tx.map(filaTx);
     datos.configTarjetas=cfg.map(c=>[c.tarjeta,c.limite_credito,c.meta_pct,c.nombre,c.emoji,c.corte_dia,c.pago_dia]);
     datos.pagosTarjetas=pagos.map(filaPago);

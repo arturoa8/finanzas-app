@@ -2,6 +2,7 @@
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
 import {renderCardDetail, renderCardsPage} from './cards-ui.js';
+import {renderHistorialLimitesConfig, recargarHistorialLimites} from './historial-limites.js';
 import {inicioFromFin} from './cycles.js';
 import {ordenarTarjetas, quitarDeOrden, renombrarEnOrden} from './orden.js';
 import {sbDelete, sbInsert, sbUpdate} from '../../services/supabase.js';
@@ -112,7 +113,7 @@ async function setCreditGoalPct(value){
   }
 }
 
-function getLineState(used,limit,goalPct=getCreditGoalPct()){
+export function getLineState(used,limit,goalPct=getCreditGoalPct()){
   const pct=limit>0?(used/limit)*100:0;
   const goalAmount=limit*(goalPct/100);
   const remaining=goalAmount-used;
@@ -152,7 +153,7 @@ export function cerrarLineasCredito(){document.getElementById('creditLineModal')
 // Avisa a Configuración (lista de orden) sin importarla: evita un ciclo.
 const avisarTarjetas=()=>globalThis.dispatchEvent?.(new Event('finanzas:tarjetas'));
 
-function renderLineasCreditoConfig(){
+export function renderLineasCreditoConfig(){
   const cont=document.getElementById('creditLineConfig'); if(!cont)return;
   const goal=getCreditGoalPct();
   const cards=getCreditCards();
@@ -175,6 +176,7 @@ function renderLineasCreditoConfig(){
         <div class="line-field"><label>Meta % (esta tarjeta)</label><input class="cardMetaInput" type="number" inputmode="decimal" step="1" min="1" max="100" value="${Number.isFinite(card.metaPct)&&card.metaPct>0?card.metaPct:''}" placeholder="usa global (${goal}%)"></div>
       </div>
       <button class="btn btn-p" style="margin-top:10px" onclick="guardarTarjetaInline(${i})">Guardar tarjeta</button>
+      ${renderHistorialLimitesConfig(card)}
     </div>`).join('');
   cont.innerHTML=`
     <div class="line-config-grid">
@@ -233,6 +235,8 @@ async function guardarTarjetaInline__base(i){
   if(metaPct!==null && (!Number.isFinite(metaPct)||metaPct<=0||metaPct>100)){toast('Meta % 1-100','error');return;}
   try{
     await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct,oldCuenta});
+    // Si cambió la línea, la base registró la anterior en el historial.
+    await recargarHistorialLimites().catch(()=>{});
     renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); avisarTarjetas(); toast('Tarjeta guardada','success');
   }catch(e){toast(e.message||'Error al guardar','error');}
 }
@@ -266,6 +270,7 @@ async function agregarTarjeta__base(){
   if(getCreditCards().some(c=>norm(c.cuenta)===norm(nombre))){toast('Ya existe una tarjeta con ese nombre','error');return;}
   try{
     await saveCardConfig({cuenta:nombre,nombre,emoji,corteDia,pagoDia,limiteCredito:limite,metaPct});
+    await recargarHistorialLimites().catch(()=>{});
     renderLineasCreditoConfig(); renderCardsPage(); renderCardDetail(); avisarTarjetas(); toast('Tarjeta agregada','success');
   }catch(e){toast(e.message||'Error al agregar','error');}
 }

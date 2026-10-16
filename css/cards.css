@@ -293,3 +293,17 @@ html{scroll-behavior:auto;}
 #cardDetailContent .card-stat-lbl,#cardDetailContent .credit-row span:first-child,#cardDetailContent .card-tx-meta{color:var(--dim);}
 .private .card-detail-amount{filter:blur(8px);}
 @media(max-width:360px){#cardDetailContent .card-account-head{flex-wrap:wrap;}#cardDetailContent .card-account-head .status-pill{margin-left:58px;}#cardDetailContent .pay-item{grid-template-columns:minmax(0,1fr);}#cardDetailContent .pay-item-amt{grid-row:1;}}
+
+/* Uso de la línea por ciclo (estadísticas de tarjeta) y historial de la línea (configuración). */
+.uso-linea-resumen{display:flex;gap:16px;font-size:.78rem;color:var(--dim);margin:2px 0 12px;}
+.uso-linea-resumen strong{color:var(--text);font-variant-numeric:tabular-nums;}
+.uso-linea-row{margin-bottom:12px;}
+.uso-linea-top{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;margin-bottom:5px;}
+.uso-linea-top strong{font-variant-numeric:tabular-nums;}
+.uso-linea-sub{font-size:.68rem;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:4px;}
+.limite-hist{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.limite-hist-row{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);padding:5px 0;font-variant-numeric:tabular-nums;}
+.limite-hist-row strong{color:var(--text);margin-left:auto;}
+.limite-hist-row small{color:var(--dim);}
+.limite-hist-row .line-edit-btn{padding:5px 9px;}
+.limiteHistDesde,.limiteHistMonto{min-width:0;}
