@@ -94,15 +94,28 @@ export async function revelarInicio(){
     // viaje por su cuenta hasta el logo del encabezado.
     const alto=pantalla.offsetHeight||globalThis.innerHeight||800;
     const opciones={duration:480,easing:'cubic-bezier(.76,0,.24,1)',fill:'forwards'};
-    const recorrido=[[0,0],[.42,-.32*alto],[1,-1.06*alto]];
-    const curvas=['0 0 0 0 / 0 0 0 0','0 0 44% 18% / 0 0 18% 10%','0 0 52% 24% / 0 0 24% 14%'];
+    const logo=logoInicio();
+    const desde=marca?.getBoundingClientRect?.(),hasta=logo?.getBoundingClientRect?.();
+    const hayLogo=Boolean(desde?.width&&hasta?.width);
+    // El borde verde sube hacia el título y termina EN él, a la vez que el
+    // nombre aterriza. Antes seguía de largo hasta salir de la pantalla y se
+    // veía pasar por encima del título.
+    // El borde se mide en pantalla, igual que el logo: en Safari la altura de
+    // la cubierta (offsetHeight) no siempre coincide con donde está su borde.
+    const caja=pantalla.getBoundingClientRect?.();
+    const borde=caja?.height>0&&Number.isFinite(caja.bottom)?caja.bottom:alto;
+    const final=hayLogo?hasta.top+hasta.height/2-borde:-1.06*alto;
+    const recorrido=[[0,0],[.42,.3*final],[1,final]];
+    // La curva se abre a mitad del recorrido y se aplana al llegar. La esquina
+    // izquierda queda casi recta: ahí viaja el nombre, y con la esquina
+    // redondeada el borde pasaba por encima de él (y, al llegar, a más de
+    // 100 pt por encima del título).
+    const curvas=['0 0 0 0 / 0 0 0 0','0 0 44% 8% / 0 0 18% 4%','0 0 0 0 / 0 0 0 0'];
     const salida=pantalla.animate(recorrido.map(([offset,y],i)=>({offset,transform:`translateY(${y}px)`,borderRadius:curvas[i]})),opciones);
     const capa=pantalla.querySelector?.('.startup-content');
     const fija=capa?.animate?.(recorrido.map(([offset,y])=>({offset,transform:`translateY(${-y}px)`})),opciones);
-    const logo=logoInicio();
-    const desde=marca?.getBoundingClientRect?.(),hasta=logo?.getBoundingClientRect?.();
     let viaje;
-    if(desde?.width&&hasta?.width){
+    if(hayLogo){
       const escala=hasta.width/desde.width;
       logo.style.opacity='0';
       viaje=marca.animate([
@@ -110,6 +123,18 @@ export async function revelarInicio(){
         {transform:`translate(${hasta.left-desde.left}px,${hasta.top-desde.top}px) scale(${escala})`}
       ],opciones);
     }
+    // Al llegar al título, el fondo y el brillo verde de la cubierta se
+    // disuelven (no el nombre, que va dentro): destapan el encabezado sin
+    // que el borde siga subiendo.
+    // Los valores de partida se piden explícitos: una propiedad que solo
+    // aparece en el último fotograma se interpola desde el primero, y la
+    // cubierta se vería traslúcida durante todo el viaje.
+    const estilo=globalThis.getComputedStyle?.(pantalla);
+    const opaca=estilo?{backgroundColor:estilo.backgroundColor,boxShadow:estilo.boxShadow}:{};
+    if(hayLogo)pantalla.animate([
+      {offset:0,...opaca},{offset:.7,...opaca},
+      {offset:1,backgroundColor:'rgba(0,0,0,0)',boxShadow:'0 1px 0 rgba(0,0,0,0),0 18px 48px -14px rgba(0,0,0,0)'}
+    ],opciones);
     animacionesSalida=[fija,viaje].filter(Boolean);
     await terminar([salida],opciones.duration+300);
   }
