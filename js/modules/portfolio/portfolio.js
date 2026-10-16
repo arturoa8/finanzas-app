@@ -8,6 +8,7 @@ import {renderPfSaldoResumen} from './balance-summary.js';
 import {renderPfDiagnostico} from './diagnostics.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior, pfFmt} from './hero.js';
 import {construirGraficoIntradia, construirSerieSesiones, pfWireChartTooltip, renderPfChart1D, renderPfContribuciones} from './intraday.js';
+import {PF_HISTORIAS, pfClaveHistoria, pfDiasPosiciones} from './historia-periodo.js';
 import {pfFlujos, pfRendimientoEntrePuntos, pfRendimientoPortafolio, pfResumenPosiciones} from './performance.js';
 import {pfSetActualizando, renderPfPosiciones} from './portfolio-ui.js';
 import {pfAplicarSubvista, pfMostrarSubTabs} from './risk.js';
@@ -55,7 +56,7 @@ function pfPrepararGraficos(){
   if(document.hidden||!sessionUserId())return Promise.resolve([]);
   return Promise.allSettled([
     precargarPfYahoo(),
-    ...[...PF_PERIODOS_INTRADIA].map(periodo=>pfCargarIntradiaPeriodo(periodo)),
+    ...pfClavesPrecarga().map(clave=>pfCargarIntradiaPeriodo(clave)),
   ]);
 }
 
@@ -429,20 +430,38 @@ export function pfEtiquetaFecha(t){return fmtDateShort(new Date(t));}
 
 function pfEtiquetaFechaHora(t){const d=new Date(t);return fmtDateShort(d)+' '+d.toLocaleTimeString('es-PE',{hour:'numeric',minute:'2-digit'});}
 
-// ── 1S / 1M con detalle intradía ────────────────────────────────────────────
-// Se preparan en Inicio: las dos historias Yahoo comparten una consulta de
-// cantidades por día. La selección del usuario no interviene en la precarga.
-const PF_PERIODOS_INTRADIA=new Set(['1S','1M']);
+// ── Detalle intradía de varios días ─────────────────────────────────────────
+// 1S y 1M tienen el suyo; 6M, AIF, 1A, Todo y Desde usan velas más gruesas
+// según cuánto abarcan (ver historia-periodo.js). Se preparan en Inicio: las
+// historias Yahoo comparten una consulta de cantidades por día. La selección
+// del usuario no interviene en la precarga: se prepara lo de 1S, 1M y lo que
+// necesita "Todo" (que cubre también a 6M, AIF, 1A y a cualquier Desde).
 const pfIntradiaCarga=new Map();
 const PF_DETALLE_TTL_MS=5*60*1000,PF_DETALLE_REINTENTO_MS=30000;
 let pfPosHistCache=null,pfPosHistFetchedAt=0,pfPosHistCarga=null;
+
+function pfPrimerDiaConValor(filas){
+  const f=filas.find(r=>Number(r.valor_total)>0);
+  return f?f.fecha_valoracion:null;
+}
+
+// Historia que necesita el período ya resuelto (null: sin detalle intradía).
+function pfClaveDePeriodo(periodo,filas){
+  return pfClaveHistoria(periodo,pfPrimerDiaConValor(filas),pfIso(new Date()));
+}
+
+// La historia de todo el histórico: la más larga que puede hacer falta.
+function pfClaveTodo(){return pfClaveHistoria('ALL',pfPrimerDiaConValor(pfHistoricoCache),pfIso(new Date()));}
+
+function pfClavesPrecarga(){return [...new Set(['1S','1M',pfClaveTodo()].filter(Boolean))];}
 
 function pfCargarPosicionesHistorial(){
   if(pfPosHistCache&&Date.now()-pfPosHistFetchedAt<PF_DETALLE_TTL_MS)return Promise.resolve(pfPosHistCache);
   if(pfPosHistCarga)return pfPosHistCarga;
   const cacheSequence=pfCacheSequence,usuario=sessionUserId(),baseId=pfComputeBaseId(),scope=pfComputeScope();
   const vigente=()=>pfCacheSequence===cacheSequence&&sessionUserId()===usuario&&baseId===pfComputeBaseId()&&scope===pfComputeScope();
-  const desde=new Date();desde.setDate(desde.getDate()-45);
+  // Una sola profundidad para todos los períodos: así una consulta no pisa a otra.
+  const desde=new Date();desde.setDate(desde.getDate()-pfDiasPosiciones(pfClaveTodo()));
   const promesa=sbFetchTodo('posiciones_historial?select=fecha_valoracion,cuenta_ibkr,contract_id,simbolo,cantidad,multiplicador,moneda,moneda_base,fx_rate_a_base,valor_mercado_base,precio_mercado&fecha_valoracion=gte.'+pfIso(desde)+'&order=fecha_valoracion.asc,id.asc')
     .then(pos=>{if(!vigente())return null;pfPosHistCache=pos||[];pfPosHistFetchedAt=Date.now();return pfPosHistCache;})
     .finally(()=>{if(pfPosHistCarga===promesa)pfPosHistCarga=null;});
@@ -450,43 +469,50 @@ function pfCargarPosicionesHistorial(){
   return promesa;
 }
 
-function pfCargarIntradiaPeriodo(periodo){
-  if(!PF_PERIODOS_INTRADIA.has(periodo)||!sessionUserId()||!pfHistoricoCache.length||!pfPosicionesCache.length)return Promise.resolve(null);
-  const previa=pfIntradiaCarga.get(periodo);
+function pfCargarIntradiaPeriodo(clave){
+  if(!PF_HISTORIAS[clave]||!sessionUserId()||!pfHistoricoCache.length||!pfPosicionesCache.length)return Promise.resolve(null);
+  const previa=pfIntradiaCarga.get(clave);
   if(previa?.promesa)return previa.promesa;
   if(previa?.error&&Date.now()-previa.fetchedAt<PF_DETALLE_REINTENTO_MS)return Promise.resolve(null);
-  if(pfHistoriaYahooEnCache(periodo)&&pfPosHistCache&&Date.now()-pfPosHistFetchedAt<PF_DETALLE_TTL_MS)return Promise.resolve(true);
+  if(pfHistoriaYahooEnCache(clave)&&pfPosHistCache&&Date.now()-pfPosHistFetchedAt<PF_DETALLE_TTL_MS)return Promise.resolve(true);
   const cacheSequence=pfCacheSequence,usuario=sessionUserId(),baseId=pfComputeBaseId(),scope=pfComputeScope();
   const vigente=()=>pfCacheSequence===cacheSequence&&sessionUserId()===usuario&&baseId===pfComputeBaseId()&&scope===pfComputeScope();
+  const pintaEste=()=>pfClaveActual()===clave&&document.getElementById('p-ana')?.classList.contains('active');
   const carga={};
-  carga.promesa=Promise.all([pfConsultarHistoriaYahoo(periodo),pfCargarPosicionesHistorial()])
+  carga.promesa=Promise.all([pfConsultarHistoriaYahoo(clave),pfCargarPosicionesHistorial()])
     .then(([,pos])=>{
       if(!vigente()||pos===null)return null;
-      pfIntradiaCarga.delete(periodo);
-      if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+      pfIntradiaCarga.delete(clave);
+      if(pintaEste())renderPfChart();
       return true;
     }).catch(()=>{
       if(vigente()){
-        pfIntradiaCarga.set(periodo,{error:true,fetchedAt:Date.now()});
-        if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+        pfIntradiaCarga.set(clave,{error:true,fetchedAt:Date.now()});
+        if(pintaEste())renderPfChart();
       }
       return null;
     });
-  pfIntradiaCarga.set(periodo,carga);
+  pfIntradiaCarga.set(clave,carga);
   // Un reintento automático también comunica que está preparando detalle,
   // sin necesitar que el usuario vuelva a pulsar el período.
-  if(pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))queueMicrotask(()=>{
-    if(vigente()&&pfIntradiaCarga.get(periodo)===carga&&pfPeriodo===periodo&&document.getElementById('p-ana')?.classList.contains('active'))renderPfChart();
+  if(pintaEste())queueMicrotask(()=>{
+    if(vigente()&&pfIntradiaCarga.get(clave)===carga&&pintaEste())renderPfChart();
   });
   return carga.promesa;
 }
 
-function pfIntradiaDelPeriodo(per){
-  if(!PF_PERIODOS_INTRADIA.has(pfPeriodo)||!per.filas.length)return null;
-  const periodo=pfPeriodo,h=pfHistoriaYahooEnCache(periodo,{aceptarVencido:true});
+// Clave de historia del período que se está viendo ahora.
+function pfClaveActual(){
+  if(pfPeriodo==='1D')return null;
+  return pfClaveDePeriodo(pfPeriodo,pfResolverPeriodo(pfHistoricoCache,pfPeriodo,pfDesde).filas);
+}
+
+function pfIntradiaDelPeriodo(per,clave){
+  if(!clave||!per.filas.length)return null;
+  const h=pfHistoriaYahooEnCache(clave,{aceptarVencido:true});
   // Conservar una historia coherente mientras se renueva; no volver a la
   // curva de cierres solo por haber vencido el plazo de actualización.
-  pfCargarIntradiaPeriodo(periodo);
+  pfCargarIntradiaPeriodo(clave);
   if(h&&pfPosHistCache){
     const s=construirSerieSesiones(h.quotes,pfPosHistCache,pfHistoricoCache,per.filas[0].fecha_valoracion);
     return s.ok?s:null;
@@ -539,11 +565,12 @@ export function renderPfChart(){
   // Con detalle intradía, el período arranca en el cierre anterior a la
   // primera sesión mostrada (como el 5D/1M de Yahoo): así el lunes también
   // cuenta, y el % del período coincide con el final de la curva.
-  const intradia=pfIntradiaDelPeriodo(per);
+  const clave=pfClaveDePeriodo(pfPeriodo,per.filas);
+  const intradia=pfIntradiaDelPeriodo(per,clave);
   const iBase=intradia?pfHistoricoCache.findIndex(r=>r.fecha_valoracion===intradia.fechaBase):-1;
   const filas=pfFilasConVivo(iBase>=0?pfHistoricoCache.slice(iBase):per.filas);
   const conIntradia=intradia&&iBase>=0;
-  if(!conIntradia&&PF_PERIODOS_INTRADIA.has(pfPeriodo)&&pfIntradiaCarga.get(pfPeriodo)?.promesa){
+  if(!conIntradia&&clave&&pfIntradiaCarga.get(clave)?.promesa){
     area.setAttribute('aria-busy','true');titulo.textContent='';hint.textContent='';
     pfPintarGrafico(area,'<div class="pf-chart-loading" role="status"><span class="pf-chart-loading-dot" aria-hidden="true"></span>Preparando gráfica…</div>',{esperar:true});
     return;
@@ -601,7 +628,7 @@ export function renderPfChart(){
       hint.textContent=r.metodo==='twr'
         ?'Hubo '+r.flujos+' aporte(s) o retiro(s) en el período: rentabilidad ponderada por tiempo (TWR), que aísla su efecto encadenando los cierres oficiales de IBKR entre cada movimiento.'
         :'Sin aportes ni retiros en el período: valor final ÷ valor inicial − 1. Cierres oficiales de IBKR del '+pfFechaCorta(r.desde)+' al '+pfFechaCorta(r.hasta)+'.'
-      if(conIntradia)hint.textContent+=' Curva con precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre esos cierres; solo sesiones de mercado.';
+      if(conIntradia)hint.textContent+=' Curva con precios de Yahoo cada '+PF_HISTORIAS[clave].etiqueta+' sobre esos cierres; solo sesiones de mercado.';
     }
   }else{
     titulo.textContent='Valor total de la cuenta · incluye aportes y retiros';
@@ -624,9 +651,9 @@ export function renderPfChart(){
     renderPfSaldoResumen(res,{inicial,actual:serie.at(-1)?.valor,desde:conIntradia?filas[0].fecha_valoracion:conValor[0]?.fecha_valoracion,hasta:filas.at(-1)?.fecha_valoracion,moneda,fl:pfFlujos()});
     const recorte=conValor.length<filas.length&&conValor.length?' Se muestra desde el primer día con valor en la cuenta ('+pfFechaCorta(conValor[0].fecha_valoracion)+').':'';
     const truncado=grafico.meta&&grafico.meta.dominio[0]>0?' El eje vertical se ajusta al rango del período y no empieza en 0.':'';
-    const detalle=conIntradia?' Precios de Yahoo cada '+(pfPeriodo==='1S'?'5':'15')+' min sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';
+    const detalle=conIntradia?' Precios de Yahoo cada '+PF_HISTORIAS[clave].etiqueta+' sobre los cierres oficiales de IBKR; solo sesiones de mercado.':'';
     hint.textContent='El valor incluye aportes y retiros. No representa tu rentabilidad.'+(conIntradia?'':recorte)+truncado+detalle;
   }
-  if(!conIntradia&&PF_PERIODOS_INTRADIA.has(pfPeriodo))hint.textContent+=' Detalle intradía no disponible. Mostrando cierres diarios.';
+  if(!conIntradia&&clave)hint.textContent+=' Detalle intradía no disponible. Mostrando cierres diarios.';
   renderPfBenchmark(filas);
 }
