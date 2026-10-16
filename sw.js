@@ -21,8 +21,10 @@ function leerMensaje(event){
 
 self.addEventListener('push',event=>{
   const m=leerMensaje(event);
-  event.waitUntil(self.registration.showNotification(String(m.titulo||'Mis Finanzas'),{
-    body:String(m.cuerpo||'Tienes un aviso nuevo.'),
+  // iOS ya muestra "from Mis Finanzas" bajo el título: repetir el nombre de la
+  // app aquí sería ruido. El título de los avisos reales dice qué pasó.
+  event.waitUntil(self.registration.showNotification(String(m.titulo||'Nuevo aviso'),{
+    body:String(m.cuerpo||'Abre la app para verlo.'),
     icon:'icons/icon-192.png',
     tag:m.tag?String(m.tag):undefined,
     data:{url:typeof m.url==='string'?m.url:'./'}
