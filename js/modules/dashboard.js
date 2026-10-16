@@ -15,6 +15,7 @@ import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
 import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './transactions.js';
+import {deudaDeGasto, porCobrarDeGasto} from './por-cobrar.js';
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
@@ -357,11 +358,14 @@ function filaTxPrincipal(t){
   const d=cambio?`${base} · ${cambio}`:base;
   // Un gasto con reembolsos vinculados muestra además lo pagado, el gasto
   // efectivo y cada devolución debajo, en vez de aparecer como filas sueltas.
+  // Un gasto por cobrar dice quién te lo debe y cuánto falta.
   const reembolsos=t[3]==='Gasto'?reembolsosDe(t[6]):[];
-  const extra=reembolsos.length>0
-    ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div><div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`
+  const deuda=t[3]==='Gasto'?deudaDeGasto(t[6]):null,porCobrar=deuda?porCobrarDeGasto(t):0;
+  const neto=reembolsos.length>0||porCobrar>0;
+  const extra=neto
+    ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(deuda[1]||'Alguien')} te debe ${fmt(porCobrar)}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
     : '';
-  const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(reembolsos.length>0?gastoNeto(t):m);
+  const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(neto?gastoNeto(t):m);
   const row=getTxRow(t);
   const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
   const pill=dual

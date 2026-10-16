@@ -6,6 +6,7 @@ import {CREDIT_CARDS, getCardGoalPct, getCreditLimit} from './cards/config.js';
 import {getCardCycle} from './cards/cycles.js';
 import {getHomeWidgets} from './home-widgets.js';
 import {pfResumenRentabilidadInicio} from './portfolio/hero.js';
+import {deudasPorGasto, pendienteDeuda} from './por-cobrar.js';
 import {consumoDe, consumoDelPeriodo, estadoPresupuesto, hoyLima, inicioPeriodo, nombrePeriodo, presupuestosDelPeriodo} from './presupuestos-calculo.js';
 import {datos} from '../state.js';
 import {endOfDay, fmtDateShort, getDaysDiff, parseDateOnly, pf, toDateInput} from '../utils/dates.js';
@@ -48,7 +49,8 @@ export function obtenerResumenInicio(ahora=new Date(),{tarjetas=true,deudas:incl
   if(incluirDeudas)for(const d of datos.deudas||[]){
     const tipo=String(d[7]||'').toLowerCase(),grupo=tipo==='les-debo'?deudas.pagar:tipo==='me-deben'?deudas.cobrar:null;
     if(!grupo)continue;
-    const pendiente=Math.max(0,centimosResumenInicio(d[3])-(abonos.get(String(d[0]))||0));
+    // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
+    const pendiente=d[8]?centimosResumenInicio(pendienteDeuda(d)):Math.max(0,centimosResumenInicio(d[3])-(abonos.get(String(d[0]))||0));
     if(pendiente<=0)continue;
     grupo.total+=pendiente;grupo.cantidad++;
     const vencimiento=parseDateOnly(toDateInput(d[6]));
@@ -64,7 +66,7 @@ export function obtenerPresupuestoInicio(ahora=new Date()){
   for(const tipo of ['mensual','semanal']){
     const inicio=inicioPeriodo(tipo,hoy),vigentes=presupuestosDelPeriodo(datos.presupuestos,tipo,inicio);
     if(!vigentes.length)continue;
-    const consumo=consumoDelPeriodo(datos.transacciones,tipo,inicio);
+    const consumo=consumoDelPeriodo(datos.transacciones,tipo,inicio,deudasPorGasto());
     for(const p of vigentes){
       const limite=centimosResumenInicio(p[1]);if(limite<=0)continue;
       const gasto=consumoDe(consumo,p),estado=estadoPresupuesto(gasto.total,limite);
@@ -136,7 +138,8 @@ function renderLineaInicio(tamano){
 function renderUltimosInicio(){
   const recientes=(datos.transacciones||[]).map((t,i)=>({t,i,f:pf(t[0])})).filter(x=>x.f&&!isNaN(+x.f))
     .sort((a,b)=>b.f-a.f||b.i-a.i).slice(0,3);
-  const signo=t=>t[3]==='Ingreso'?['+ ','in']:t[3]==='Transferencia'?['','']:['− ','out'];
+  // Un reembolso (también el cobro de un gasto por cobrar) es dinero que entra.
+  const signo=t=>t[3]==='Ingreso'||t[3]==='Reembolso'?['+ ','in']:t[3]==='Transferencia'?['','']:['− ','out'];
   const filas=recientes.map(({t,f})=>{const [s,clase]=signo(t);
     return [getEmoji(cleanName(t[2])).e+' '+escHtml(t[1]||'Sin descripción'),escHtml(cleanName(t[2]))+' · '+fmtDateShort(f),s+fmt(t[4]),clase];});
   return renderHomeHighlight({id:'ultimos',icono:HOME_RECENT_ICON,titulo:'Últimos movimientos',tamano:'ancho',accion:'alternarMovimientosInicio()',nota:filas.length?'':'Aún no hay movimientos',

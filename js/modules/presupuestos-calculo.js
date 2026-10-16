@@ -3,6 +3,7 @@
 // (presupuestos.js) y las pruebas, sin consultas por tarjeta.
 
 import {mesesC, norm} from '../utils/formatters.js';
+import {netoCentimos} from './por-cobrar.js';
 
 // Perú no tiene horario de verano: Lima es UTC−5 todo el año.
 const LIMA_MS=5*3600000;
@@ -146,8 +147,11 @@ export function solesRegistrados(t){
 // - Cada reembolso se resta del gasto original, en su período y categoría,
 //   aunque llegue después: es la misma regla que gastoNeto(). El ingreso
 //   adicional de un reembolso con excedente es un Ingreso y no cuenta.
+// - Un gasto por cobrar (lo pagaste por otra persona) no consume mientras la
+//   deuda esté activa: `deudas` trae, por id de gasto, los céntimos que te
+//   deben, y se resta lo que te deben o lo ya devuelto, lo mayor.
 // - Un gasto nunca resta por debajo de cero.
-export function consumoDelPeriodo(transacciones,tipo,inicio){
+export function consumoDelPeriodo(transacciones,tipo,inicio,deudas=new Map()){
   const hasta=siguientePeriodo(tipo,inicio);
   const reembolsos=new Map(),reembolsoInvalido=new Set();
   for(const t of transacciones||[]){
@@ -167,7 +171,7 @@ export function consumoDelPeriodo(transacciones,tipo,inicio){
     if(!dia||dia<inicio||dia>=hasta)continue;
     const bruto=solesRegistrados(t),id=String(t[6]);
     const incompleto=bruto===null||reembolsoInvalido.has(id);
-    const neto=bruto===null?0:Math.max(0,bruto-(reembolsos.get(id)||0));
+    const neto=bruto===null?0:netoCentimos(bruto,reembolsos.get(id)||0,deudas.get(id)||0);
     res.total+=neto;res.gastos++;if(incompleto)res.incompletos++;
     sumar(claveCategoria(t[2]),neto,incompleto);
   }

@@ -140,6 +140,7 @@
 .balance-help p{margin:8px 0;}
 .backup-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .backup-actions button{flex:1;min-width:140px;}
+.push-acciones{margin-top:12px;}.push-acciones button[hidden]{display:none;}
 /* El catálogo de categorías vive dentro de Configuración. */
 .category-config-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;}
 .category-config-header .line-config-name{margin:0;}
@@ -229,3 +230,37 @@ button:disabled{opacity:.45;cursor:wait;}
 .more-icon{display:flex;align-items:center;justify-content:center;width:42px;height:42px;background:var(--card2);border-radius:12px;color:var(--accent);}
 .more-icon svg{width:23px;height:23px;}
 .more-option>span:last-child{color:var(--dim);font-size:1.35rem;}
+
+/* ── Me lo tienen que devolver ────────────────────────────────────────────
+   Interruptor tipo iOS: el checkbox real queda encima, invisible, para que
+   el toque, el teclado y VoiceOver funcionen como en cualquier casilla. */
+.cobrar-fields{margin:-4px 0 18px;}
+.cobrar-fields[hidden],#cobrarDetalle[hidden]{display:none;}
+.cobrar-switch{position:relative;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer;min-height:56px;}
+.cobrar-texto{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.cobrar-texto strong{font-size:.86rem;font-weight:600;color:var(--text);}
+.cobrar-texto span{font-size:.72rem;color:var(--dim);line-height:1.4;}
+.cobrar-switch input{position:absolute;right:14px;top:50%;width:51px;height:31px;margin:-15.5px 0 0;opacity:0;cursor:pointer;z-index:1;}
+.cobrar-track{position:relative;flex:0 0 51px;height:31px;border-radius:16px;background:var(--card3);transition:background-color .25s ease;}
+.cobrar-track::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);transition:transform .45s var(--resorte,ease);}
+.cobrar-switch input:checked+.cobrar-track{background:var(--green);}
+.cobrar-switch input:checked+.cobrar-track::after{transform:translateX(20px);}
+.cobrar-switch input:focus-visible+.cobrar-track{outline:2px solid var(--green);outline-offset:2px;}
+.cobrar-switch input:disabled,.cobrar-switch input:disabled+.cobrar-track{opacity:.4;cursor:not-allowed;}
+#cobrarDetalle{margin-top:14px;}
+#cobrarDetalle .transfer-note,#cobrarNota{font-size:.75rem;margin:0;}
+#cobrarNota{margin-top:10px;}
+
+/* ── Deshacer ─────────────────────────────────────────────────────────────
+   Barra inferior, encima de la navegación y a la izquierda del botón +.
+   Queda debajo de las hojas (z-index 200): si abres un formulario justo
+   después de guardar, no tapa su botón Guardar. */
+.undo-bar{position:fixed;left:16px;right:88px;bottom:calc(86px + env(safe-area-inset-bottom));max-width:460px;display:flex;align-items:center;gap:4px;padding:6px 6px 6px 16px;border-radius:16px;background:rgba(32,32,36,.92);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 30px rgba(0,0,0,.45);z-index:150;opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .2s ease,transform .45s var(--resorte,ease);}
+.undo-bar.show{opacity:1;transform:none;pointer-events:auto;}
+.undo-bar[hidden]{display:none;}
+.undo-msg{flex:1;min-width:0;font-size:.82rem;font-weight:500;color:var(--text);line-height:1.35;overflow-wrap:anywhere;}
+.undo-btn{flex:0 0 auto;min-height:44px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:var(--green);font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;}
+.undo-btn:active{background:rgba(0,214,143,.12);}
+.undo-x{flex:0 0 auto;width:36px;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;border-radius:10px;}
+@media(min-width:1050px){.undo-bar{left:calc(200px + 24px);right:auto;width:420px;bottom:32px;}}
+@media(prefers-reduced-transparency:reduce){.undo-bar{background:#202024;-webkit-backdrop-filter:none;backdrop-filter:none;}}

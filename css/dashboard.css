@@ -183,3 +183,5 @@
 .ddesc{font-size:0.7rem;color:var(--muted);margin-top:2px;}
 .damt{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums;}
 .damt.in{color:var(--green);}.damt.out{color:var(--red);}
+/* Gasto por cobrar: quién te lo debe, en amarillo como lo pendiente. */
+.tx-refund-sub.tx-por-cobrar{color:var(--yellow);font-weight:600;}

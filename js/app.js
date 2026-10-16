@@ -13,8 +13,10 @@ import {pfYahoo, renderPfYahoo, startPfYahoo, stopPfYahoo} from './services/mark
 import {guardedOnce} from './utils/async.js';
 import {initializeAccessibility} from './utils/dom.js';
 import {initializeSheetDrag} from './ui/sheet-drag.js';
+import {initializeDeshacer} from './ui/deshacer.js';
 import {initializeSegmentedThumb} from './ui/segmented-thumb.js';
 import {exportarMovimientosCSV, descargarRespaldo} from './modules/backup.js';
+import {initializeNotificaciones} from './modules/notificaciones.js';
 import {detenerPrecargaPortafolio, limpiarCachePortafolio, precargarPortafolio} from './modules/portfolio/portfolio.js';
 
 [
@@ -23,7 +25,7 @@ import {detenerPrecargaPortafolio, limpiarCachePortafolio, precargarPortafolio} 
   'guardarPagoTarjeta','guardarPagoTarjetaUSD','pagarSaldoCompleto','limpiarPagoTarjeta',
   'guardarEditPago','confirmarEliminarPago','eliminarPagoTarjeta',
   'guardarTarjetaInline','agregarTarjeta','eliminarTarjeta','guardarMetaPct',
-  'cargar'
+  'cargar','deshacer'
 ].forEach(name=>{ window[name]=guardedOnce(window[name]); });
 aplicarPreferencias();
 document.addEventListener('visibilitychange',()=>{
@@ -42,7 +44,9 @@ window.addEventListener('storage',e=>{if(e.key==='sb_session'){
 }});
 initializeAccessibility();
 initializeSheetDrag();
+initializeDeshacer();
 initializeSegmentedThumb();
+initializeNotificaciones();
 document.getElementById('exportCSV')?.addEventListener('click',exportarMovimientosCSV);
 document.getElementById('exportBackup')?.addEventListener('click',descargarRespaldo);
 bootAuth();

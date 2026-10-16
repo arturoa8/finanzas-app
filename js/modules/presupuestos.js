@@ -8,6 +8,7 @@ import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
 import {toast} from '../ui/toast.js';
 import {cleanName, escAttr, escHtml, fmt, getEmoji} from '../utils/formatters.js';
+import {deudasPorGasto} from './por-cobrar.js';
 import {claveAmbito, claveCategoria, consumoDe, consumoDelPeriodo, estadoPresupuesto, filaPresupuesto, hoyLima, inicioPeriodo, moverPeriodo, nombrePeriodo, presupuestoVigente, presupuestosDelPeriodo, rangoPeriodo, reglaDeSerie} from './presupuestos-calculo.js';
 
 const PRES_VISTA_KEY='finanzas.presupuestos.vista.v1';
@@ -78,7 +79,7 @@ export function renderPresupuestos(){
     if(gastado)gastado.textContent='';
     lista.innerHTML='<p class="hint">Tus presupuestos aparecerán cuando terminen de cargar tus datos.</p>';return;
   }
-  const consumo=consumoDelPeriodo(datos.transacciones,tipo,inicio);
+  const consumo=consumoDelPeriodo(datos.transacciones,tipo,inicio,deudasPorGasto());
   if(gastado)gastado.textContent='Gasto neto: '+fmt(consumo.total/100)+(consumo.incompletos?' · cálculo incompleto':'');
   if(!filasPres().length){
     lista.innerHTML=`<div class="pres-empty"><p><strong>Aún no tienes presupuestos.</strong> Pon un límite de gasto mensual o semanal, general o para una categoría, y mira cuánto te queda.</p><button type="button" class="btn btn-p" onclick="abrirNuevoPresupuesto()">Crear tu primer presupuesto</button></div>`;

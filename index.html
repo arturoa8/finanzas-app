@@ -12,9 +12,10 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.08.01">
+<meta name="version-app" content="2026.10.15.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>Mis Finanzas · Mejorada</title>
 <script>
 try{
@@ -32,12 +33,6 @@ try{
   var _u=_c.toDataURL('image/png');
   document.querySelector('link[rel="apple-touch-icon"]').href=_u;
   document.querySelector('link[rel="icon"]').href=_u;
-  var _m={name:'Mis Finanzas',short_name:'Finanzas',display:'standalone',
-    background_color:'#000000',theme_color:'#000000',
-    icons:[{src:_u,sizes:'180x180',type:'image/png'}]};
-  var _ml=document.createElement('link');_ml.rel='manifest';
-  _ml.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(_m));
-  document.head.appendChild(_ml);
 }catch(e){}
 </script>
 
@@ -72,6 +67,8 @@ try{
   <link rel="modulepreload" href="./js/utils/async.js">
   <link rel="modulepreload" href="./js/utils/dom.js">
   <link rel="modulepreload" href="./js/modules/backup.js">
+  <link rel="modulepreload" href="./js/modules/notificaciones.js">
+  <link rel="modulepreload" href="./js/services/push.js">
   <link rel="modulepreload" href="./js/modules/portfolio/portfolio.js">
   <link rel="modulepreload" href="./js/modules/accounts.js">
   <link rel="modulepreload" href="./js/modules/analytics.js">
@@ -99,6 +96,8 @@ try{
   <link rel="modulepreload" href="./js/ui/navigation.js">
   <link rel="modulepreload" href="./js/ui/toast.js">
   <link rel="modulepreload" href="./js/utils/formatters.js">
+  <link rel="modulepreload" href="./js/modules/por-cobrar.js">
+  <link rel="modulepreload" href="./js/ui/deshacer.js">
   <link rel="modulepreload" href="./js/ui/startup.js">
   <link rel="modulepreload" href="./js/services/supabase-config.js">
   <link rel="modulepreload" href="./js/services/supabase.js">
@@ -547,6 +546,21 @@ try{
       <select class="sel" id="iCue" onchange="cambiarCuentaSelect(this)"></select>
     </div>
 
+    <div id="cobrarFields" class="cobrar-fields">
+      <label class="cobrar-switch" for="iCobrar">
+        <span class="cobrar-texto"><strong>Me lo tienen que devolver</strong><span>Lo pagaste tú, pero era de otra persona</span></span>
+        <input type="checkbox" id="iCobrar" role="switch" onchange="toggleCobrar()">
+        <span class="cobrar-track" aria-hidden="true"></span>
+      </label>
+      <div id="cobrarDetalle" hidden>
+        <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarPersona">Quién</label><input id="iCobrarPersona" class="sel" type="text" list="personasDeuda" placeholder="Ej. Mamá" autocomplete="off" enterkeyhint="next"></div>
+        <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarMonto">Cuánto</label><input id="iCobrarMonto" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Todo el gasto"></div>
+        <datalist id="personasDeuda"></datalist>
+        <p class="transfer-note">Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero.</p>
+      </div>
+      <p class="transfer-note" id="cobrarNota" hidden></p>
+    </div>
+
     <div id="refundFields" hidden>
       <label for="iGastoOrigen">Gasto que te devolvieron</label>
       <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso()"></select>
@@ -648,6 +662,7 @@ try{
       <button type="button" aria-controls="settingsCuentas" onclick="abrirConfiguracion('cuentas')">Cuentas</button>
       <button type="button" aria-controls="settingsCategorias" onclick="abrirConfiguracion('categorias')">Categorías</button>
       <button type="button" aria-controls="settingsPreferencias" onclick="abrirConfiguracion('apariencia')">Apariencia</button>
+      <button type="button" aria-controls="settingsNotificaciones" onclick="abrirConfiguracion('notificaciones')">Avisos</button>
       <button type="button" aria-controls="settingsDatos" onclick="abrirConfiguracion('datos')">Datos</button>
     </nav>
     <div class="settings-groups">
@@ -712,6 +727,16 @@ try{
       </section>
           <section class="line-config-item"><h3 class="line-config-name">Gráficos de inversión</h3><label for="appChartScale">Escala del gráfico</label><select class="sel" id="appChartScale" onchange="guardarPreferencias()"><option value="auto">Automática — recomendada</option><option value="cero">Desde cero</option></select><details class="settings-help"><summary>Cómo funcionan las escalas</summary><p class="hint">Automática ajusta el eje al rango del período para que se vean las fluctuaciones reales, con un mínimo para no exagerar movimientos pequeños. Desde cero muestra la magnitud completa. Solo cambia el dibujo: los valores y la rentabilidad son los mismos.</p></details>
       </section>
+        </div>
+      </details>
+      <details class="settings-group" id="settingsNotificaciones">
+        <summary><span><strong>Notificaciones</strong><small>Avisos en este dispositivo</small></span></summary>
+        <div class="settings-group-body">
+          <section class="line-config-item"><h3 class="line-config-name">Avisos en este dispositivo</h3>
+            <p class="hint" id="pushEstado" aria-live="polite">Comprobando…</p>
+            <div class="backup-actions push-acciones"><button type="button" class="btn btn-p" id="pushActivar" hidden>Activar notificaciones</button><button type="button" class="btn btn-s" id="pushProbar" hidden>Enviar una prueba</button><button type="button" class="btn btn-s" id="pushDesactivar" hidden>Desactivar</button></div>
+            <details class="settings-help"><summary>Cómo funcionan</summary><p class="hint">Cada dispositivo se activa por separado. En iPhone hay que instalar la app en la pantalla de inicio y abrirla desde ahí. La prueba manda una notificación real a los dispositivos activados de tu cuenta.</p></details>
+          </section>
         </div>
       </details>
       <details class="settings-group" id="settingsDatos">
@@ -852,11 +877,15 @@ try{
       <label class="mpill"><span>📅</span><input type="date" id="abonoFecha"></label>
     </div>
     <input type="number" class="big-input muto" id="abonoMonto" placeholder="Monto a abonar" step="0.01" inputmode="decimal">
+    <div class="cuenta-row" id="abonoCuentaRow" hidden>
+      <label class="cuenta-lbl" for="abonoCuenta">Recibido en</label>
+      <select class="sel" id="abonoCuenta"></select>
+    </div>
     <input type="text" class="big-input" id="abonoNota" placeholder="Nota (opcional)">
     <div class="brow" style="flex-wrap:wrap;gap:8px;">
-      <button class="btn btn-p" style="flex:1;min-width:120px;" onclick="abonarTodo()">Pagar todo</button>
+      <button class="btn btn-p" style="flex:1;min-width:120px;" id="abonoTodoBtn" onclick="abonarTodo()">Pagar todo</button>
       <button class="btn btn-s" style="flex:0 0 auto;" onclick="cerrarModalAbono()">Cancelar</button>
-      <button class="btn btn-p" style="flex:1;min-width:100px;" onclick="guardarAbono()">Abonar</button>
+      <button class="btn btn-p" style="flex:1;min-width:100px;" id="abonoGuardarBtn" onclick="guardarAbono()">Abonar</button>
     </div>
   </div>
 </div>
@@ -911,6 +940,11 @@ try{
 </div>
 
 <div class="toast" id="toast" onclick="ocultarToast()"></div>
+<div class="undo-bar" id="undoBar" role="status" aria-live="polite" hidden onpointerenter="pausarDeshacer()" onpointerleave="reanudarDeshacer()">
+  <span class="undo-msg" id="undoMsg"></span>
+  <button type="button" class="undo-btn" id="undoBtn" onclick="deshacer()">Deshacer</button>
+  <button type="button" class="undo-x" onclick="cerrarDeshacer()" aria-label="Cerrar aviso">✕</button>
+</div>
 
 <!-- MÁS -->
 <div class="modal" id="moreModal" onclick="if(event.target===this)cerrarMas()">

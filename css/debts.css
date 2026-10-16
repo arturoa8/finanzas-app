@@ -39,3 +39,5 @@
 .ramt{font-size:0.95rem;font-weight:700;font-variant-numeric:tabular-nums;}
 .ramt.in{color:var(--green);}
 
+/* Deuda que nace de un gasto tuyo: con qué lo pagaste y cuándo. */
+.dcard-origen{font-size:0.7rem;color:var(--dim);margin-top:4px;}

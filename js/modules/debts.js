@@ -1,16 +1,19 @@
 // Deudas y abonos.
 // Extraido de v2/propuesta.html sin cambiar su comportamiento.
 
+import {cuentasApp} from './accounts.js';
+import {CREDIT_CARDS} from './cards/config.js';
 import {render} from './dashboard.js';
-import {getTxRow} from './transactions.js';
+import {archivarFila, cobradoDeuda, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda} from './por-cobrar.js';
+import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
 import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
-import {cargar} from './transactions.js';
 import {datos} from '../state.js';
+import {ofrecerDeshacer} from '../ui/deshacer.js';
 import {toast} from '../ui/toast.js';
 import {guardedOnce} from '../utils/async.js';
-import {pf, toDateInput} from '../utils/dates.js';
-import {escHtml, fmtC, fmtD} from '../utils/formatters.js';
+import {buildFechaISO, fmtDateShort, pf, toDateInput} from '../utils/dates.js';
+import {escAttr, escHtml, fmtC, fmtD} from '../utils/formatters.js';
 
 // Pestana activa de deudas. La escribe setDT(), aqui mismo.
 export let dT='me-deben';
@@ -51,7 +54,9 @@ export function renderDeb(){
   l.innerHTML=activas.map(d=>{
     const id=String(d[0]);
     const monto=parseFloat(d[3])||0;
-    const abonado=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
+    // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
+    const gasto=d[8]?gastoDeDeuda(d):null;
+    const abonado=d[8]?cobradoDeuda(d):(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
     const pendiente=Math.max(0,monto-abonado);
     const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
     const fiVal=toDateInput(d[5]);const fvVal=toDateInput(d[6]);
@@ -65,6 +70,7 @@ export function renderDeb(){
         <div class="dcard-info">
           <div class="dcard-person">${escHtml(d[1]||'?')}</div>
           <div class="dcard-desc">${escHtml(d[2]||'')}</div>
+          ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
           ${vencida?'<div class="dcard-venc-warn">⚠ Vencida</div>':''}
           ${warnVenc?`<div class="dcard-venc-warn" style="color:var(--yellow)">⚡ Vence en ${diasVenc} día${diasVenc!==1?'s':''}</div>`:''}
         </div>
@@ -75,7 +81,7 @@ export function renderDeb(){
       </div>
       ${abonado>0?`<div class="dcard-prog">
         <div class="dcard-progbar"><div class="dcard-progfill ${cls}" style="width:${pct}%"></div></div>
-        <div class="dcard-progmeta"><span>Abonado ${fmtD(abonado)}</span><span>${pct}%</span></div>
+        <div class="dcard-progmeta"><span>${d[8]?'Cobrado':'Abonado'} ${fmtD(abonado)}</span><span>${pct}%</span></div>
       </div>`:''}
       <div class="dcard-dates">
         <div class="dcard-date">
@@ -88,9 +94,9 @@ export function renderDeb(){
         </div>
       </div>
       <div class="dcard-actions">
-        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">Abonar</button>
+        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${d[8]?'Cobrar':'Abonar'}</button>
         <button class="dcard-btn" onclick="abrirHistorialAbonos('${id}')">Historial</button>
-        <button class="dcard-btn" onclick="abrirModalDeudaEdit('${id}')">✎ Editar</button>
+        <button class="dcard-btn" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">✎ Editar</button>
         <button class="dcard-btn danger" onclick="abrirModalArchivar('${id}')">Archivar</button>
       </div>
     </div>`;
@@ -103,7 +109,7 @@ function renderDebArchivadas(l){
   l.innerHTML=[...arch].reverse().map(d=>{
     const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
     const monto=parseFloat(d[3])||0;
-    const logAb=calcAbonadoFromLog(d[0]);
+    const logAb=d[10]?Math.min(Math.round(monto*100),devueltoCentimos(d[10]))/100:calcAbonadoFromLog(d[0]);
     const abonado=logAb>0?logAb:(parseFloat(d[4])||0);
     const motivo=(d[8]||'').toString().toLowerCase();
     const isPagado=motivo.includes('pagado')||motivo.includes('saldada');
@@ -181,16 +187,19 @@ async function guardarDeuda__base(){
   const body={persona,descripcion:desc,monto:parseFloat(monto),fecha_inicio:fechaInicio,fecha_venc:fechaVenc||null,tipo:deudaTipoModal};
   try{
     if(editandoDeuda){
-      await sbUpdate('deudas',editandoDeuda,body);
-      const d=datos.deudas.find(x=>String(x[0])===String(editandoDeuda));
+      const id=editandoDeuda;
+      const d=datos.deudas.find(x=>String(x[0])===String(id));
+      const antes=d?{persona:d[1],descripcion:d[2],monto:Number(d[3]),fecha_inicio:d[5],fecha_venc:d[6]||null,tipo:d[7]}:null;
+      await sbUpdate('deudas',id,body);
       if(d){d[1]=persona;d[2]=desc;d[3]=parseFloat(monto);d[5]=fechaInicio;d[6]=fechaVenc||null;d[7]=deudaTipoModal;}
-      toast('Deuda actualizada','success');
+      cerrarModalDeuda();render();
+      if(antes)ofrecerDeshacer('Deuda actualizada',()=>sbUpdate('deudas',id,antes));else toast('Deuda actualizada','success');
     } else {
       const row=await sbInsert('deudas',body);
-      datos.deudas.push([row.id,row.persona,row.descripcion,row.monto,0,row.fecha_inicio,row.fecha_venc,row.tipo]);
-      toast('Deuda registrada','success');
+      datos.deudas.push(filaDeuda(row));
+      cerrarModalDeuda();render();
+      ofrecerDeshacer('Deuda registrada',()=>sbDelete('deudas',row.id));
     }
-    cerrarModalDeuda();render();
   }catch(e){toast('Error al guardar','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -213,14 +222,22 @@ export function abrirModalAbono(id){
   solicitudAbonoId=operacionPendiente?.tipo==='crear'&&String(operacionPendiente.abono.deuda_id)===String(id)?operacionPendiente.id:crypto.randomUUID();
   solicitudAbonoTxId=operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx?.id:crypto.randomUUID();
   const monto=parseFloat(d[3])||0;
-  const abonado=calcAbonadoFromLog(id);
+  const vinculada=!!d[8];
+  const abonado=vinculada?cobradoDeuda(d):calcAbonadoFromLog(id);
   const pendiente=Math.max(0,monto-abonado);
   const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
-  document.getElementById('abonoTitle').textContent=(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+escHtml(d[1]||'');
-  document.getElementById('abonoPendienteLbl').textContent='Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto);
+  document.getElementById('abonoTitle').textContent=vinculada?'Cobrar a '+(d[1]||''):(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+(d[1]||'');
+  document.getElementById('abonoPendienteLbl').textContent=vinculada
+    ?'Te debe '+fmtD(pendiente)+' de '+fmtD(monto)+'. Se registra como reembolso del gasto.'
+    :'Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto);
   document.getElementById('abonoFecha').value=toDateInput(new Date());
   document.getElementById('abonoMonto').value='';
+  document.getElementById('abonoMonto').placeholder=vinculada?'Monto que te devolvió':'Monto a abonar';
   document.getElementById('abonoNota').value='';
+  document.getElementById('abonoCuentaRow').hidden=!vinculada;
+  if(vinculada)llenarCuentaCobro(gastoDeDeuda(d));
+  document.getElementById('abonoGuardarBtn').textContent=vinculada?'Cobrar':'Abonar';
+  document.getElementById('abonoTodoBtn').textContent=vinculada?'Todo':'Pagar todo';
   if(operacionPendiente?.id===solicitudAbonoId){document.getElementById('abonoMonto').value=operacionPendiente.abono.monto;document.getElementById('abonoFecha').value=toDateInput(operacionPendiente.abono.fecha);document.getElementById('abonoNota').value=operacionPendiente.abono.nota||'';}
   document.getElementById('modalAbono').classList.add('active');
 }
@@ -232,8 +249,31 @@ export function abonarTodo(){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   if(!d)return;
   const monto=parseFloat(d[3])||0;
-  const abonado=calcAbonadoFromLog(abonosDeudaId);
+  const abonado=d[8]?cobradoDeuda(d):calcAbonadoFromLog(abonosDeudaId);
   document.getElementById('abonoMonto').value=Math.max(0,monto-abonado).toFixed(2);
+}
+
+// Dónde llegó lo que te devolvieron: tus cuentas en soles (no de inversión).
+// Si el gasto fue con tarjeta, también la tarjeta misma, por si te pagaron
+// directo a ella; así baja su deuda. Por defecto, la cuenta del gasto si no es
+// tarjeta, y si lo es, Yape o Plin, como en el formulario de reembolsos.
+function llenarCuentaCobro(gasto){
+  const sel=document.getElementById('abonoCuenta');
+  const efectivo=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
+  const tarjeta=gasto?CREDIT_CARDS.find(card=>sameAccount(card.cuenta,gasto[5])):null;
+  const opciones=[...efectivo];
+  if(tarjeta)opciones.push(tarjeta.cuenta);
+  else if(gasto?.[5]&&!opciones.some(c=>sameAccount(c,gasto[5]))&&gasto[9]!=='USD')opciones.unshift(gasto[5]);
+  sel.innerHTML=opciones.map(c=>`<option value="${escAttr(c)}">${escHtml(tarjeta&&c===tarjeta.cuenta?c+' (directo a la tarjeta)':c)}</option>`).join('');
+  const preferida=tarjeta?(efectivo.find(c=>sameAccount(c,sameAccount(tarjeta.cuenta,'Visa iO')?'Yape':'Plin'))||efectivo[0]):opciones.find(c=>sameAccount(c,gasto?.[5]||''));
+  sel.value=preferida||opciones[0]||'';
+}
+
+export function editarGastoDeDeuda(id){
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
+  const gasto=d?gastoDeDeuda(d):null;
+  if(!gasto){toast('No encuentro el gasto de esta deuda. Pulsa Actualizar.','error');return;}
+  editarTx(getTxRow(gasto));
 }
 
 // Nota: replica una regla que antes vivía solo en Apps Script — un abono a una
@@ -248,11 +288,36 @@ async function guardarAbono__base(){
   if(!fecha){toast('Completa la fecha del abono','error');return;}
   const nota=document.getElementById('abonoNota').value.trim();
   const tipo=(d&&d[7]||'').toString().toLowerCase();
+  if(d?.[8])return cobrarGasto(d,monto,fecha,nota);
   try{
     const tx=tipo==='me-deben'?{id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto,cuenta:''}:null;
-    await ejecutarAbono({tipo:'crear',id:solicitudAbonoId,tx,abono:{id:solicitudAbonoId,deuda_id:abonosDeudaId,monto,fecha,nota,tx_id:tx?.id||null}});
-    cerrarModalAbono();await cargar();toast('Pago registrado','success');
+    const id=solicitudAbonoId;
+    await ejecutarAbono({tipo:'crear',id,tx,abono:{id,deuda_id:abonosDeudaId,monto,fecha,nota,tx_id:tx?.id||null}});
+    cerrarModalAbono();await cargar({silencioso:true});
+    ofrecerDeshacer('Pago registrado',()=>ejecutarAbono({tipo:'eliminar',id,txId:tx?.id||null}));
   }catch(e){avisarErrorAbono(e);}
+}
+
+// Cobro de un gasto por cobrar: un Reembolso del gasto en la cuenta donde
+// llegó el dinero. Baja la deuda y, si llegó a la tarjeta, también su saldo.
+async function cobrarGasto(d,monto,fecha,nota){
+  const gasto=gastoDeDeuda(d);
+  if(!gasto){toast('No encuentro el gasto de esta deuda. Pulsa Actualizar.','error');return;}
+  const pendiente=pendienteDeuda(d);
+  if(Math.round(monto*100)>Math.round(pendiente*100)){toast('Te debe '+fmtD(pendiente)+'. Si te pagó de más, registra el resto como ingreso.','error');return;}
+  const cuenta=document.getElementById('abonoCuenta').value;
+  if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
+  if(pf(fecha)<new Date(pf(gasto[0]).getFullYear(),pf(gasto[0]).getMonth(),pf(gasto[0]).getDate())){toast('El cobro no puede ser anterior al gasto','error');return;}
+  const ahora=new Date(),hora=`${ahora.getHours()%12||12}:${String(ahora.getMinutes()).padStart(2,'0')} ${ahora.getHours()>=12?'p. m.':'a. m.'}`;
+  const [yy,mm,dd]=fecha.split('-');
+  try{
+    const row=await sbInsert('transacciones',{fecha:buildFechaISO(yy,mm,dd,hora),descripcion:'Devolución de '+(d[1]||'')+(nota?' · '+nota:''),
+      categoria:gasto[2],tipo:'Reembolso',monto,cuenta,transaccion_origen_id:gasto[6],
+      moneda_original:null,monto_original:null,tc:null,tc_fuente:null,moneda_destino:null,monto_destino:null});
+    cerrarModalAbono();await cargar({silencioso:true});
+    const resta=pendienteDeuda(d);
+    ofrecerDeshacer(resta>0?'Cobro registrado · falta '+fmtD(resta):'Cobrado completo · '+(d[1]||'')+' ya no te debe',()=>sbDelete('transacciones',row.id));
+  }catch(e){toast(e.message||'No se pudo registrar el cobro','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
@@ -267,13 +332,15 @@ async function confirmarArchivar__base(motivo){
   if(!archivarDeudaId)return;
   const fechaArchivo=new Date().toISOString();
   try{
-    await sbUpdate('deudas',archivarDeudaId,{archivado:true,motivo_archivo:motivo,fecha_archivo:fechaArchivo});
-    const idx=datos.deudas.findIndex(x=>String(x[0])===String(archivarDeudaId));
+    const id=archivarDeudaId;
+    await sbUpdate('deudas',id,{archivado:true,motivo_archivo:motivo,fecha_archivo:fechaArchivo});
+    const idx=datos.deudas.findIndex(x=>String(x[0])===String(id));
     if(idx>=0){
       const d=datos.deudas.splice(idx,1)[0];
-      datos.deudasArchivadas.push([...d,motivo,fechaArchivo]);
+      datos.deudasArchivadas.push(archivarFila(d,motivo,fechaArchivo));
     }
-    toast('Deuda archivada','success');cerrarModalArchivar();render();
+    cerrarModalArchivar();render();
+    ofrecerDeshacer('Deuda archivada',()=>sbUpdate('deudas',id,{archivado:false,motivo_archivo:null,fecha_archivo:null}));
   }catch(e){toast('Error al archivar','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -282,13 +349,16 @@ export const confirmarArchivar=guardedOnce(confirmarArchivar__base);
 
 async function confirmarDesarchivar__base(id){
   try{
+    const antes=datos.deudasArchivadas.find(x=>String(x[0])===String(id));
     await sbUpdate('deudas',id,{archivado:false,motivo_archivo:null,fecha_archivo:null});
     const idx=datos.deudasArchivadas.findIndex(x=>String(x[0])===String(id));
     if(idx>=0){
       const d=datos.deudasArchivadas.splice(idx,1)[0];
-      datos.deudas.push(d.slice(0,8));
+      datos.deudas.push(desarchivarFila(d));
     }
-    toast('Deuda restaurada','success');render();
+    render();
+    if(antes)ofrecerDeshacer('Deuda restaurada',()=>sbUpdate('deudas',id,{archivado:true,motivo_archivo:antes[8]??null,fecha_archivo:antes[9]??null}));
+    else toast('Deuda restaurada','success');
   }catch(e){toast('Error al restaurar','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -327,7 +397,7 @@ function _abTxId(ab){return ab[5]||null;}
 export function abrirHistorialAbonos(id){
   historialDeudaId=id;
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
-  document.getElementById('historialAbonosTitle').textContent='Abonos — '+(d?escHtml(d[1]||''):'');
+  document.getElementById('historialAbonosTitle').textContent=(d?.[8]?'Cobros — ':'Abonos — ')+(d?d[1]||'':'');
   renderHistorialAbonos();
   document.getElementById('modalHistorialAbonos').classList.add('active');
 }
@@ -339,6 +409,8 @@ export function cerrarHistorialAbonos(){
 
 function renderHistorialAbonos(){
   const lista=document.getElementById('historialAbonosList');
+  const deuda=(datos.deudas||[]).find(x=>String(x[0])===String(historialDeudaId));
+  if(deuda?.[8]){renderHistorialCobros(lista,deuda);return;}
   const abs=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(historialDeudaId));
   if(abs.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Sin abonos registrados</div>';return;}
   lista.innerHTML=[...abs].reverse().map(ab=>{
@@ -356,6 +428,44 @@ function renderHistorialAbonos(){
     </div>`;
   }).join('');
 }
+
+// Los cobros de un gasto son sus reembolsos: se editan como cualquier
+// movimiento y se borran con la opción de deshacer.
+function renderHistorialCobros(lista,deuda){
+  const cobros=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(deuda[8])).sort((a,b)=>pf(b[0])-pf(a[0]));
+  if(cobros.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Todavía no te devolvió nada</div>';return;}
+  lista.innerHTML=cobros.map(t=>{
+    const id=escAttr(String(t[6]));
+    return `<div class="dcard" style="margin-bottom:8px;padding:10px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div>
+          <div style="font-weight:700;color:var(--green)">${fmtD(t[4])}</div>
+          <div style="font-size:0.75rem;color:var(--dim)">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}</div>
+        </div>
+        <div style="display:flex;gap:6px;"><button class="dcard-btn" onclick="editarCobro('${id}')" aria-label="Editar cobro">✎</button><button class="dcard-btn danger" onclick="eliminarCobro('${id}')" aria-label="Eliminar cobro">✕</button></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+export function editarCobro(txId){
+  cerrarHistorialAbonos();
+  editarTx(txId);
+}
+
+async function eliminarCobro__base(txId){
+  const t=(datos.transacciones||[]).find(x=>String(x[6])===String(txId));
+  if(!t)return;
+  const copia=[...t];
+  try{
+    await sbDelete('transacciones',txId);
+    await cargar({silencioso:true});
+    render();
+    if(historialDeudaId)renderHistorialAbonos();
+    ofrecerDeshacer('Cobro eliminado',()=>sbInsert('transacciones',cuerpoTx(copia)));
+  }catch(e){toast(e.message||'No se pudo eliminar el cobro','error');}
+}
+export const eliminarCobro=guardedOnce(eliminarCobro__base);
 
 export function abrirEditAbono(abonoId){
   const ab=(datos.deudasAbonos||[]).find(x=>_abId(x)===String(abonoId));
@@ -384,13 +494,17 @@ async function guardarEditAbono__base(){
   if(!fecha){toast('Completa la fecha del abono','error');return;}
   const nota=document.getElementById('editAbonoNota').value.trim();
   try{
-    const ab=datos.deudasAbonos.find(x=>_abId(x)===String(editandoAbonoId));
-    await ejecutarAbono({tipo:'editar',id:editandoAbonoId,txId:ab?_abTxId(ab):null,patch:{monto,fecha,nota}});
-    await cargar();
-    toast('Abono actualizado','success');
+    const id=editandoAbonoId;
+    const ab=datos.deudasAbonos.find(x=>_abId(x)===String(id));
+    const txId=ab?_abTxId(ab):null;
+    const antes=ab?{monto:_abMonto(ab),fecha:_abFecha(ab),nota:_abNota(ab)}:null;
+    await ejecutarAbono({tipo:'editar',id,txId,patch:{monto,fecha,nota}});
+    await cargar({silencioso:true});
     cerrarEditAbono();
     render();
     if(historialDeudaId)renderHistorialAbonos();
+    if(antes)ofrecerDeshacer('Abono actualizado',()=>ejecutarAbono({tipo:'editar',id,txId,patch:antes}));
+    else toast('Abono actualizado','success');
   }catch(e){avisarErrorAbono(e);}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -401,11 +515,15 @@ async function eliminarAbono__base(abonoId){
   try{
     const ab=datos.deudasAbonos.find(x=>_abId(x)===String(abonoId));
     const txId=ab?_abTxId(ab):null;
+    // El abono y su ingreso espejo se reponen con sus mismos ids.
+    const tx=txId?datos.transacciones.find(t=>String(t[6])===String(txId)):null;
+    const copia=ab?{tipo:'crear',id:String(abonoId),tx:tx?cuerpoTx(tx):null,abono:{id:String(abonoId),deuda_id:_abDeudaId(ab),monto:_abMonto(ab),fecha:_abFecha(ab),nota:_abNota(ab),tx_id:tx?txId:null}}:null;
     await ejecutarAbono({tipo:'eliminar',id:abonoId,txId});
-    await cargar();
-    toast('Abono eliminado','success');
+    await cargar({silencioso:true});
     render();
     if(historialDeudaId)renderHistorialAbonos();
+    if(copia)ofrecerDeshacer('Abono eliminado',()=>ejecutarAbono(copia));
+    else toast('Abono eliminado','success');
   }catch(e){avisarErrorAbono(e);}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
@@ -417,10 +535,11 @@ async function editarFechaDeuda__base(id,campo,valor){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
   const patch=campo==='inicio'?{fecha_inicio:valor}:{fecha_venc:valor};
+  const antes=campo==='inicio'?{fecha_inicio:d[5]}:{fecha_venc:d[6]||null};
   try{
     await sbUpdate('deudas',id,patch);
     if(campo==='inicio') d[5]=valor; else d[6]=valor;
-    toast('Fecha guardada','success');
+    ofrecerDeshacer('Fecha guardada',()=>sbUpdate('deudas',id,antes));
   }catch(e){toast('Error al guardar fecha','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
