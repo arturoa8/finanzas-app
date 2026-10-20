@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.20.01">
+<meta name="version-app" content="2026.10.20.02">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -886,9 +886,20 @@ try{
       <label class="mpill"><span>📅</span><input type="date" id="abonoFecha"></label>
     </div>
     <input type="number" class="big-input muto" id="abonoMonto" placeholder="Monto a abonar" step="0.01" inputmode="decimal">
+    <div id="abonoGastoBox" class="cobrar-fields" hidden>
+      <label class="cobrar-switch" for="abonoGasto">
+        <span class="cobrar-texto"><strong>Anotar este pago como gasto</strong><span>Actívalo si todavía no lo registraste en Movimientos</span></span>
+        <input type="checkbox" id="abonoGasto" role="switch" onchange="toggleAbonoGasto()">
+        <span class="cobrar-track" aria-hidden="true"></span>
+      </label>
+    </div>
     <div class="cuenta-row" id="abonoCuentaRow" hidden>
-      <label class="cuenta-lbl" for="abonoCuenta">Recibido en</label>
+      <label class="cuenta-lbl" for="abonoCuenta" id="abonoCuentaLbl">Recibido en</label>
       <select class="sel" id="abonoCuenta"></select>
+    </div>
+    <div class="cuenta-row" id="abonoCatRow" hidden>
+      <label class="cuenta-lbl" for="abonoCat">Categoría</label>
+      <select class="sel" id="abonoCat"></select>
     </div>
     <input type="text" class="big-input" id="abonoNota" placeholder="Nota (opcional)">
     <div class="brow" style="flex-wrap:wrap;gap:8px;">

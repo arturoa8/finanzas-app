@@ -221,7 +221,7 @@ export function abrirModalAbono(id){
   abonosDeudaId=id;
   const operacionPendiente=abonoPendiente();
   solicitudAbonoId=operacionPendiente?.tipo==='crear'&&String(operacionPendiente.abono.deuda_id)===String(id)?operacionPendiente.id:crypto.randomUUID();
-  solicitudAbonoTxId=operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx?.id:crypto.randomUUID();
+  solicitudAbonoTxId=(operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx?.id:null)||crypto.randomUUID();
   const monto=parseFloat(d[3])||0;
   const vinculada=!!d[8];
   const abonado=vinculada?cobradoDeuda(d):calcAbonadoFromLog(id);
@@ -235,12 +235,53 @@ export function abrirModalAbono(id){
   document.getElementById('abonoMonto').value='';
   document.getElementById('abonoMonto').placeholder=vinculada?'Monto que te devolvió':'Monto a abonar';
   document.getElementById('abonoNota').value='';
-  document.getElementById('abonoCuentaRow').hidden=!vinculada;
+  // Gasto por cobrar y "Me deben": dónde llegó el dinero. "Les debo": el pago
+  // puede anotarse como gasto (apagado por defecto, porque sueles registrar ese
+  // gasto aparte en Movimientos y así no se cuenta dos veces).
+  const esLesDebo=!vinculada&&!esMeDeben;
+  document.getElementById('abonoGastoBox').hidden=!esLesDebo;
+  document.getElementById('abonoGasto').checked=false;
+  document.getElementById('abonoCuentaLbl').textContent=esLesDebo?'Pagado desde':'Recibido en';
   if(vinculada)llenarCuentaCobro(gastoDeDeuda(d));
+  else{llenarCuentaAbono(esMeDeben?'Ingreso':'Gasto');llenarCategoriaAbono();}
+  const pendienteTx=operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx:null;
+  if(pendienteTx){
+    if(esLesDebo)document.getElementById('abonoGasto').checked=true;
+    document.getElementById('abonoCuenta').value=pendienteTx.cuenta||document.getElementById('abonoCuenta').value;
+    if(esLesDebo)document.getElementById('abonoCat').value=pendienteTx.categoria||'';
+  }
+  mostrarCamposAbono(vinculada||esMeDeben);
   document.getElementById('abonoGuardarBtn').textContent=vinculada?'Cobrar':'Abonar';
   document.getElementById('abonoTodoBtn').textContent=vinculada?'Todo':'Pagar todo';
   if(operacionPendiente?.id===solicitudAbonoId){document.getElementById('abonoMonto').value=operacionPendiente.abono.monto;document.getElementById('abonoFecha').value=toDateInput(operacionPendiente.abono.fecha);document.getElementById('abonoNota').value=operacionPendiente.abono.nota||'';}
   document.getElementById('modalAbono').classList.add('active');
+}
+
+function mostrarCamposAbono(conCuenta){
+  const gasto=!document.getElementById('abonoGastoBox').hidden&&document.getElementById('abonoGasto').checked;
+  document.getElementById('abonoCuentaRow').hidden=!(conCuenta||gasto);
+  document.getElementById('abonoCatRow').hidden=!gasto;
+}
+
+export function toggleAbonoGasto(){mostrarCamposAbono(false);}
+
+// Cuentas en soles de efectivo para un abono sin gasto vinculado. Por defecto,
+// la cuenta del último abono del mismo tipo que llevó movimiento.
+function llenarCuentaAbono(tipoTx){
+  const sel=document.getElementById('abonoCuenta');
+  const efectivo=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
+  sel.innerHTML=efectivo.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+  const vinculados=new Set((datos.deudasAbonos||[]).map(_abTxId).filter(Boolean).map(String));
+  const ultima=(datos.transacciones||[]).filter(t=>t[3]===tipoTx&&vinculados.has(String(t[6]))&&efectivo.some(c=>sameAccount(c,t[5])))
+    .sort((a,b)=>pf(b[0])-pf(a[0]))[0];
+  sel.value=ultima?efectivo.find(c=>sameAccount(c,ultima[5])):(efectivo[0]||'');
+}
+
+// Categorías de gasto para el pago de una deuda que tienes.
+function llenarCategoriaAbono(){
+  const ingresos=new Set(['salario','beca','otros ingresos','inversiones']);
+  const cats=(datos.categorias||[]).map(c=>c[0]).filter(c=>c&&!ingresos.has(String(c).trim().toLowerCase()));
+  document.getElementById('abonoCat').innerHTML='<option value="">Elige la categoría…</option>'+cats.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
 }
 
 export function cerrarModalAbono(){document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;}
@@ -280,6 +321,8 @@ export function editarGastoDeDeuda(id){
 // Nota: replica una regla que antes vivía solo en Apps Script — un abono a una
 // deuda 'me-deben' crea también una transacción espejo (Ingreso, Inversiones),
 // vinculada vía deudas_abonos.tx_id para poder editarla/borrarla en conjunto.
+// Ahora va a la cuenta donde llegó el dinero (antes quedaba sin cuenta). En
+// 'les-debo', si se pide, el pago crea un Gasto en la cuenta de donde salió.
 async function guardarAbono__base(){
   if(!abonosDeudaId)return;
   const monto=Number(document.getElementById('abonoMonto').value);
@@ -290,8 +333,18 @@ async function guardarAbono__base(){
   const nota=document.getElementById('abonoNota').value.trim();
   const tipo=(d&&d[7]||'').toString().toLowerCase();
   if(d?.[8])return cobrarGasto(d,monto,fecha,nota);
+  const cuenta=document.getElementById('abonoCuenta').value;
+  let tx=null;
+  if(tipo==='me-deben'){
+    if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
+    tx={id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto,cuenta};
+  }else if(document.getElementById('abonoGasto').checked){
+    const categoria=document.getElementById('abonoCat').value;
+    if(!cuenta){toast('Elige de qué cuenta salió el pago','error');return;}
+    if(!categoria){toast('Elige la categoría del gasto','error');return;}
+    tx={id:solicitudAbonoTxId,fecha,descripcion:d?(d[1]||'')+(d[2]?' · '+d[2]:''):'',categoria,tipo:'Gasto',monto,cuenta};
+  }
   try{
-    const tx=tipo==='me-deben'?{id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto,cuenta:''}:null;
     const id=solicitudAbonoId;
     await ejecutarAbono({tipo:'crear',id,tx,abono:{id,deuda_id:abonosDeudaId,monto,fecha,nota,tx_id:tx?.id||null}});
     cerrarModalAbono();await cargar({silencioso:true});
