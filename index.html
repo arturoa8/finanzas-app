@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.15.06">
+<meta name="version-app" content="2026.10.20.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -544,32 +544,38 @@ try{
     <p class="hint data-status" id="accountStatus" role="status" hidden>Tus cuentas no están listas. Pulsa Actualizar antes de guardar este movimiento.</p>
     <div class="cat-chips" id="catChips"></div>
 
-    <div class="cuenta-row">
+    <div class="cuenta-row" id="cuentaRow">
       <label class="cuenta-lbl" for="iCue" id="accountLabel">Cuenta</label>
       <select class="sel" id="iCue" onchange="cambiarCuentaSelect(this)"></select>
     </div>
 
     <div id="cobrarFields" class="cobrar-fields">
-      <label class="cobrar-switch" for="iCobrar">
-        <span class="cobrar-texto"><strong>Me lo tienen que devolver</strong><span>Lo pagaste tú, pero era de otra persona</span></span>
-        <input type="checkbox" id="iCobrar" role="switch" onchange="toggleCobrar()">
-        <span class="cobrar-track" aria-hidden="true"></span>
-      </label>
-      <div id="cobrarDetalle" hidden>
-        <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarPersona">Quién</label><input id="iCobrarPersona" class="sel" type="text" list="personasDeuda" placeholder="Ej. Mamá" autocomplete="off" enterkeyhint="next"></div>
-        <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarMonto">Cuánto</label><input id="iCobrarMonto" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Todo el gasto"></div>
-        <datalist id="personasDeuda"></datalist>
-        <p class="transfer-note">Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero.</p>
-      </div>
       <p class="transfer-note" id="cobrarNota" hidden></p>
     </div>
 
     <div id="refundFields" hidden>
-      <label for="iGastoOrigen">Gasto que te devolvieron</label>
-      <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso()"></select>
+      <label for="iGastoOrigen" id="gastoOrigenLbl">Gasto que te devolvieron</label>
+      <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso(true)"></select>
+      <div id="cobrarSwitchBox" class="cobrar-fields">
+        <label class="cobrar-switch" for="iCobrar">
+          <span class="cobrar-texto"><strong>Todavía no me lo devuelven</strong><span>Lo pagaste tú, pero era de otra persona</span></span>
+          <input type="checkbox" id="iCobrar" role="switch" onchange="toggleCobrar()">
+          <span class="cobrar-track" aria-hidden="true"></span>
+        </label>
+        <div id="cobrarDetalle" hidden>
+          <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarPersona">Quién</label><input id="iCobrarPersona" class="sel" type="text" list="personasDeuda" placeholder="Ej. Mamá" autocomplete="off" enterkeyhint="next"></div>
+          <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarMonto">Cuánto</label><input id="iCobrarMonto" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Todo el gasto"></div>
+          <datalist id="personasDeuda"></datalist>
+          <p class="transfer-note">No entra dinero ahora. Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero.</p>
+        </div>
+        <p class="transfer-note" id="cobrarNotaReembolso" hidden></p>
+        <button type="button" class="btn btn-s" id="cobrarQuitarBtn" onclick="quitarCobroPendiente()" hidden>Quitar esta deuda</button>
+      </div>
+      <div id="refundDevolucion">
       <p class="transfer-note" id="refundAvailable"></p>
       <p class="transfer-note">La cuenta que elijas abajo es donde realmente llegó el dinero. Si te pagaron por Yape, selecciona Yape. Si el comercio devolvió el dinero a la tarjeta, selecciona la misma tarjeta.</p>
       <p class="transfer-note">El reembolso reduce el gasto original. Si recibes más de lo pendiente, el excedente se guarda como ingreso adicional en esa cuenta. La deuda de la tarjeta baja cuando registres el pago o la devolución llegue directamente a la tarjeta.</p>
+      </div>
     </div>
     <div id="transferFields" hidden>
       <div class="cuenta-row"><label class="cuenta-lbl" for="iDestino">Destino</label><select class="sel" id="iDestino" onchange="cambiarCuentaSelect(this)"></select></div>

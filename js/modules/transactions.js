@@ -7,7 +7,7 @@ import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {HISTORIAL_LIMITES_SELECT, filaLimite} from './cards/historial-limites.js';
-import {cobradoDeuda, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos} from './por-cobrar.js';
+import {cobradoDeuda, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos, pendienteDeuda} from './por-cobrar.js';
 import {filaPago} from './cards/payments.js';
 import {filaPresupuesto} from './presupuestos-calculo.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -217,24 +217,56 @@ export function abrirM(){
   setTimeout(()=>document.getElementById('iDes').focus(),100);
 }
 
-// "Me lo tienen que devolver" (solo gastos). Al editar muestra la deuda
-// vinculada; si ya está archivada se cambia desde Deudas, no desde aquí.
+// "Todavía no me lo devuelven" vive en la pestaña Reembolso, no en la de Gasto,
+// para no recargar cada consumo. En la pestaña Gasto solo se avisa, si el gasto
+// ya tiene una deuda, dónde cambiarla.
 function prepararCobro(t=null){
   const caja=document.getElementById('iCobrar');
   if(!caja)return;
-  const activa=t?deudaDeGasto(t[6]):null,archivada=t&&!activa?deudaArchivadaDeGasto(t[6]):null;
+  caja.checked=false;caja.disabled=false;
+  document.getElementById('iCobrarPersona').value='';
+  document.getElementById('iCobrarMonto').value='';
+  const activa=t?.[3]==='Gasto'?deudaDeGasto(t[6]):null,archivada=t?.[3]==='Gasto'&&!activa?deudaArchivadaDeGasto(t[6]):null;
+  const nota=document.getElementById('cobrarNota');
+  nota.textContent=activa?(activa[1]||'Alguien')+' te debe '+fmt(pendienteDeuda(activa))+' de este gasto. Se cambia o se quita en la pestaña Reembolso.'
+    :archivada?'La deuda de '+(archivada[1]||'esta persona')+' está archivada. Desarchívala en Deudas para cambiarla.':'';
+  nota.hidden=!nota.textContent;
+  mostrarCobro();aplicarModoCobro();
+}
+
+// Al elegir el gasto en la pestaña Reembolso: si ya tiene una deuda activa, el
+// interruptor aparece encendido con sus datos; si no, apagado, y lo normal es
+// registrar una devolución.
+function precargarCobroReembolso(){
+  const caja=document.getElementById('iCobrar'),caja2=document.getElementById('cobrarSwitchBox');
+  if(!caja||!caja2)return;
+  const disponible=tipoA==='Reembolso'&&!editando;
+  caja2.hidden=!disponible;
+  const id=document.getElementById('iGastoOrigen').value;
+  const gasto=disponible&&id?datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(id)):null;
+  const activa=gasto?deudaDeGasto(id):null,archivada=gasto&&!activa?deudaArchivadaDeGasto(id):null;
   caja.checked=!!activa;caja.disabled=!!archivada;
   document.getElementById('iCobrarPersona').value=activa?.[1]||'';
-  // Vacío significa "todo el gasto": si después cambias el importe, la deuda
-  // lo sigue sin tener que corregirla aparte.
-  const todo=activa&&Math.round(Number(activa[3])*100)===Math.round(Number(t[4])*100);
+  // Vacío significa "todo el gasto": si después cambia el importe, la deuda lo sigue.
+  const todo=activa&&Math.round(Number(activa[3])*100)===Math.round(Number(gasto[4])*100);
   document.getElementById('iCobrarMonto').value=activa&&!todo?activa[3]:'';
-  const nota=document.getElementById('cobrarNota');
   const cobrado=activa?cobradoDeuda(activa):0;
+  const nota=document.getElementById('cobrarNotaReembolso');
   nota.textContent=archivada?'La deuda de '+(archivada[1]||'esta persona')+' está archivada. Desarchívala en Deudas para cambiarla.'
     :cobrado>0?(activa[1]||'Esta persona')+' ya te devolvió '+fmt(cobrado)+'.':'';
   nota.hidden=!nota.textContent;
-  mostrarCobro();
+  const quitar=document.getElementById('cobrarQuitarBtn');if(quitar)quitar.hidden=!activa;
+  mostrarCobro();aplicarModoCobro();
+}
+
+// Con el interruptor encendido solo se anota quién te debe: fecha, descripción,
+// importe y cuenta del formulario sobran y se ocultan.
+function aplicarModoCobro(){
+  const caja=document.getElementById('iCobrar');
+  const activo=tipoA==='Reembolso'&&!editando&&!!caja?.checked;
+  document.getElementById('modal').classList.toggle('modo-cobro',activo);
+  const etiqueta=document.getElementById('gastoOrigenLbl');
+  if(etiqueta)etiqueta.textContent=activo?'Gasto que te deben':'Gasto que te devolvieron';
 }
 
 function mostrarCobro(){
@@ -254,16 +286,27 @@ function mostrarCobro(){
 }
 
 export function toggleCobrar(){
-  mostrarCobro();
+  mostrarCobro();aplicarModoCobro();
   const persona=document.getElementById('iCobrarPersona');
   if(document.getElementById('iCobrar').checked&&!persona.value)setTimeout(()=>persona.focus(),50);
 }
 
-// Lee y valida el formulario de cobro antes de escribir nada. `total` es el
-// equivalente en soles del gasto; sin monto, la deuda es el gasto completo.
-function leerCobro(total,deudaAntes){
-  const caja=document.getElementById('iCobrar');
-  if(tipoA!=='Gasto'||!caja||caja.disabled||!caja.checked)return null;
+// Al guardar un gasto la deuda que ya tenía se conserva y sigue al gasto: el
+// formulario de Gasto no la crea ni la quita (eso se hace desde Reembolso).
+// `total` es el equivalente en soles del gasto.
+function leerCobro(total,deudaAntes,anterior){
+  if(tipoA!=='Gasto'||!deudaAntes)return null;
+  const todo=!!anterior&&Math.round(Number(deudaAntes[3])*100)===Math.round(Number(anterior[4])*100);
+  const monto=todo?total:Number(deudaAntes[3]);
+  if(Math.round(monto*100)>Math.round(total*100))throw new Error('Lo que te deben no puede superar el gasto');
+  if(Math.round(monto*100)<Math.round(cobradoDeuda(deudaAntes)*100))
+    throw new Error((deudaAntes[1]||'Esta persona')+' ya te devolvió '+fmt(cobradoDeuda(deudaAntes))+': el gasto no puede ser menos');
+  return {persona:deudaAntes[1],monto:Math.round(monto*100)/100,todo};
+}
+
+// Lee y valida el interruptor de la pestaña Reembolso antes de escribir nada.
+// Sin monto, la deuda es el gasto completo.
+function leerCobroPendiente(total,deudaAntes){
   const persona=document.getElementById('iCobrarPersona').value.trim();
   if(!persona)throw new Error('Escribe quién te lo tiene que devolver');
   const raw=String(document.getElementById('iCobrarMonto').value).trim();
@@ -273,6 +316,55 @@ function leerCobro(total,deudaAntes){
   if(deudaAntes&&Math.round(monto*100)<Math.round(cobradoDeuda(deudaAntes)*100))
     throw new Error(persona+' ya te devolvió '+fmt(cobradoDeuda(deudaAntes))+': lo que te debe no puede ser menos');
   return {persona,monto:Math.round(monto*100)/100,todo:raw===''};
+}
+
+// "Quitar esta deuda": el gasto vuelve a contar entero como gasto tuyo. Los
+// reembolsos que ya hubieras registrado no se tocan. Se puede deshacer.
+async function quitarCobroPendiente__base(){
+  const id=document.getElementById('iGastoOrigen').value;
+  const deuda=deudaDeGasto(id);
+  if(!deuda||guardandoTx)return;
+  guardandoTx=true;
+  try{
+    await sbDelete('deudas',deuda[0]);
+    datos.deudas=datos.deudas.filter(d=>d!==deuda);
+    cerrarM(true);render();
+    ofrecerDeshacer('Deuda de '+(deuda[1]||'esta persona')+' quitada',()=>sbInsert('deudas',cuerpoDeuda(deuda)));
+  }
+  catch(e){toast(e.message||'No se pudo quitar la deuda','error');}
+  finally{guardandoTx=false;}
+}
+export const quitarCobroPendiente=guardedOnce(quitarCobroPendiente__base);
+
+// Reembolso con el interruptor encendido: no entra dinero, solo se crea o
+// cambia la deuda del gasto elegido.
+async function guardarCobroPendiente(){
+  const id=document.getElementById('iGastoOrigen').value;
+  const gasto=datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(id));
+  if(!gasto){toast('Selecciona el gasto que te deben','error');return;}
+  const deudaAntes=deudaDeGasto(id);
+  let cobro;
+  try{cobro=leerCobroPendiente(Number(gasto[4]),deudaAntes);}catch(e){toast(e.message,'error');return;}
+  guardandoTx=true;
+  const usuarioGuardado=sessionUserId();
+  const controles=[...document.querySelectorAll('#modal input,#modal select,#modal button')];
+  const estados=controles.map(el=>el.disabled);
+  controles.forEach(el=>{el.disabled=true;});
+  document.getElementById('modal').setAttribute('aria-busy','true');
+  try{
+    const cambio=await sincronizarCobro({id:gasto[6],descripcion:gasto[1],monto:gasto[4]},cobro,deudaAntes,toDateInput(gasto[0]));
+    if(sessionUserId()!==usuarioGuardado)throw new Error('La sesión cambió durante el guardado.');
+    const actual=deudaDeGasto(id);
+    const mensaje=(actual?.[1]||cobro.persona)+' te debe '+fmt(actual?pendienteDeuda(actual):cobro.monto);
+    cerrarM(true);render();
+    if(!cambio){toast(mensaje,'success');return;}
+    ofrecerDeshacer(mensaje,async()=>{
+      if(cambio.creada)await sbDelete('deudas',cambio.creada);
+      else if(cambio.antes){const a=cambio.antes;await sbUpdate('deudas',a[0],{persona:a[1],descripcion:a[2],monto:Number(a[3]),fecha_inicio:a[5]});}
+    });
+  }
+  catch(e){toast(e.message||'Error al guardar','error');}
+  finally{guardandoTx=false;controles.forEach((el,i)=>{el.disabled=estados[i];});document.getElementById('modal').setAttribute('aria-busy','false');}
 }
 
 // Crea, cambia o quita la deuda de un gasto ya guardado. Devuelve cómo estaba
@@ -340,7 +432,7 @@ export function editarTx(row){
   document.getElementById('modal').classList.add('active');
 }
 
-export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active');editando=null;editandoFecha=null;}
+export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active','modo-cobro');editando=null;editandoFecha=null;}
 
 export function setTipo(t,sincronizar=true){
   if(guardandoTx)return;
@@ -375,6 +467,7 @@ export function setTipo(t,sincronizar=true){
   llenarSel();
   if(sincronizar)sincronizarCamposMoneda();
   if(t==='Reembolso')seleccionarGastoReembolso();
+  precargarCobroReembolso();
 }
 
 async function eliminar__base(){
@@ -433,6 +526,7 @@ let guardandoTx=false;
 
 async function guardar__base(){
   if(guardandoTx)return;
+  if(tipoA==='Reembolso'&&!editando&&document.getElementById('iCobrar')?.checked)return guardarCobroPendiente();
   try{validarCuentasDisponibles();}catch(e){toast(e.message,'error');return;}
   const m=Number(document.getElementById('iMon').value);
   const d=document.getElementById('iDes').value;
@@ -505,9 +599,9 @@ async function guardar__base(){
   if(tipoA==='Transferencia'||anterior?.[3]==='Transferencia')body.cuenta_destino=tipoA==='Transferencia'?destino:null;
   const idGuardado=editando;
   const deudaAntes=idGuardado&&anterior?.[3]==='Gasto'?deudaDeGasto(idGuardado):null;
-  if(deudaAntes&&tipoA!=='Gasto'){toast('Este gasto está por cobrar a '+(deudaAntes[1]||'otra persona')+'. Vuelve a Gasto y desactiva "Me lo tienen que devolver" antes de cambiar el tipo.','error');return;}
+  if(deudaAntes&&tipoA!=='Gasto'){toast('Este gasto está por cobrar a '+(deudaAntes[1]||'otra persona')+'. Quita la deuda en Deudas antes de cambiar el tipo.','error');return;}
   let cobro=null;
-  try{cobro=leerCobro(equivalente,deudaAntes);}catch(e){toast(e.message,'error');return;}
+  try{cobro=leerCobro(equivalente,deudaAntes,anterior);}catch(e){toast(e.message,'error');return;}
   // Copia de la fila antes de guardar: la edición la muta en sitio.
   const copiaAnterior=anterior?[...anterior]:null;
   if(tipoA==='Reembolso'||anterior?.[3]==='Reembolso')body.transaccion_origen_id=tipoA==='Reembolso'?origenReembolso:null;
@@ -650,8 +744,9 @@ function llenarGastosReembolso(selected=''){
  seleccionarGastoReembolso();
 }
 
-export function seleccionarGastoReembolso(){
+export function seleccionarGastoReembolso(cambioOrigen=false){
  if(tipoA!=='Reembolso')return;
+ if(cambioOrigen===true)precargarCobroReembolso();
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
  const pendiente=original?pendienteReembolso(original,editando):0;
  let mensaje=original?'Pendiente de devolver: '+fmt(pendiente):'Selecciona un gasto para vincular la devolución.';

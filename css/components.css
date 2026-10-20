@@ -264,3 +264,10 @@ button:disabled{opacity:.45;cursor:wait;}
 .undo-x{flex:0 0 auto;width:36px;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:.8rem;cursor:pointer;border-radius:10px;}
 @media(min-width:1050px){.undo-bar{left:calc(200px + 24px);right:auto;width:420px;bottom:32px;}}
 @media(prefers-reduced-transparency:reduce){.undo-bar{background:#202024;-webkit-backdrop-filter:none;backdrop-filter:none;}}
+/* Reembolso › "Todavía no me lo devuelven": solo se registra quién te debe, así que
+   el resto del formulario (fecha, descripción, importe, cuenta) sobra. */
+#cobrarSwitchBox{margin:12px 0 14px;}
+#cobrarSwitchBox[hidden]{display:none;}
+#cobrarNotaReembolso{font-size:.75rem;margin:10px 0 0;}
+#modal.modo-cobro .pill-row,#modal.modo-cobro #iDes,#modal.modo-cobro .monto-row,#modal.modo-cobro #divisaFields,#modal.modo-cobro #cuentaRow,#modal.modo-cobro #accountStatus,#modal.modo-cobro #refundDevolucion{display:none;}
+#cobrarQuitarBtn{margin-top:12px;}

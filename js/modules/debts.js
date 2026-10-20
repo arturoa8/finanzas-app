@@ -8,6 +8,7 @@ import {archivarFila, cobradoDeuda, desarchivarFila, devueltoCentimos, filaDeuda
 import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
 import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
+import {guardarReembolsoConExcedente} from '../services/refund-operations.js';
 import {datos} from '../state.js';
 import {ofrecerDeshacer} from '../ui/deshacer.js';
 import {toast} from '../ui/toast.js';
@@ -228,7 +229,7 @@ export function abrirModalAbono(id){
   const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
   document.getElementById('abonoTitle').textContent=vinculada?'Cobrar a '+(d[1]||''):(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+(d[1]||'');
   document.getElementById('abonoPendienteLbl').textContent=vinculada
-    ?'Te debe '+fmtD(pendiente)+' de '+fmtD(monto)+'. Se registra como reembolso del gasto.'
+    ?'Te debe '+fmtD(pendiente)+' de '+fmtD(monto)+'. Se registra como reembolso del gasto; si te pagó de más, el resto queda como ingreso.'
     :'Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto);
   document.getElementById('abonoFecha').value=toDateInput(new Date());
   document.getElementById('abonoMonto').value='';
@@ -300,23 +301,30 @@ async function guardarAbono__base(){
 
 // Cobro de un gasto por cobrar: un Reembolso del gasto en la cuenta donde
 // llegó el dinero. Baja la deuda y, si llegó a la tarjeta, también su saldo.
+// Si te pagan más de lo que debían (debía 20 y paga 25), lo que sobra se guarda
+// como un Ingreso aparte en la misma cuenta, igual que el excedente de un
+// reembolso normal: el reembolso nunca supera el gasto.
 async function cobrarGasto(d,monto,fecha,nota){
   const gasto=gastoDeDeuda(d);
   if(!gasto){toast('No encuentro el gasto de esta deuda. Pulsa Actualizar.','error');return;}
   const pendiente=pendienteDeuda(d);
-  if(Math.round(monto*100)>Math.round(pendiente*100)){toast('Te debe '+fmtD(pendiente)+'. Si te pagó de más, registra el resto como ingreso.','error');return;}
+  const centimos=Math.round(monto*100),devuelto=Math.min(centimos,Math.round(pendiente*100)),exceso=centimos-devuelto;
   const cuenta=document.getElementById('abonoCuenta').value;
   if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
+  if(exceso>0&&CREDIT_CARDS.some(card=>sameAccount(card.cuenta,cuenta))){toast('Te debe '+fmtD(pendiente)+'. Para lo que te pagó de más, elige la cuenta donde recibiste el dinero: el pago a la tarjeta se registra en Tarjetas.','error');return;}
   if(pf(fecha)<new Date(pf(gasto[0]).getFullYear(),pf(gasto[0]).getMonth(),pf(gasto[0]).getDate())){toast('El cobro no puede ser anterior al gasto','error');return;}
   const ahora=new Date(),hora=`${ahora.getHours()%12||12}:${String(ahora.getMinutes()).padStart(2,'0')} ${ahora.getHours()>=12?'p. m.':'a. m.'}`;
   const [yy,mm,dd]=fecha.split('-');
+  const comun={fecha:buildFechaISO(yy,mm,dd,hora),cuenta,cuenta_destino:null,moneda_original:null,monto_original:null,tc:null,tc_fuente:null,moneda_destino:null,monto_destino:null};
+  const descripcion='Devolución de '+(d[1]||'')+(nota?' · '+nota:'');
+  const filas=[];
+  if(devuelto>0)filas.push({...comun,descripcion,categoria:gasto[2],tipo:'Reembolso',monto:devuelto/100,transaccion_origen_id:gasto[6]});
+  if(exceso>0)filas.push({...comun,descripcion:'Excedente de '+descripcion,categoria:'Otros ingresos',tipo:'Ingreso',monto:exceso/100,transaccion_origen_id:null});
   try{
-    const row=await sbInsert('transacciones',{fecha:buildFechaISO(yy,mm,dd,hora),descripcion:'Devolución de '+(d[1]||'')+(nota?' · '+nota:''),
-      categoria:gasto[2],tipo:'Reembolso',monto,cuenta,transaccion_origen_id:gasto[6],
-      moneda_original:null,monto_original:null,tc:null,tc_fuente:null,moneda_destino:null,monto_destino:null});
+    const guardadas=exceso>0?await guardarReembolsoConExcedente(filas):[await sbInsert('transacciones',filas[0])];
     cerrarModalAbono();await cargar({silencioso:true});
-    const resta=pendienteDeuda(d);
-    ofrecerDeshacer(resta>0?'Cobro registrado · falta '+fmtD(resta):'Cobrado completo · '+(d[1]||'')+' ya no te debe',()=>sbDelete('transacciones',row.id));
+    const resta=pendienteDeuda(d),sobra=exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':'';
+    ofrecerDeshacer((resta>0?'Cobro registrado · falta '+fmtD(resta):'Cobrado completo · '+(d[1]||'')+' ya no te debe')+sobra,async()=>{for(const row of guardadas)await sbDelete('transacciones',row.id);});
   }catch(e){toast(e.message||'No se pudo registrar el cobro','error');}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
