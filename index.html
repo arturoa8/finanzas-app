@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.27.02">
+<meta name="version-app" content="2026.10.27.03">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -184,8 +184,8 @@ try{
         <div class="currency">S/</div>
       </div>
       <div class="kpi-row" id="kpiRow">
-        <div class="kpi neg" id="kpiOut" role="button" aria-pressed="false" onclick="togglePillTipo('gastos',true)">- S/ 0</div>
-        <div class="kpi pos" id="kpiIn" role="button" aria-pressed="false" onclick="togglePillTipo('ingresos',true)">+ S/ 0</div>
+        <button type="button" class="kpi neg" id="kpiOut" aria-pressed="false" onclick="togglePillTipo('gastos',true)">- S/ 0</button>
+        <button type="button" class="kpi pos" id="kpiIn" aria-pressed="false" onclick="togglePillTipo('ingresos',true)">+ S/ 0</button>
         <button type="button" class="kpi kpi-usd" id="btnUsd" aria-pressed="false" aria-label="Ver en dólares" onclick="toggleVistaUSD()">US$</button>
       </div>
       <div class="bal-nota" id="balNota" hidden></div>
