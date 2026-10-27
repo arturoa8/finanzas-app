@@ -303,7 +303,11 @@ export function renderBal(){
 }
 
 function renderCat(){
-  const tx=movimientosDelPeriodo();
+  // El ticket de Gastos o Ingresos también deja solo sus categorías.
+  let tx=movimientosDelPeriodo();
+  if(filtroTipo==='gastos')tx=tx.filter(t=>t[3]==='Gasto'&&gastoNeto(t)!==0);
+  else if(filtroTipo==='ingresos')tx=tx.filter(t=>t[3]==='Ingreso');
+  else if(filtroTipo==='transferencias')tx=tx.filter(t=>t[3]==='Transferencia');
   const g=document.getElementById('cats');
   if(!g)return;
   const t={},c={};
