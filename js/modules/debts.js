@@ -45,7 +45,7 @@ const fechaCorta=iso=>fmtDateShort(pf(iso)).replace(/\.$/,'');
 
 // Resumen de la pestaña: cuánto es en total y qué pide atención. Explica en una
 // frase qué significa la pestaña, para quien no la recuerda.
-function resumenDeudas(esMeDeben,filas){
+function resumenDeudas(esMeDeben,filas,tarjetas){
   const total=filas.reduce((s,f)=>s+f.pendiente,0);
   const vencidas=filas.filter(f=>f.vencida).length;
   const pronto=filas.filter(f=>f.warnVenc).length;
@@ -55,7 +55,7 @@ function resumenDeudas(esMeDeben,filas){
   return `<div class="dresumen ${esMeDeben?'in':'out'}">
     <div class="dresumen-lbl">${esMeDeben?'Te deben en total':'Debes en total'}</div>
     <div class="dresumen-amt">${fmtD(total)}</div>
-    <div class="dresumen-meta"><span>${filas.length} deuda${filas.length===1?'':'s'}</span>${avisos.join('')}</div>
+    <div class="dresumen-meta"><span>${tarjetas} deuda${tarjetas===1?'':'s'}</span>${avisos.join('')}</div>
     <p class="dresumen-ayuda">${esMeDeben?'Dinero que prestaste o pagaste por otros y todavía no te devuelven.':'Dinero que tú le debes a otras personas.'}</p>
   </div>`;
 }
@@ -99,53 +99,160 @@ export function renderDeb(){
     return {d,id,monto,abonado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
       vencida:dias!==null&&dias<0&&pendiente>0,warnVenc:dias!==null&&dias>=0&&dias<=7&&pendiente>0};
   });
-  l.innerHTML=resumenDeudas(esMeDeben,filas)+filas.map(({d,id,monto,abonado,pendiente,fiVal,fvVal,dias,vencida,warnVenc})=>{
-    // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
-    const gasto=d[8]?gastoDeDeuda(d):null;
-    // Gasto dividido entre varias personas: cuántas son (las cuotas ya lo dicen
-    // en la descripción).
-    const companeras=gasto?deudasDeGasto(d[8]):[];
-    const entre=new Set(companeras.map(x=>norm(x[1]))).size>1?' · entre '+companeras.length:'';
-    const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
-    const cls=esMeDeben?'in':'out';
-    const estado=dias!==null&&pendiente>0?estadoVencimiento(dias):null;
-    const lblFalta=esMeDeben?'Falta cobrar':'Falta pagar';
-    const frase=esMeDeben?(d[8]?'Ya te devolvieron ':'Ya te pagaron '):'Ya pagaste ';
-    return `<div class="dcard${vencida?' vencida':''}">
-      <div class="dcard-top">
-        <div class="dcard-info">
-          <div class="dcard-person">${escHtml(d[1]||'?')}</div>
-          <div class="dcard-desc">${escHtml(d[2]||'')}</div>
-          ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}${entre}</div>`:''}
-        </div>
-        <div class="dcard-right">
-          <div class="dcard-amt-lbl">${lblFalta}</div>
-          <div class="dcard-amt ${cls}">${fmtD(pendiente)}</div>
-        </div>
+  // Lo que viene del mismo gasto (dividido entre personas o en cuotas) o son
+  // cuotas de lo mismo se junta en una sola tarjeta; el resto va suelto.
+  const grupos=new Map();
+  for(const f of filas){const k=claveGrupoDeuda(f.d);if(k)(grupos.get(k)||grupos.set(k,[]).get(k)).push(f);}
+  const items=[],usados=new Set();
+  for(const f of filas){
+    const k=claveGrupoDeuda(f.d),miembros=k?grupos.get(k):null;
+    if(!miembros||miembros.length<2)items.push({tipo:'sola',f});
+    else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
+  }
+  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+items.map(it=>it.tipo==='grupo'?tarjetaGrupo(it.k,it.miembros,esMeDeben):tarjetaDeuda(it.f,esMeDeben)).join('');
+}
+
+const reCuota=/^(.*) · Cuota (\d+)\/(\d+)$/;
+// Gastos por cobrar: todas las deudas del gasto. Cuotas sueltas: misma persona,
+// misma descripción y mismo total de cuotas.
+function claveGrupoDeuda(d){
+  if(d[8])return 'g'+d[8];
+  const m=reCuota.exec(d[2]||'');
+  return m?'c|'+norm(d[1])+'|'+norm(m[1])+'|'+m[3]+'|'+d[7]:null;
+}
+
+// Grupos que el usuario tiene abiertos: sobrevive a volver a pintar la lista.
+const gruposAbiertos=new Set();
+export function toggleGrupoDeuda(clave){
+  if(gruposAbiertos.has(clave))gruposAbiertos.delete(clave);else gruposAbiertos.add(clave);
+  renderDeb();
+}
+
+const verbos=esMeDeben=>esMeDeben
+  ?{falta:'Falta cobrar',ya:'Ya te pagaron ',ya2:'Ya te devolvieron ',accion:'Cobrar',cls:'in'}
+  :{falta:'Falta pagar',ya:'Ya pagaste ',ya2:'Ya pagaste ',accion:'Registrar pago',cls:'out'};
+
+// Fecha límite tocable: el input va transparente encima del texto.
+function campoFechaVence({id,fvVal,dias,pendiente}){
+  const estado=dias!==null&&pendiente>0?estadoVencimiento(dias):null;
+  return `<label class="dcard-fecha${estado?' '+estado.tono:''}">
+    <span class="dcard-fecha-txt"><b>${estado?(estado.tono==='vencida'?'⚠ ':'')+estado.texto:(fvVal?'Vence':'Sin fecha límite')}</b>${fvVal?' · '+fechaCorta(fvVal):''}</span>
+    ${fvVal?'':'<span class="dcard-fecha-add">Poner fecha</span>'}
+    <input type="date" value="${fvVal}" aria-label="Fecha límite" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','venc',this.value)">
+  </label>`;
+}
+
+function tarjetaDeuda(f,esMeDeben){
+  const {d,id,monto,abonado,pendiente,fiVal,fvVal,dias,vencida}=f;
+  const v=verbos(esMeDeben);
+  // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
+  const gasto=d[8]?gastoDeDeuda(d):null;
+  const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
+  return `<div class="dcard${vencida?' vencida':''}">
+    <div class="dcard-top">
+      <div class="dcard-info">
+        <div class="dcard-person">${escHtml(d[1]||'?')}</div>
+        <div class="dcard-desc">${escHtml(d[2]||'')}</div>
+        ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
       </div>
-      ${abonado>0?`<div class="dcard-prog">
-        <div class="dcard-progbar"><div class="dcard-progfill ${cls}" style="width:${pct}%"></div></div>
-        <div class="dcard-progmeta"><span>${frase}${fmtD(abonado)} de ${fmtD(monto)}</span><span>${pct}%</span></div>
-      </div>`:''}
-      <div class="dcard-fechas">
-        <label class="dcard-fecha${estado?' '+estado.tono:''}">
-          <span class="dcard-fecha-txt"><b>${estado?(estado.tono==='vencida'?'⚠ ':'')+estado.texto:(fvVal?'Vence':'Sin fecha límite')}</b>${fvVal?' · '+fechaCorta(fvVal):''}</span>
-          ${fvVal?'':'<span class="dcard-fecha-add">Poner fecha</span>'}
-          <input type="date" value="${fvVal}" aria-label="Fecha límite" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','venc',this.value)">
-        </label>
-        <label class="dcard-fecha dcard-fecha-inicio">
-          <span class="dcard-fecha-txt">Desde ${fiVal?fechaCorta(fiVal):'—'}</span>
-          <input type="date" value="${fiVal}" aria-label="Fecha de inicio" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
-        </label>
+      <div class="dcard-right">
+        <div class="dcard-amt-lbl">${v.falta}</div>
+        <div class="dcard-amt ${v.cls}">${fmtD(pendiente)}</div>
       </div>
-      <div class="dcard-actions">
-        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${esMeDeben?'Cobrar':'Registrar pago'}</button>
-        <button class="dcard-link" onclick="abrirHistorialAbonos('${id}')">Historial</button>
-        <button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
-        <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>
+    </div>
+    ${abonado>0?`<div class="dcard-prog">
+      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${pct}%"></div></div>
+      <div class="dcard-progmeta"><span>${d[8]?v.ya2:v.ya}${fmtD(abonado)} de ${fmtD(monto)}</span><span>${pct}%</span></div>
+    </div>`:''}
+    <div class="dcard-fechas">
+      ${campoFechaVence(f)}
+      <label class="dcard-fecha dcard-fecha-inicio">
+        <span class="dcard-fecha-txt">Desde ${fiVal?fechaCorta(fiVal):'—'}</span>
+        <input type="date" value="${fiVal}" aria-label="Fecha de inicio" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
+      </label>
+    </div>
+    <div class="dcard-actions">
+      <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${v.accion}</button>
+      ${enlacesDeuda(id,gasto)}
+    </div>
+  </div>`;
+}
+
+const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="abrirHistorialAbonos('${id}')">Historial</button>
+      <button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
+      <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>`;
+
+// Varias deudas de lo mismo en una sola tarjeta: total, avance y próxima fecha;
+// el detalle (una fila por persona o cuota) se abre con un botón.
+function tarjetaGrupo(clave,miembros,esMeDeben){
+  const v=verbos(esMeDeben);
+  const n=miembros.length;
+  const personas=new Set(miembros.map(m=>norm(m.d[1]))).size;
+  const entrePersonas=personas>1;
+  const total=miembros.reduce((s,m)=>s+m.monto,0);
+  const abonado=miembros.reduce((s,m)=>s+m.abonado,0);
+  const pendiente=miembros.reduce((s,m)=>s+m.pendiente,0);
+  const pct=total>0?Math.min(100,Math.round(abonado/total*100)):0;
+  const pagan=miembros.filter(m=>m.pendiente<0.005).length;
+  const vencidas=miembros.filter(m=>m.vencida);
+  const siguiente=miembros.find(m=>m.pendiente>=0.005);
+  const base=(reCuota.exec(miembros[0].d[2]||'')||[])[1]||miembros[0].d[2]||'';
+  const gasto=miembros[0].d[8]?gastoDeDeuda(miembros[0].d):null;
+  const abierto=gruposAbiertos.has(clave);
+  const etiqueta=entrePersonas?n+' personas':n+' cuotas';
+  const numCuota=m=>{const c=reCuota.exec(m.d[2]||'');return c?'Cuota '+c[2]+'/'+c[3]:'Cuota';};
+  // Una línea de estado: lo urgente primero, si no, lo que viene.
+  let estado='';
+  if(vencidas.length)estado=`<span class="dcard-fecha vencida"><span class="dcard-fecha-txt"><b>⚠ ${vencidas.length} vencida${vencidas.length===1?'':'s'}</b></span></span>`;
+  else if(siguiente&&siguiente.dias!==null){
+    const e=estadoVencimiento(siguiente.dias);
+    estado=`<span class="dcard-fecha ${e.tono}"><span class="dcard-fecha-txt"><b>${entrePersonas?e.texto:'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1)}</b> · ${fechaCorta(siguiente.fvVal)}</span></span>`;
+  }
+  // Entre personas, primero a quienes les falta pagar; las cuotas van por fecha.
+  const ordenados=entrePersonas?[...miembros].sort((a,b)=>(a.pendiente<0.005)-(b.pendiente<0.005)):miembros;
+  const filas=ordenados.map(m=>{
+    const paga=m.pendiente<0.005;
+    const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
+    const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
+    const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
+    const nombre=entrePersonas?(m.d[1]||'?'):numCuota(m);
+    return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
+      <div class="drow-main">
+        <div class="drow-name">${escHtml(nombre)}</div>
+        <div class="drow-sub${e?' '+e.tono:''}">${escHtml(sub)}</div>
+      </div>
+      <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓':fmtD(m.pendiente)}</div>
+      ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${esMeDeben?'Cobrar':'Pagar'}</button>`}
+      <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>
+      <div class="drow-opciones">
+        ${campoFechaVence(m)}
+        ${enlacesDeuda(m.id,m.d[8]?gastoDeDeuda(m.d):null)}
       </div>
     </div>`;
   }).join('');
+  return `<div class="dcard dgrupo${vencidas.length?' vencida':''}${abierto?' abierto':''}">
+    <div class="dcard-top">
+      <div class="dcard-info">
+        <div class="dcard-person">${escHtml(base)}<span class="dgrupo-tag">${etiqueta}</span></div>
+        <div class="dcard-desc">${entrePersonas?'Dividido entre '+n+' personas':n+' cuotas de '+escHtml(miembros[0].d[1]||'?')}</div>
+        ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
+      </div>
+      <div class="dcard-right">
+        <div class="dcard-amt-lbl">${v.falta}</div>
+        <div class="dcard-amt ${v.cls}">${fmtD(pendiente)}</div>
+      </div>
+    </div>
+    <div class="dcard-prog">
+      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${pct}%"></div></div>
+      <div class="dcard-progmeta"><span>${pagan} de ${n} ${entrePersonas?'ya pagaron':'cuotas pagadas'} · ${fmtD(abonado)} de ${fmtD(total)}</span><span>${pct}%</span></div>
+    </div>
+    ${estado?`<div class="dcard-fechas">${estado}</div>`:''}
+    <div class="dcard-actions">
+      ${!entrePersonas&&siguiente?`<button class="dcard-btn primary" onclick="abrirModalAbono('${siguiente.id}')">${esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(siguiente).toLowerCase())}</button>`:''}
+      <button class="dcard-link dgrupo-toggle" data-k="${escAttr(clave)}" aria-expanded="${abierto}" onclick="toggleGrupoDeuda(this.dataset.k)">${abierto?'Ocultar detalle':'Ver '+(entrePersonas?'quién falta':'las cuotas')} <span class="dgrupo-flecha" aria-hidden="true">▾</span></button>
+    </div>
+    ${abierto?`<div class="dgrupo-lista">${filas}</div>`:''}
+  </div>`;
 }
 
 function renderDebArchivadas(l){
