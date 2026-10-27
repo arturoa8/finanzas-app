@@ -4,7 +4,7 @@
 import {cuentasApp} from './accounts.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {render} from './dashboard.js';
-import {archivarFila, cobradoDeuda, deudasDeGasto, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
+import {archivarFila, cobradoDeuda, cobrosDeGasto, deudasDeGasto, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
 import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
 import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
@@ -23,6 +23,9 @@ let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='m
 
 let editandoAbonoId=null,historialDeudaId=null;
 let solicitudAbonoId=null,solicitudAbonoTxId=null;
+// Cobro de un gasto por cobrar que se está corrigiendo (id del Reembolso).
+let editandoCobroId=null;
+const cent=n=>Math.round((Number(n)||0)*100);
 function avisarErrorAbono(e){
   const mensaje=e.message||'No se pudo guardar el abono';toast(mensaje,'error');
   if(e.pending){const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=mensaje;}}
@@ -271,7 +274,7 @@ function calcAbonadoFromLog(deudaId){
 export function abrirModalAbono(id){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
-  abonosDeudaId=id;
+  abonosDeudaId=id;editandoCobroId=null;
   const operacionPendiente=abonoPendiente();
   solicitudAbonoId=operacionPendiente?.tipo==='crear'&&String(operacionPendiente.abono.deuda_id)===String(id)?operacionPendiente.id:crypto.randomUUID();
   solicitudAbonoTxId=(operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx?.id:null)||crypto.randomUUID();
@@ -350,20 +353,29 @@ export function avisarExcedenteAbono(){
   const aviso=document.getElementById('abonoExcedente');
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   const monto=Number(document.getElementById('abonoMonto').value);
-  const exceso=d&&(d[7]||'').toString().toLowerCase()==='me-deben'&&Number.isFinite(monto)?Math.round(monto*100)-Math.round(pendienteAbono(d)*100):0;
+  const cobro=editandoCobroId?(datos.transacciones||[]).find(t=>String(t[6])===editandoCobroId):null;
+  const limite=cobro&&d?debiaAntesDeCobro(d,cobro):d?Math.round(pendienteAbono(d)*100):0;
+  const exceso=d&&(d[7]||'').toString().toLowerCase()==='me-deben'&&Number.isFinite(monto)?Math.round(monto*100)-limite:0;
   aviso.hidden=!(exceso>0);
   aviso.textContent=exceso>0?fmtD(exceso/100)+' de más se guardará como ingreso extra.':'';
 }
 
-export function cerrarModalAbono(){document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;}
+export function cerrarModalAbono(){
+  document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;
+  // Al corregir un cobro se vuelve al historial de donde se abrió.
+  if(editandoCobroId){editandoCobroId=null;if(historialDeudaId){renderHistorialAbonos();document.getElementById('modalHistorialAbonos').classList.add('active');}}
+}
 
 export function abonarTodo(){
   if(!abonosDeudaId)return;
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
   if(!d)return;
+  const cobro=editandoCobroId?(datos.transacciones||[]).find(t=>String(t[6])===editandoCobroId):null;
+  if(cobro){document.getElementById('abonoMonto').value=(debiaAntesDeCobro(d,cobro)/100).toFixed(2);avisarExcedenteAbono();return;}
   const monto=parseFloat(d[3])||0;
   const abonado=d[8]?cobradoDeuda(d):calcAbonadoFromLog(abonosDeudaId);
   document.getElementById('abonoMonto').value=Math.max(0,monto-abonado).toFixed(2);
+  avisarExcedenteAbono();
 }
 
 // Dónde llegó lo que te devolvieron: tus cuentas en soles (no de inversión).
@@ -403,6 +415,7 @@ async function guardarAbono__base(){
   if(!fecha){toast('Completa la fecha del abono','error');return;}
   const nota=document.getElementById('abonoNota').value.trim();
   const tipo=(d&&d[7]||'').toString().toLowerCase();
+  if(editandoCobroId)return guardarCobroEditado(d,monto,fecha,nota);
   if(d?.[8])return cobrarGasto(d,monto,fecha,nota);
   const cuenta=document.getElementById('abonoCuenta').value;
   let tx=null,abonado=monto,extra=0;
@@ -568,7 +581,7 @@ function renderHistorialAbonos(){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div>
           <div style="font-weight:700;color:var(--green)">${fmtD(_abMonto(ab))}</div>
-          <div style="font-size:0.75rem;color:var(--dim)">${fDisp}${nota?' · '+escHtml(nota):''}</div>
+          <div style="font-size:0.75rem;color:var(--dim)">${fDisp}${nota?' · '+escHtml(nota):''}${(()=>{const x=abonoConExtra(ab)?.extra;return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
         </div>
         ${abonoId?`<div style="display:flex;gap:6px;"><button class="dcard-btn" onclick="abrirEditAbono('${abonoId}')">✎</button><button class="dcard-btn danger" onclick="eliminarAbono('${abonoId}')">✕</button></div>`:''}
       </div>
@@ -579,7 +592,11 @@ function renderHistorialAbonos(){
 // Los cobros de un gasto son sus reembolsos: se editan como cualquier
 // movimiento y se borran con la opción de deshacer.
 function renderHistorialCobros(lista,deuda){
-  const cobros=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(deuda[8])).sort((a,b)=>pf(b[0])-pf(a[0]));
+  // En un gasto dividido, solo los cobros de esta persona y los que no dicen
+  // de quién son (esos se marcan).
+  const dividido=deudasDeGasto(deuda[8]).length>1;
+  const cobros=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(deuda[8])&&(!t[16]||String(t[16])===String(deuda[0])))
+    .sort((a,b)=>pf(b[0])-pf(a[0]));
   if(cobros.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Todavía no te devolvió nada</div>';return;}
   lista.innerHTML=cobros.map(t=>{
     const id=escAttr(String(t[6]));
@@ -587,7 +604,7 @@ function renderHistorialCobros(lista,deuda){
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div>
           <div style="font-weight:700;color:var(--green)">${fmtD(t[4])}</div>
-          <div style="font-size:0.75rem;color:var(--dim)">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}</div>
+          <div style="font-size:0.75rem;color:var(--dim)">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}${dividido&&!t[16]?' · sin persona':''}${(()=>{const x=excedenteDeCobro(t);return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
         </div>
         <div style="display:flex;gap:6px;"><button class="dcard-btn" onclick="editarCobro('${id}')" aria-label="Editar cobro">✎</button><button class="dcard-btn danger" onclick="eliminarCobro('${id}')" aria-label="Eliminar cobro">✕</button></div>
       </div>
@@ -595,34 +612,143 @@ function renderHistorialCobros(lista,deuda){
   }).join('');
 }
 
+// El ingreso extra que se guardó junto con un cobro: mismo momento, misma
+// cuenta y "Excedente de <descripción del cobro>". Ninguna columna los une.
+function excedenteDeCobro(t){
+  const momento=pf(t[0]).getTime();
+  return (datos.transacciones||[]).find(x=>x[3]==='Ingreso'&&x[2]==='Otros ingresos'&&sameAccount(x[5],t[5])
+    &&pf(x[0]).getTime()===momento&&x[1]==='Excedente de '+t[1])||null;
+}
+
+// Lo que la persona debía antes de este cobro, en céntimos: su deuda menos lo
+// demás que ya pagó, sin pasar lo que queda del gasto por devolver.
+function debiaAntesDeCobro(d,t){
+  const gasto=gastoDeDeuda(d);
+  if(!gasto)return 0;
+  const otros=Math.min(cent(d[3]),cobrosDeGasto(d[8],t[6]).get(String(d[0]))||0);
+  const restoGasto=cent(gasto[4])-(devueltoCentimos(gasto[6])-cent(t[4]));
+  return Math.max(0,Math.min(cent(d[3])-otros,restoGasto));
+}
+
+// "9:05 p. m.", la hora de un movimiento, para conservarla al cambiar la fecha.
+function horaDe(f){const d=pf(f);return `${d.getHours()%12||12}:${String(d.getMinutes()).padStart(2,'0')} ${d.getHours()>=12?'p. m.':'a. m.'}`;}
+
+// Corregir un cobro: la misma ventana de Cobrar, con lo que se registró. Se
+// escribe lo que la persona pagó en total; si pasa lo que debía, lo demás
+// queda como ingreso extra, igual que al cobrar.
 export function editarCobro(txId){
-  cerrarHistorialAbonos();
-  editarTx(txId);
+  const t=(datos.transacciones||[]).find(x=>String(x[6])===String(txId));
+  const d=t?(datos.deudas||[]).find(x=>String(x[0])===String(t[16]||historialDeudaId)):null;
+  if(!t||!d||!d[8]){cerrarHistorialAbonos();editarTx(txId);return;}
+  const extra=excedenteDeCobro(t),base='Devolución de '+(d[1]||'');
+  abonosDeudaId=String(d[0]);editandoCobroId=String(txId);
+  document.getElementById('modalHistorialAbonos').classList.remove('active');
+  document.getElementById('abonoTitle').textContent='Corregir cobro — '+(d[1]||'');
+  document.getElementById('abonoPendienteLbl').textContent='Debía '+fmtD(debiaAntesDeCobro(d,t)/100)+'. Escribe lo que te pagó en total; si es más, lo que sobra queda como ingreso extra.';
+  document.getElementById('abonoFecha').value=toDateInput(t[0]);
+  document.getElementById('abonoMonto').value=((cent(t[4])+(extra?cent(extra[4]):0))/100).toFixed(2);
+  document.getElementById('abonoNota').value=String(t[1]).startsWith(base+' · ')?String(t[1]).slice(base.length+3):'';
+  document.getElementById('abonoGastoBox').hidden=true;
+  document.getElementById('abonoGasto').checked=false;
+  document.getElementById('abonoCuentaLbl').textContent='Recibido en';
+  llenarCuentaCobro(gastoDeDeuda(d));
+  const sel=document.getElementById('abonoCuenta');
+  if(![...(sel.options||[])].some(o=>sameAccount(o.value,t[5]))&&sel.options)sel.insertAdjacentHTML?.('afterbegin',`<option value="${escAttr(t[5])}">${escHtml(t[5])}</option>`);
+  sel.value=t[5];
+  mostrarCamposAbono(true);
+  document.getElementById('abonoGuardarBtn').textContent='Guardar';
+  document.getElementById('abonoTodoBtn').textContent='Lo que debía';
+  avisarExcedenteAbono();
+  document.getElementById('modalAbono').classList.add('active');
+}
+
+async function guardarCobroEditado(d,monto,fecha,nota){
+  const t=(datos.transacciones||[]).find(x=>String(x[6])===editandoCobroId);
+  const gasto=d?gastoDeDeuda(d):null;
+  if(!t||!gasto){toast('No encuentro este cobro. Pulsa Actualizar.','error');return;}
+  const cuenta=document.getElementById('abonoCuenta').value;
+  if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
+  const debia=debiaAntesDeCobro(d,t),centimos=Math.round(monto*100),devuelto=Math.min(centimos,debia),exceso=centimos-devuelto;
+  if(devuelto<=0){toast((d[1]||'Esta persona')+' ya no debía nada sin este cobro. Si sobra, elimínalo.','error');return;}
+  if(exceso>0&&CREDIT_CARDS.some(card=>sameAccount(card.cuenta,cuenta))){toast('Debía '+fmtD(debia/100)+'. Para lo que te pagó de más, elige la cuenta donde recibiste el dinero.','error');return;}
+  if(pf(fecha)<new Date(pf(gasto[0]).getFullYear(),pf(gasto[0]).getMonth(),pf(gasto[0]).getDate())){toast('El cobro no puede ser anterior al gasto','error');return;}
+  const [yy,mm,dd]=fecha.split('-');
+  const momento=toDateInput(t[0])===fecha?t[0]:buildFechaISO(yy,mm,dd,horaDe(t[0]));
+  const descripcion='Devolución de '+(d[1]||'')+(nota?' · '+nota:'');
+  const antes={fecha:t[0],cuenta:t[5],descripcion:t[1],monto:Number(t[4])};
+  const extraAntes=excedenteDeCobro(t),copiaExtra=extraAntes?[...extraAntes]:null;
+  const extraNuevo=exceso>0?{fecha:momento,cuenta,descripcion:'Excedente de '+descripcion,monto:exceso/100}:null;
+  let extraCreado=null;
+  try{
+    await sbUpdate('transacciones',t[6],{fecha:momento,cuenta,descripcion,monto:devuelto/100});
+    if(extraAntes&&extraNuevo)await sbUpdate('transacciones',extraAntes[6],extraNuevo);
+    else if(extraAntes)await sbDelete('transacciones',extraAntes[6]);
+    else if(extraNuevo)extraCreado=await sbInsert('transacciones',{...extraNuevo,categoria:'Otros ingresos',tipo:'Ingreso',cuenta_destino:null,transaccion_origen_id:null,deuda_id:null});
+    editandoCobroId=null;cerrarModalAbono();
+    await cargar({silencioso:true});
+    if(historialDeudaId){renderHistorialAbonos();document.getElementById('modalHistorialAbonos').classList.add('active');}
+    ofrecerDeshacer('Cobro corregido'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':''),async()=>{
+      if(extraCreado)await sbDelete('transacciones',extraCreado.id);
+      await sbUpdate('transacciones',t[6],antes);
+      if(copiaExtra&&extraNuevo)await sbUpdate('transacciones',copiaExtra[6],{fecha:copiaExtra[0],cuenta:copiaExtra[5],descripcion:copiaExtra[1],monto:Number(copiaExtra[4])});
+      else if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));
+    });
+  }catch(e){toast(e.message||'No se pudo corregir el cobro','error');cargar({silencioso:true});}
 }
 
 async function eliminarCobro__base(txId){
   const t=(datos.transacciones||[]).find(x=>String(x[6])===String(txId));
   if(!t)return;
-  const copia=[...t];
+  // Su ingreso extra, si lo tuvo, se va con él y vuelve con él.
+  const copia=[...t],extra=excedenteDeCobro(t),copiaExtra=extra?[...extra]:null;
   try{
+    if(extra)await sbDelete('transacciones',extra[6]);
     await sbDelete('transacciones',txId);
     await cargar({silencioso:true});
     render();
     if(historialDeudaId)renderHistorialAbonos();
-    ofrecerDeshacer('Cobro eliminado',()=>sbInsert('transacciones',cuerpoTx(copia)));
+    ofrecerDeshacer('Cobro eliminado',async()=>{await sbInsert('transacciones',cuerpoTx(copia));if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));});
   }catch(e){toast(e.message||'No se pudo eliminar el cobro','error');}
 }
 export const eliminarCobro=guardedOnce(eliminarCobro__base);
+
+// Abono de una deuda "Me deben" con su ingreso espejo: lo que pedía la deuda
+// antes de este abono, en céntimos, y el ingreso extra que se guardó con él
+// (misma cuenta y fecha que el espejo, "Excedente de …").
+function deudaDeAbono(ab){return (datos.deudas||[]).find(d=>String(d[0])===_abDeudaId(ab))||null;}
+function espejoDeAbono(ab){const id=_abTxId(ab);return id?(datos.transacciones||[]).find(t=>String(t[6])===String(id))||null:null;}
+function debiaAntesDeAbono(d,ab){return Math.max(0,cent(d[3])-(cent(calcAbonadoFromLog(d[0]))-cent(_abMonto(ab))));}
+function excedenteDeAbono(tx){
+  const momento=pf(tx[0]).getTime();
+  return (datos.transacciones||[]).find(x=>x[3]==='Ingreso'&&x[2]==='Otros ingresos'&&String(x[6])!==String(tx[6])&&sameAccount(x[5],tx[5])
+    &&pf(x[0]).getTime()===momento&&String(x[1]).startsWith('Excedente de '))||null;
+}
+function abonoConExtra(ab){
+  const d=deudaDeAbono(ab),tx=espejoDeAbono(ab);
+  return d&&tx&&String(d[7]).toLowerCase()==='me-deben'?{d,tx,extra:excedenteDeAbono(tx)}:null;
+}
+
+export function avisarExcedenteEditAbono(){
+  const aviso=document.getElementById('editAbonoExcedente');
+  const ab=(datos.deudasAbonos||[]).find(x=>_abId(x)===String(editandoAbonoId));
+  const info=ab?abonoConExtra(ab):null,monto=Number(document.getElementById('editAbonoMonto').value);
+  const exceso=info&&Number.isFinite(monto)?Math.round(monto*100)-debiaAntesDeAbono(info.d,ab):0;
+  aviso.hidden=!(exceso>0);
+  aviso.textContent=exceso>0?fmtD(exceso/100)+' de más se guardará como ingreso extra.':'';
+}
 
 export function abrirEditAbono(abonoId){
   const ab=(datos.deudasAbonos||[]).find(x=>_abId(x)===String(abonoId));
   if(!ab)return;
   editandoAbonoId=abonoId;
-  document.getElementById('editAbonoMonto').value=_abMonto(ab);
+  // Se muestra lo que te pagó en total: el abono más su ingreso extra.
+  const info=abonoConExtra(ab);
+  document.getElementById('editAbonoMonto').value=info?.extra?((cent(_abMonto(ab))+cent(info.extra[4]))/100).toFixed(2):_abMonto(ab);
   document.getElementById('editAbonoFecha').value=toDateInput(_abFecha(ab));
   document.getElementById('editAbonoNota').value=_abNota(ab);
   // Cierra el historial para evitar conflicto de z-index entre modales
   document.getElementById('modalHistorialAbonos').classList.remove('active');
+  avisarExcedenteEditAbono();
   document.getElementById('modalEditAbono').classList.add('active');
 }
 
@@ -645,12 +771,38 @@ async function guardarEditAbono__base(){
     const ab=datos.deudasAbonos.find(x=>_abId(x)===String(id));
     const txId=ab?_abTxId(ab):null;
     const antes=ab?{monto:_abMonto(ab),fecha:_abFecha(ab),nota:_abNota(ab)}:null;
-    await ejecutarAbono({tipo:'editar',id,txId,patch:{monto,fecha,nota}});
+    // "Me deben": si pasa lo que debía, el abono es lo que debía y lo demás
+    // queda como ingreso extra en la cuenta de su ingreso espejo.
+    const info=ab?abonoConExtra(ab):null;
+    let abonado=monto,exceso=0;
+    if(info){
+      const debia=debiaAntesDeAbono(info.d,ab);
+      if(Math.round(monto*100)>debia){
+        if(debia<=0){toast('Esta deuda ya estaba pagada sin este abono.','error');return;}
+        abonado=debia/100;exceso=Math.round(monto*100)-debia;
+      }
+    }
+    const copiaExtra=info?.extra?[...info.extra]:null;
+    await ejecutarAbono({tipo:'editar',id,txId,patch:{monto:abonado,fecha,nota}});
+    let extraCreado=null;
+    if(info){
+      const extraNuevo=exceso>0?{fecha,cuenta:info.tx[5],descripcion:'Excedente de '+(info.d[1]||'pago')+(nota?' · '+nota:''),monto:exceso/100}:null;
+      try{
+        if(copiaExtra&&extraNuevo)await sbUpdate('transacciones',copiaExtra[6],extraNuevo);
+        else if(copiaExtra)await sbDelete('transacciones',copiaExtra[6]);
+        else if(extraNuevo)extraCreado=await sbInsert('transacciones',{...extraNuevo,categoria:'Otros ingresos',tipo:'Ingreso'});
+      }catch(e){toast('Se guardó el abono, pero no el ingreso extra. Revísalo en Movimientos.','error');}
+    }
     await cargar({silencioso:true});
     cerrarEditAbono();
     render();
     if(historialDeudaId)renderHistorialAbonos();
-    if(antes)ofrecerDeshacer('Abono actualizado',()=>ejecutarAbono({tipo:'editar',id,txId,patch:antes}));
+    if(antes)ofrecerDeshacer('Abono actualizado'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':''),async()=>{
+      if(extraCreado)await sbDelete('transacciones',extraCreado.id);
+      await ejecutarAbono({tipo:'editar',id,txId,patch:antes});
+      if(copiaExtra&&exceso>0)await sbUpdate('transacciones',copiaExtra[6],{fecha:copiaExtra[0],cuenta:copiaExtra[5],descripcion:copiaExtra[1],monto:Number(copiaExtra[4])});
+      else if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));
+    });
     else toast('Abono actualizado','success');
   }catch(e){avisarErrorAbono(e);}
 }
@@ -665,11 +817,14 @@ async function eliminarAbono__base(abonoId){
     // El abono y su ingreso espejo se reponen con sus mismos ids.
     const tx=txId?datos.transacciones.find(t=>String(t[6])===String(txId)):null;
     const copia=ab?{tipo:'crear',id:String(abonoId),tx:tx?cuerpoTx(tx):null,abono:{id:String(abonoId),deuda_id:_abDeudaId(ab),monto:_abMonto(ab),fecha:_abFecha(ab),nota:_abNota(ab),tx_id:tx?txId:null}}:null;
+    // Su ingreso extra, si lo tuvo, se va con él y vuelve con él.
+    const extra=ab?abonoConExtra(ab)?.extra:null,copiaExtra=extra?[...extra]:null;
     await ejecutarAbono({tipo:'eliminar',id:abonoId,txId});
+    if(extra)await sbDelete('transacciones',extra[6]).catch(()=>toast('Se eliminó el abono, pero no su ingreso extra. Bórralo en Movimientos.','error'));
     await cargar({silencioso:true});
     render();
     if(historialDeudaId)renderHistorialAbonos();
-    if(copia)ofrecerDeshacer('Abono eliminado',()=>ejecutarAbono(copia));
+    if(copia)ofrecerDeshacer('Abono eliminado',async()=>{await ejecutarAbono(copia);if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));});
     else toast('Abono eliminado','success');
   }catch(e){avisarErrorAbono(e);}
 }

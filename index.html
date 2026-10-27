@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.27.03">
+<meta name="version-app" content="2026.10.27.04">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -984,7 +984,8 @@ try{
     <div class="pill-row">
       <label class="mpill"><span>📅</span><input type="date" id="editAbonoFecha"></label>
     </div>
-    <input type="number" class="big-input muto" id="editAbonoMonto" placeholder="Monto" step="0.01" inputmode="decimal">
+    <input type="number" class="big-input muto" id="editAbonoMonto" placeholder="Monto" step="0.01" inputmode="decimal" oninput="avisarExcedenteEditAbono()">
+    <p class="transfer-note" id="editAbonoExcedente" hidden></p>
     <input type="text" class="big-input" id="editAbonoNota" placeholder="Nota (opcional)">
     <div class="brow">
       <button class="btn btn-s" onclick="cerrarEditAbono()">Cancelar</button>

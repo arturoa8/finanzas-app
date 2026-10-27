@@ -67,13 +67,14 @@ function ordenCobro(deudas){
 
 // Céntimos cobrados de cada deuda de un gasto (activas y archivadas). Una
 // devolución con persona va a su deuda; las demás cubren las deudas en orden.
-export function cobrosDeGasto(id){
+// `excluir` deja fuera una devolución: la que se está editando.
+export function cobrosDeGasto(id,excluir=null){
   if(id==null||id==='')return new Map();
   const lista=ordenCobro([...(datos.deudas||[]),...(datos.deudasArchivadas||[])].filter(d=>String(gastoIdDeuda(d))===String(id)));
   const cobros=new Map(lista.map(d=>[String(d[0]),0]));
   let libre=0;
   for(const t of datos.transacciones||[]){
-    if(t[3]!=='Reembolso'||String(t[8])!==String(id))continue;
+    if(t[3]!=='Reembolso'||String(t[8])!==String(id)||(excluir!=null&&String(t[6])===String(excluir)))continue;
     const deuda=t[16]==null?null:String(t[16]);
     if(deuda&&cobros.has(deuda))cobros.set(deuda,cobros.get(deuda)+centimosDeuda(t[4]));
     else libre+=centimosDeuda(t[4]);
