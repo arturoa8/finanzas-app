@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.27.06">
+<meta name="version-app" content="2026.10.27.07">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -476,6 +476,17 @@ try{
 
 <!-- FAB -->
 <button class="fab" onclick="handleFab()" aria-label="Nueva transacción">+</button>
+
+<!-- DETALLE DE UN GRUPO DE DEUDAS: va antes que las demás hojas para que Cobrar, Editar y Archivar se abran encima -->
+<div class="modal centered" id="modalGrupoDeuda" role="dialog" aria-modal="true" aria-labelledby="grupoDeudaTitle">
+  <div class="mc">
+    <div class="mc-top">
+      <div class="mt" id="grupoDeudaTitle">Detalle de deudas</div>
+      <button class="mh-x" onclick="cerrarDetalleGrupo()" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="grupoDeudaContent"></div>
+  </div>
+</div>
 
 <!-- MES PICKER MODAL -->
 <div class="modal centered" id="mesPicker">

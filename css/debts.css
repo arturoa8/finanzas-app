@@ -76,13 +76,15 @@
 .dgrupo-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:20px;font-size:0.62rem;font-weight:700;vertical-align:middle;background:#7aa2ff1a;color:var(--blue);}
 .dgrupo .dcard-fechas{margin-top:10px;}
 .dgrupo-toggle{flex:1;text-align:right;}
-.dgrupo-flecha{display:inline-block;transition:transform .25s cubic-bezier(.2,.8,.2,1);}
-.dgrupo.abierto .dgrupo-flecha{transform:rotate(180deg);}
+.dgrupo-flecha{display:inline-block;margin-left:2px;font-size:1.05rem;line-height:1;}
 .dgrupo-lista{margin-top:10px;border-top:1px solid var(--border);}
+/* Hoja grande con el detalle del grupo: se desplaza por dentro. */
+.grupo-scroll{max-height:56vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;margin-top:14px;padding-right:2px;}
+#grupoDeudaContent .dcard-fechas{margin-bottom:0;}
 .drow{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:4px 10px;padding:11px 0;border-bottom:1px solid var(--border);}
 .drow:last-child{border-bottom:0;padding-bottom:2px;}
 .drow-main{min-width:0;}
-.drow-name{font-size:0.84rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drow-name{font-size:0.84rem;font-weight:700;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere;}
 .drow-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}
 .drow-sub.vencida{color:var(--red);}.drow-sub.pronto{color:var(--yellow);}
 .drow-amt{font-size:0.88rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;}
@@ -97,3 +99,5 @@
 .drow.mas .drow-opciones{display:flex;}
 .drow-opciones .dcard-fecha{margin:0;padding:6px 4px;flex-basis:100%;}
 .drow-opciones .dcard-link{padding:8px 4px;}
+
+#grupoDeudaContent .dcard-person{font-size:1.1rem;font-weight:800;letter-spacing:-.02em;white-space:normal;}

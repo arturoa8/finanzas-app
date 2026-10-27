@@ -61,6 +61,12 @@ function resumenDeudas(esMeDeben,filas,tarjetas){
 }
 
 export function renderDeb(){
+  gruposVigentes=new Map();
+  pintarDeb();
+  repintarDetalleGrupo();
+}
+
+function pintarDeb(){
   const l=document.getElementById('debs');
   if(dT==='archivadas'){renderDebArchivadas(l);return;}
   const esMeDeben=dT==='me-deben';
@@ -99,17 +105,30 @@ export function renderDeb(){
     return {d,id,monto,abonado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
       vencida:dias!==null&&dias<0&&pendiente>0,warnVenc:dias!==null&&dias>=0&&dias<=7&&pendiente>0};
   });
-  // Lo que viene del mismo gasto (dividido entre personas o en cuotas) o son
-  // cuotas de lo mismo se junta en una sola tarjeta; el resto va suelto.
-  const grupos=new Map();
-  for(const f of filas){const k=claveGrupoDeuda(f.d);if(k)(grupos.get(k)||grupos.set(k,[]).get(k)).push(f);}
-  const items=[],usados=new Set();
+  // Una sola tarjeta para lo que viene del mismo gasto (dividido entre personas
+  // o en cuotas), para cuotas de lo mismo y, con lo que queda suelto, para varias
+  // deudas de la misma persona. El resto va por separado.
+  const porClave=new Map();
+  for(const f of filas){const k=claveGrupoDeuda(f.d);if(k)(porClave.get(k)||porClave.set(k,[]).get(k)).push(f);}
+  const base=[],usados=new Set();
   for(const f of filas){
-    const k=claveGrupoDeuda(f.d),miembros=k?grupos.get(k):null;
-    if(!miembros||miembros.length<2)items.push({tipo:'sola',f});
+    const k=claveGrupoDeuda(f.d),miembros=k?porClave.get(k):null;
+    if(!miembros||miembros.length<2)base.push({tipo:'sola',f});
+    else if(!usados.has(k)){usados.add(k);base.push({tipo:'grupo',k,miembros});}
+  }
+  const porPersona=new Map();
+  for(const it of base)if(it.tipo==='sola'){const k=clavePersonaDeuda(it.f.d);if(k)(porPersona.get(k)||porPersona.set(k,[]).get(k)).push(it.f);}
+  const items=[];
+  for(const it of base){
+    const k=it.tipo==='sola'?clavePersonaDeuda(it.f.d):null,miembros=k?porPersona.get(k):null;
+    if(!miembros||miembros.length<2)items.push(it);
     else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
   }
-  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+items.map(it=>it.tipo==='grupo'?tarjetaGrupo(it.k,it.miembros,esMeDeben):tarjetaDeuda(it.f,esMeDeben)).join('');
+  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+items.map(it=>{
+    if(it.tipo==='sola')return tarjetaDeuda(it.f,esMeDeben);
+    gruposVigentes.set(it.k,{miembros:it.miembros,esMeDeben});
+    return tarjetaGrupo(infoGrupo(it.k,it.miembros,esMeDeben));
+  }).join('');
 }
 
 const reCuota=/^(.*) · Cuota (\d+)\/(\d+)$/;
@@ -121,11 +140,30 @@ function claveGrupoDeuda(d){
   return m?'c|'+norm(d[1])+'|'+norm(m[1])+'|'+m[3]+'|'+d[7]:null;
 }
 
-// Grupos que el usuario tiene abiertos: sobrevive a volver a pintar la lista.
-const gruposAbiertos=new Set();
-export function toggleGrupoDeuda(clave){
-  if(gruposAbiertos.has(clave))gruposAbiertos.delete(clave);else gruposAbiertos.add(clave);
-  renderDeb();
+// Varias deudas de la misma persona (Mamá con "Supermercado" y "Farmacia"). Las
+// que dicen "Cuota n/m" quedan fuera por ahora: siguen como estaban.
+const reCuotaLibre=/Cuota\s*\d+\/\d+/i;
+function clavePersonaDeuda(d){
+  return reCuotaLibre.test(d[2]||'')||!String(d[1]||'').trim()?null:'p|'+norm(d[1])+'|'+d[7];
+}
+
+// Grupos de la lista pintada y el que está abierto en la hoja de detalle: así la
+// hoja se repinta sola al cobrar, editar o archivar.
+let gruposVigentes=new Map(),grupoDetalle=null;
+export function abrirDetalleGrupo(clave){
+  if(!gruposVigentes.has(clave))return;
+  grupoDetalle=clave;repintarDetalleGrupo();
+  document.getElementById('modalGrupoDeuda').classList.add('active');
+}
+export function cerrarDetalleGrupo(){
+  grupoDetalle=null;document.getElementById('modalGrupoDeuda').classList.remove('active');
+}
+function repintarDetalleGrupo(){
+  if(!grupoDetalle)return;
+  const g=gruposVigentes.get(grupoDetalle);
+  if(!g){cerrarDetalleGrupo();return;}
+  const info=infoGrupo(grupoDetalle,g.miembros,g.esMeDeben);
+  document.getElementById('grupoDeudaContent').innerHTML=detalleGrupo(info);
 }
 
 const verbos=esMeDeben=>esMeDeben
@@ -182,77 +220,98 @@ const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="abrirHistori
       <button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
       <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>`;
 
-// Varias deudas de lo mismo en una sola tarjeta: total, avance y próxima fecha;
-// el detalle (una fila por persona o cuota) se abre con un botón.
-function tarjetaGrupo(clave,miembros,esMeDeben){
-  const v=verbos(esMeDeben);
+const numCuota=m=>{const c=reCuota.exec(m.d[2]||'');return c?'Cuota '+c[2]+'/'+c[3]:'Cuota';};
+
+// Resumen de un grupo de deudas: lo comparten la tarjeta y la hoja de detalle.
+// clase: 'personas' (un gasto entre varias), 'cuotas' (una persona, en cuotas) o
+// 'deudas' (varias deudas distintas de la misma persona).
+function infoGrupo(clave,miembros,esMeDeben){
   const n=miembros.length;
-  const personas=new Set(miembros.map(m=>norm(m.d[1]))).size;
-  const entrePersonas=personas>1;
+  const clase=clave[0]==='p'?'deudas':new Set(miembros.map(m=>norm(m.d[1]))).size>1?'personas':'cuotas';
+  const persona=miembros[0].d[1]||'?';
   const total=miembros.reduce((s,m)=>s+m.monto,0);
   const abonado=miembros.reduce((s,m)=>s+m.abonado,0);
-  const pendiente=miembros.reduce((s,m)=>s+m.pendiente,0);
-  const pct=total>0?Math.min(100,Math.round(abonado/total*100)):0;
-  const pagan=miembros.filter(m=>m.pendiente<0.005).length;
   const vencidas=miembros.filter(m=>m.vencida);
   const siguiente=miembros.find(m=>m.pendiente>=0.005);
-  const base=(reCuota.exec(miembros[0].d[2]||'')||[])[1]||miembros[0].d[2]||'';
-  const gasto=miembros[0].d[8]?gastoDeDeuda(miembros[0].d):null;
-  const abierto=gruposAbiertos.has(clave);
-  const etiqueta=entrePersonas?n+' personas':n+' cuotas';
-  const numCuota=m=>{const c=reCuota.exec(m.d[2]||'');return c?'Cuota '+c[2]+'/'+c[3]:'Cuota';};
+  const baseDesc=(reCuota.exec(miembros[0].d[2]||'')||[])[1]||miembros[0].d[2]||'';
   // Una línea de estado: lo urgente primero, si no, lo que viene.
   let estado='';
   if(vencidas.length)estado=`<span class="dcard-fecha vencida"><span class="dcard-fecha-txt"><b>⚠ ${vencidas.length} vencida${vencidas.length===1?'':'s'}</b></span></span>`;
   else if(siguiente&&siguiente.dias!==null){
     const e=estadoVencimiento(siguiente.dias);
-    estado=`<span class="dcard-fecha ${e.tono}"><span class="dcard-fecha-txt"><b>${entrePersonas?e.texto:'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1)}</b> · ${fechaCorta(siguiente.fvVal)}</span></span>`;
+    estado=`<span class="dcard-fecha ${e.tono}"><span class="dcard-fecha-txt"><b>${clase==='cuotas'?'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1):e.texto}</b> · ${fechaCorta(siguiente.fvVal)}</span></span>`;
   }
-  // Entre personas, primero a quienes les falta pagar; las cuotas van por fecha.
-  const ordenados=entrePersonas?[...miembros].sort((a,b)=>(a.pendiente<0.005)-(b.pendiente<0.005)):miembros;
-  const filas=ordenados.map(m=>{
-    const paga=m.pendiente<0.005;
-    const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
-    const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
-    const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
-    const nombre=entrePersonas?(m.d[1]||'?'):numCuota(m);
-    return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
+  return {clave,miembros,esMeDeben,clase,n,persona,total,abonado,vencidas,siguiente,estado,
+    pendiente:miembros.reduce((s,m)=>s+m.pendiente,0),
+    pct:total>0?Math.min(100,Math.round(abonado/total*100)):0,
+    pagan:miembros.filter(m=>m.pendiente<0.005).length,
+    titulo:clase==='deudas'?persona:baseDesc,
+    etiqueta:n+(clase==='personas'?' personas':clase==='cuotas'?' cuotas':' deudas'),
+    subtitulo:clase==='personas'?'Dividido entre '+n+' personas':clase==='cuotas'?n+' cuotas de '+persona:n+' deudas pendientes',
+    gasto:clase==='deudas'?null:(miembros[0].d[8]?gastoDeDeuda(miembros[0].d):null),
+    verDetalle:clase==='personas'?'Ver quién falta':clase==='cuotas'?'Ver las cuotas':'Ver las deudas'};
+}
+
+const cabeceraGrupo=(i,v)=>`<div class="dcard-top">
+      <div class="dcard-info">
+        ${i.conTitulo?`<div class="dcard-person">${escHtml(i.titulo)}<span class="dgrupo-tag">${i.etiqueta}</span></div>`:''}
+        <div class="dcard-desc">${escHtml(i.subtitulo)}</div>
+        ${i.gasto?`<div class="dcard-origen">Pagaste ${fmtD(i.gasto[4])} con ${escHtml(i.gasto[5]||'—')} · ${fmtDateShort(pf(i.gasto[0]))}</div>`:''}
+      </div>
+      <div class="dcard-right">
+        <div class="dcard-amt-lbl">${v.falta}</div>
+        <div class="dcard-amt ${v.cls}">${fmtD(i.pendiente)}</div>
+      </div>
+    </div>
+    <div class="dcard-prog">
+      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${i.pct}%"></div></div>
+      <div class="dcard-progmeta"><span>${i.pagan} de ${i.n} ${i.clase==='cuotas'?'cuotas pagadas':i.clase==='personas'?'ya pagaron':'saldadas'} · ${fmtD(i.abonado)} de ${fmtD(i.total)}</span><span>${i.pct}%</span></div>
+    </div>
+    ${i.estado?`<div class="dcard-fechas">${i.estado}</div>`:''}`;
+
+// Una fila del detalle: la persona, la cuota o la deuda, con su botón de cobro y
+// un menú ⋯ con la fecha límite, el historial, editar y archivar.
+function filaGrupo(i,m,v){
+  const paga=m.pendiente<0.005;
+  const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
+  const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
+  const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
+  const nombre=i.clase==='personas'?(m.d[1]||'?'):i.clase==='cuotas'?numCuota(m):(m.d[2]||'Sin descripción');
+  return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
       <div class="drow-main">
         <div class="drow-name">${escHtml(nombre)}</div>
         <div class="drow-sub${e?' '+e.tono:''}">${escHtml(sub)}</div>
       </div>
       <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓':fmtD(m.pendiente)}</div>
-      ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${esMeDeben?'Cobrar':'Pagar'}</button>`}
+      ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
       <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>
       <div class="drow-opciones">
         ${campoFechaVence(m)}
         ${enlacesDeuda(m.id,m.d[8]?gastoDeDeuda(m.d):null)}
       </div>
     </div>`;
-  }).join('');
-  return `<div class="dcard dgrupo${vencidas.length?' vencida':''}${abierto?' abierto':''}">
-    <div class="dcard-top">
-      <div class="dcard-info">
-        <div class="dcard-person">${escHtml(base)}<span class="dgrupo-tag">${etiqueta}</span></div>
-        <div class="dcard-desc">${entrePersonas?'Dividido entre '+n+' personas':n+' cuotas de '+escHtml(miembros[0].d[1]||'?')}</div>
-        ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
-      </div>
-      <div class="dcard-right">
-        <div class="dcard-amt-lbl">${v.falta}</div>
-        <div class="dcard-amt ${v.cls}">${fmtD(pendiente)}</div>
-      </div>
-    </div>
-    <div class="dcard-prog">
-      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${pct}%"></div></div>
-      <div class="dcard-progmeta"><span>${pagan} de ${n} ${entrePersonas?'ya pagaron':'cuotas pagadas'} · ${fmtD(abonado)} de ${fmtD(total)}</span><span>${pct}%</span></div>
-    </div>
-    ${estado?`<div class="dcard-fechas">${estado}</div>`:''}
+}
+
+// Varias deudas de lo mismo en una sola tarjeta: total, avance y próxima fecha;
+// el detalle se abre en una hoja grande.
+function tarjetaGrupo(i){
+  const v=verbos(i.esMeDeben);
+  return `<div class="dcard dgrupo${i.vencidas.length?' vencida':''}">
+    ${cabeceraGrupo({...i,conTitulo:true},v)}
     <div class="dcard-actions">
-      ${!entrePersonas&&siguiente?`<button class="dcard-btn primary" onclick="abrirModalAbono('${siguiente.id}')">${esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(siguiente).toLowerCase())}</button>`:''}
-      <button class="dcard-link dgrupo-toggle" data-k="${escAttr(clave)}" aria-expanded="${abierto}" onclick="toggleGrupoDeuda(this.dataset.k)">${abierto?'Ocultar detalle':'Ver '+(entrePersonas?'quién falta':'las cuotas')} <span class="dgrupo-flecha" aria-hidden="true">▾</span></button>
+      ${i.clase==='cuotas'&&i.siguiente?`<button class="dcard-btn primary" onclick="abrirModalAbono('${i.siguiente.id}')">${i.esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(i.siguiente).toLowerCase())}</button>`:''}
+      <button class="dcard-link dgrupo-toggle" data-k="${escAttr(i.clave)}" onclick="abrirDetalleGrupo(this.dataset.k)">${i.verDetalle} <span class="dgrupo-flecha" aria-hidden="true">›</span></button>
     </div>
-    ${abierto?`<div class="dgrupo-lista">${filas}</div>`:''}
   </div>`;
+}
+
+// Contenido de la hoja grande: el mismo resumen y todas las filas.
+function detalleGrupo(i){
+  const v=verbos(i.esMeDeben);
+  // Entre personas o deudas, primero lo que falta; las cuotas van por fecha.
+  const ordenados=i.clase==='cuotas'?i.miembros:[...i.miembros].sort((a,b)=>(a.pendiente<0.005)-(b.pendiente<0.005));
+  return `${cabeceraGrupo({...i,conTitulo:true},v)}
+    <div class="dgrupo-lista grupo-scroll">${ordenados.map(m=>filaGrupo(i,m,v)).join('')}</div>`;
 }
 
 function renderDebArchivadas(l){
