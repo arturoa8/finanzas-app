@@ -4,7 +4,7 @@
 import {cuentasApp} from './accounts.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {render} from './dashboard.js';
-import {archivarFila, cobradoDeuda, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda} from './por-cobrar.js';
+import {archivarFila, cobradoDeuda, deudasDeGasto, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
 import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
 import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
@@ -14,7 +14,7 @@ import {ofrecerDeshacer} from '../ui/deshacer.js';
 import {toast} from '../ui/toast.js';
 import {guardedOnce} from '../utils/async.js';
 import {buildFechaISO, fmtDateShort, pf, toDateInput} from '../utils/dates.js';
-import {escAttr, escHtml, fmtC, fmtD} from '../utils/formatters.js';
+import {escAttr, escHtml, fmtC, fmtD, norm} from '../utils/formatters.js';
 
 // Pestana activa de deudas. La escribe setDT(), aqui mismo.
 export let dT='me-deben';
@@ -57,6 +57,10 @@ export function renderDeb(){
     const monto=parseFloat(d[3])||0;
     // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
     const gasto=d[8]?gastoDeDeuda(d):null;
+    // Gasto dividido entre varias personas: cuántas son (las cuotas ya lo dicen
+    // en la descripción).
+    const companeras=gasto?deudasDeGasto(d[8]):[];
+    const entre=new Set(companeras.map(x=>norm(x[1]))).size>1?' · entre '+companeras.length:'';
     const abonado=d[8]?cobradoDeuda(d):(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
     const pendiente=Math.max(0,monto-abonado);
     const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
@@ -71,7 +75,7 @@ export function renderDeb(){
         <div class="dcard-info">
           <div class="dcard-person">${escHtml(d[1]||'?')}</div>
           <div class="dcard-desc">${escHtml(d[2]||'')}</div>
-          ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
+          ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}${entre}</div>`:''}
           ${vencida?'<div class="dcard-venc-warn">⚠ Vencida</div>':''}
           ${warnVenc?`<div class="dcard-venc-warn" style="color:var(--yellow)">⚡ Vence en ${diasVenc} día${diasVenc!==1?'s':''}</div>`:''}
         </div>
@@ -110,7 +114,7 @@ function renderDebArchivadas(l){
   l.innerHTML=[...arch].reverse().map(d=>{
     const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
     const monto=parseFloat(d[3])||0;
-    const logAb=d[10]?Math.min(Math.round(monto*100),devueltoCentimos(d[10]))/100:calcAbonadoFromLog(d[0]);
+    const logAb=d[10]?cobradoDeuda(d):calcAbonadoFromLog(d[0]);
     const abonado=logAb>0?logAb:(parseFloat(d[4])||0);
     const motivo=(d[8]||'').toString().toLowerCase();
     const isPagado=motivo.includes('pagado')||motivo.includes('saldada');
@@ -150,6 +154,7 @@ export function abrirModalDeuda(){
   document.getElementById('dFechaInicio').value=toDateInput(new Date());
   document.getElementById('dFechaVenc').value='';
   setDeudaTipo(dT==='les-debo'?'les-debo':'me-deben');
+  prepararCuotasDeuda(true);
   document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
   document.getElementById('modalDeuda').classList.add('active');
 }
@@ -165,8 +170,37 @@ export function abrirModalDeudaEdit(id){
   document.getElementById('dFechaInicio').value=toDateInput(d[5]);
   document.getElementById('dFechaVenc').value=toDateInput(d[6]);
   setDeudaTipo(d[7]||'me-deben');
+  prepararCuotasDeuda(false);
   document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
   document.getElementById('modalDeuda').classList.add('active');
+}
+
+// "En cuotas" solo al crear: una deuda ya guardada se edita sola.
+function prepararCuotasDeuda(nueva){
+  document.getElementById('dCuotasBox').hidden=!nueva;
+  document.getElementById('dCuotas').checked=false;
+  document.getElementById('dCuotasN').value='2';
+  toggleCuotasDeuda();
+}
+
+export function toggleCuotasDeuda(){
+  document.getElementById('dCuotasDetalle').hidden=!document.getElementById('dCuotas').checked;
+  resumirCuotasDeuda();
+}
+
+// La primera cuota vence en la fecha de Vence; sin ella, un mes después de Desde.
+function primeraCuota(){
+  const venc=document.getElementById('dFechaVenc').value,inicio=document.getElementById('dFechaInicio').value;
+  return venc||(inicio?sumarMeses(inicio,1):'');
+}
+
+export function resumirCuotasDeuda(){
+  const nota=document.getElementById('dCuotasResumen');
+  const total=Math.round(Number(String(document.getElementById('dMonto').value).replace(/[^0-9.]/g,''))*100);
+  const n=Number(document.getElementById('dCuotasN').value),primera=primeraCuota();
+  if(!document.getElementById('dCuotas').checked||!(total>=n)||!Number.isInteger(n)||n<2||!primera){nota.textContent='';return;}
+  const plan=planCuotas(total,n,primera),cada=plan[0].monto,ultima=plan[n-1].monto;
+  nota.textContent=n+' cuotas de '+fmtD(cada)+(ultima!==cada?' (la última, '+fmtD(ultima)+')':'')+'. La primera vence el '+fmtDateShort(pf(primera)).replace(/\.$/,'')+'; las demás, cada mes.';
 }
 
 export function cerrarModalDeuda(){document.getElementById('modalDeuda').classList.remove('active');editandoDeuda=null;}
@@ -186,6 +220,7 @@ async function guardarDeuda__base(){
   const fechaInicio=document.getElementById('dFechaInicio').value;
   const fechaVenc=document.getElementById('dFechaVenc').value;
   const body={persona,descripcion:desc,monto:parseFloat(monto),fecha_inicio:fechaInicio,fecha_venc:fechaVenc||null,tipo:deudaTipoModal};
+  if(!editandoDeuda&&document.getElementById('dCuotas').checked)return guardarDeudaEnCuotas(body);
   try{
     if(editandoDeuda){
       const id=editandoDeuda;
@@ -206,6 +241,24 @@ async function guardarDeuda__base(){
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
 export const guardarDeuda=guardedOnce(guardarDeuda__base);
+
+// Una deuda por cuota, "Descripción · Cuota 1/6", con vencimientos mensuales.
+// Cada cuota se cobra y se archiva por separado, como ya hacías a mano.
+async function guardarDeudaEnCuotas(body){
+  const n=Number(document.getElementById('dCuotasN').value),primera=primeraCuota();
+  if(!Number.isInteger(n)||n<2||n>60){toast('Elige entre 2 y 60 cuotas','error');return;}
+  if(!body.fecha_inicio&&!primera){toast('Elige la fecha de la primera cuota','error');return;}
+  const total=Math.round(body.monto*100);
+  if(total<n){toast('Cada cuota debe ser de al menos S/ 0.01','error');return;}
+  const filas=planCuotas(total,n,primera).map((c,i)=>({...body,monto:c.monto,fecha_venc:c.venc,
+    descripcion:(body.descripcion?body.descripcion+' · ':'')+'Cuota '+(i+1)+'/'+n}));
+  try{
+    const rows=await sbInsert('deudas',filas);
+    for(const row of rows)datos.deudas.push(filaDeuda(row));
+    cerrarModalDeuda();render();
+    ofrecerDeshacer(n+' cuotas registradas',async()=>{for(const row of rows)await sbDelete('deudas',row.id);});
+  }catch(e){toast('Error al guardar','error');}
+}
 
 // ── Modal abono ──────────────────────────────────────────────────────────────
 // Calcula abonado siempre desde DeudasAbonos (fuente de verdad), nunca desde d[4]
@@ -230,10 +283,11 @@ export function abrirModalAbono(id){
   document.getElementById('abonoTitle').textContent=vinculada?'Cobrar a '+(d[1]||''):(esMeDeben?'Cobro recibido':'Pago realizado')+' — '+(d[1]||'');
   document.getElementById('abonoPendienteLbl').textContent=vinculada
     ?'Te debe '+fmtD(pendiente)+' de '+fmtD(monto)+'. Se registra como reembolso del gasto; si te pagó de más, el resto queda como ingreso.'
-    :'Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto);
+    :'Pendiente: '+fmtC(pendiente)+' de '+fmtC(monto)+(esMeDeben?'. Si te paga de más, lo que sobra queda como ingreso extra.':'');
   document.getElementById('abonoFecha').value=toDateInput(new Date());
   document.getElementById('abonoMonto').value='';
   document.getElementById('abonoMonto').placeholder=vinculada?'Monto que te devolvió':'Monto a abonar';
+  document.getElementById('abonoExcedente').hidden=true;
   document.getElementById('abonoNota').value='';
   // Gasto por cobrar y "Me deben": dónde llegó el dinero. "Les debo": el pago
   // puede anotarse como gasto (apagado por defecto, porque sueles registrar ese
@@ -282,6 +336,23 @@ function llenarCategoriaAbono(){
   const ingresos=new Set(['salario','beca','otros ingresos','inversiones']);
   const cats=(datos.categorias||[]).map(c=>c[0]).filter(c=>c&&!ingresos.has(String(c).trim().toLowerCase()));
   document.getElementById('abonoCat').innerHTML='<option value="">Elige la categoría…</option>'+cats.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+}
+
+// Lo que te deben ahora mismo en la deuda abierta, en soles.
+function pendienteAbono(d){
+  const monto=parseFloat(d[3])||0;
+  return d[8]?pendienteDeuda(d):Math.max(0,Math.round((monto-calcAbonadoFromLog(d[0]))*100)/100);
+}
+
+// Al escribir el monto: si te pagan más de lo que te deben, avisa cuánto
+// quedará como ingreso extra. Solo en "Me deben".
+export function avisarExcedenteAbono(){
+  const aviso=document.getElementById('abonoExcedente');
+  const d=(datos.deudas||[]).find(x=>String(x[0])===String(abonosDeudaId));
+  const monto=Number(document.getElementById('abonoMonto').value);
+  const exceso=d&&(d[7]||'').toString().toLowerCase()==='me-deben'&&Number.isFinite(monto)?Math.round(monto*100)-Math.round(pendienteAbono(d)*100):0;
+  aviso.hidden=!(exceso>0);
+  aviso.textContent=exceso>0?fmtD(exceso/100)+' de más se guardará como ingreso extra.':'';
 }
 
 export function cerrarModalAbono(){document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;}
@@ -334,10 +405,15 @@ async function guardarAbono__base(){
   const tipo=(d&&d[7]||'').toString().toLowerCase();
   if(d?.[8])return cobrarGasto(d,monto,fecha,nota);
   const cuenta=document.getElementById('abonoCuenta').value;
-  let tx=null;
+  let tx=null,abonado=monto,extra=0;
   if(tipo==='me-deben'){
     if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
-    tx={id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto,cuenta};
+    // Si te pagan de más, el abono es lo que debían y lo demás un ingreso
+    // extra en la misma cuenta, igual que en los gastos por cobrar.
+    const pendiente=Math.round(pendienteAbono(d)*100);
+    if(pendiente<=0){toast('Esta deuda ya está pagada. Archívala como saldada.','error');return;}
+    if(Math.round(monto*100)>pendiente){abonado=pendiente/100;extra=(Math.round(monto*100)-pendiente)/100;}
+    tx={id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto:abonado,cuenta};
   }else if(document.getElementById('abonoGasto').checked){
     const categoria=document.getElementById('abonoCat').value;
     if(!cuenta){toast('Elige de qué cuenta salió el pago','error');return;}
@@ -346,9 +422,17 @@ async function guardarAbono__base(){
   }
   try{
     const id=solicitudAbonoId;
-    await ejecutarAbono({tipo:'crear',id,tx,abono:{id,deuda_id:abonosDeudaId,monto,fecha,nota,tx_id:tx?.id||null}});
+    await ejecutarAbono({tipo:'crear',id,tx,abono:{id,deuda_id:abonosDeudaId,monto:abonado,fecha,nota,tx_id:tx?.id||null}});
+    let ingresoExtra=null;
+    if(extra>0){
+      try{ingresoExtra=await sbInsert('transacciones',{fecha,descripcion:'Excedente de '+(d?.[1]||'pago')+(nota?' · '+nota:''),categoria:'Otros ingresos',tipo:'Ingreso',monto:extra,cuenta});}
+      catch(e){toast('Se guardó el pago, pero no los '+fmtD(extra)+' de más. Regístralos como ingreso.','error');}
+    }
     cerrarModalAbono();await cargar({silencioso:true});
-    ofrecerDeshacer('Pago registrado',()=>ejecutarAbono({tipo:'eliminar',id,txId:tx?.id||null}));
+    ofrecerDeshacer('Pago registrado'+(ingresoExtra?' · '+fmtD(extra)+' de más como ingreso':''),async()=>{
+      if(ingresoExtra)await sbDelete('transacciones',ingresoExtra.id);
+      await ejecutarAbono({tipo:'eliminar',id,txId:tx?.id||null});
+    });
   }catch(e){avisarErrorAbono(e);}
 }
 
@@ -360,7 +444,8 @@ async function guardarAbono__base(){
 async function cobrarGasto(d,monto,fecha,nota){
   const gasto=gastoDeDeuda(d);
   if(!gasto){toast('No encuentro el gasto de esta deuda. Pulsa Actualizar.','error');return;}
-  const pendiente=pendienteDeuda(d);
+  // Lo que debe esta persona, sin pasar lo que queda del gasto por devolver.
+  const pendiente=Math.min(pendienteDeuda(d),Math.max(0,Math.round(Number(gasto[4])*100)-devueltoCentimos(gasto[6]))/100);
   const centimos=Math.round(monto*100),devuelto=Math.min(centimos,Math.round(pendiente*100)),exceso=centimos-devuelto;
   const cuenta=document.getElementById('abonoCuenta').value;
   if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
@@ -368,10 +453,11 @@ async function cobrarGasto(d,monto,fecha,nota){
   if(pf(fecha)<new Date(pf(gasto[0]).getFullYear(),pf(gasto[0]).getMonth(),pf(gasto[0]).getDate())){toast('El cobro no puede ser anterior al gasto','error');return;}
   const ahora=new Date(),hora=`${ahora.getHours()%12||12}:${String(ahora.getMinutes()).padStart(2,'0')} ${ahora.getHours()>=12?'p. m.':'a. m.'}`;
   const [yy,mm,dd]=fecha.split('-');
-  const comun={fecha:buildFechaISO(yy,mm,dd,hora),cuenta,cuenta_destino:null,moneda_original:null,monto_original:null,tc:null,tc_fuente:null,moneda_destino:null,monto_destino:null};
+  const comun={fecha:buildFechaISO(yy,mm,dd,hora),cuenta,cuenta_destino:null,moneda_original:null,monto_original:null,tc:null,tc_fuente:null,moneda_destino:null,monto_destino:null,deuda_id:null};
   const descripcion='Devolución de '+(d[1]||'')+(nota?' · '+nota:'');
   const filas=[];
-  if(devuelto>0)filas.push({...comun,descripcion,categoria:gasto[2],tipo:'Reembolso',monto:devuelto/100,transaccion_origen_id:gasto[6]});
+  // El reembolso dice de quién es: en un gasto dividido, cada persona baja solo su parte.
+  if(devuelto>0)filas.push({...comun,descripcion,categoria:gasto[2],tipo:'Reembolso',monto:devuelto/100,transaccion_origen_id:gasto[6],deuda_id:d[0]});
   if(exceso>0)filas.push({...comun,descripcion:'Excedente de '+descripcion,categoria:'Otros ingresos',tipo:'Ingreso',monto:exceso/100,transaccion_origen_id:null});
   try{
     const guardadas=exceso>0?await guardarReembolsoConExcedente(filas):[await sbInsert('transacciones',filas[0])];

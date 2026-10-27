@@ -7,7 +7,7 @@ import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {HISTORIAL_LIMITES_SELECT, filaLimite} from './cards/historial-limites.js';
-import {cobradoDeuda, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos, pendienteDeuda} from './por-cobrar.js';
+import {cobradoDeuda, cubiertoPorDeudas, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, deudasDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos, pendienteDeuda, planCuotas, sumarMeses, textoDeudas} from './por-cobrar.js';
 import {filaPago} from './cards/payments.js';
 import {filaPresupuesto} from './presupuestos-calculo.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -40,14 +40,15 @@ let primeraCarga=true;
 //   5 cuenta · 6 id · 7 cuenta_destino · 8 transaccion_origen_id
 //   9 moneda_original (null = PEN) · 10 monto_original · 11 tc · 12 tc_fuente
 //  13 moneda_destino · 14 monto_destino · 15 es_costo_inversion (costo de
-//  fondear la inversión: ver pfCostosInversion)
+//  fondear la inversión: ver pfCostosInversion) · 16 deuda_id (quién te
+//  devolvió esta parte de un gasto por cobrar: ver cobrosDeGasto)
 function filaTx(t){
   return [t.fecha,t.descripcion,t.categoria,t.tipo,t.monto,t.cuenta,t.id,
     t.cuenta_destino||null,t.transaccion_origen_id||null,
     t.moneda_original||null,t.monto_original==null?null:Number(t.monto_original),
     t.tc==null?null:Number(t.tc),t.tc_fuente||null,
     t.moneda_destino||null,t.monto_destino==null?null:Number(t.monto_destino),
-    t.es_costo_inversion===true];
+    t.es_costo_inversion===true,t.deuda_id||null];
 }
 
 // silencioso: sin el aviso "Actualizado", cuando quien recarga ya muestra el
@@ -147,7 +148,7 @@ function pedirDeudas(){
 export function cuerpoTx(t){
   return {id:t[6],fecha:t[0],descripcion:t[1],categoria:t[2],tipo:t[3],monto:Number(t[4]),cuenta:t[5],
     cuenta_destino:t[7]||null,transaccion_origen_id:t[8]||null,moneda_original:t[9]||null,monto_original:t[10],
-    tc:t[11],tc_fuente:t[12]||null,moneda_destino:t[13]||null,monto_destino:t[14],es_costo_inversion:t[15]===true};
+    tc:t[11],tc_fuente:t[12]||null,moneda_destino:t[13]||null,monto_destino:t[14],es_costo_inversion:t[15]===true,deuda_id:t[16]||null};
 }
 const sinIdTx=({id,...resto})=>resto;
 
@@ -226,9 +227,9 @@ function prepararCobro(t=null){
   caja.checked=false;caja.disabled=false;
   document.getElementById('iCobrarPersona').value='';
   document.getElementById('iCobrarMonto').value='';
-  const activa=t?.[3]==='Gasto'?deudaDeGasto(t[6]):null,archivada=t?.[3]==='Gasto'&&!activa?deudaArchivadaDeGasto(t[6]):null;
+  const activas=t?.[3]==='Gasto'?deudasDeGasto(t[6]):[],archivada=t?.[3]==='Gasto'&&!activas.length?deudaArchivadaDeGasto(t[6]):null;
   const nota=document.getElementById('cobrarNota');
-  nota.textContent=activa?(activa[1]||'Alguien')+' te debe '+fmt(pendienteDeuda(activa))+' de este gasto. Se cambia o se quita en la pestaña Reembolso.'
+  nota.textContent=activas.length?textoDeudas(activas,pendienteDeudas(activas))+' de este gasto. Se cambia o se quita en la pestaña Reembolso.'
     :archivada?'La deuda de '+(archivada[1]||'esta persona')+' está archivada. Desarchívala en Deudas para cambiarla.':'';
   nota.hidden=!nota.textContent;
   mostrarCobro();aplicarModoCobro();
@@ -244,19 +245,137 @@ function precargarCobroReembolso(){
   caja2.hidden=!disponible;
   const id=document.getElementById('iGastoOrigen').value;
   const gasto=disponible&&id?datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(id)):null;
-  const activa=gasto?deudaDeGasto(id):null,archivada=gasto&&!activa?deudaArchivadaDeGasto(id):null;
+  const activas=gasto?deudasDeGasto(id):[],activa=activas[0]||null,archivada=gasto&&!activa?deudaArchivadaDeGasto(id):null;
   caja.checked=!!activa;caja.disabled=!!archivada;
-  document.getElementById('iCobrarPersona').value=activa?.[1]||'';
+  document.getElementById('iCobrarPersona').value=activas.length===1?activa[1]||'':'';
   // Vacío significa "todo el gasto": si después cambia el importe, la deuda lo sigue.
-  const todo=activa&&Math.round(Number(activa[3])*100)===Math.round(Number(gasto[4])*100);
-  document.getElementById('iCobrarMonto').value=activa&&!todo?activa[3]:'';
-  const cobrado=activa?cobradoDeuda(activa):0;
+  const todo=activas.length===1&&Math.round(Number(activa[3])*100)===Math.round(Number(gasto[4])*100);
+  document.getElementById('iCobrarMonto').value=activas.length===1&&!todo?activa[3]:'';
+  document.getElementById('iCuotasN').value='2';
+  document.getElementById('iCuotasFecha').value=gasto?sumarMeses(toDateInput(gasto[0]),1):'';
+  // Un gasto ya dividido (entre personas o en cuotas) se edita fila por fila.
+  personasCobro=activas.length>1?activas.map(d=>({id:d[0],nombre:d[1]||'',monto:String(d[3])})):[];
+  modoCobro='';  // que setModoCobro no lea las filas del gasto anterior
+  setModoCobro(activas.length>1?'varias':'una');
+  const cobrado=activas.reduce((s,d)=>s+Math.round(cobradoDeuda(d)*100),0)/100;
   const nota=document.getElementById('cobrarNotaReembolso');
   nota.textContent=archivada?'La deuda de '+(archivada[1]||'esta persona')+' está archivada. Desarchívala en Deudas para cambiarla.'
-    :cobrado>0?(activa[1]||'Esta persona')+' ya te devolvió '+fmt(cobrado)+'.':'';
+    :cobrado>0?(activas.length>1?'Ya te devolvieron ':(activa[1]||'Esta persona')+' ya te devolvió ')+fmt(cobrado)+'.':'';
   nota.hidden=!nota.textContent;
-  const quitar=document.getElementById('cobrarQuitarBtn');if(quitar)quitar.hidden=!activa;
+  const quitar=document.getElementById('cobrarQuitarBtn');
+  if(quitar){quitar.hidden=!activa;quitar.textContent=activas.length>1?'Quitar estas deudas':'Quitar esta deuda';}
+  llenarDeudaReembolso();
   mostrarCobro();aplicarModoCobro();
+}
+
+// Lo que falta cobrar entre varias deudas, en soles.
+function pendienteDeudas(deudas){return deudas.reduce((s,d)=>s+Math.round(pendienteDeuda(d)*100),0)/100;}
+
+// Una persona, entre varias o en cuotas. "Entre varias" guarda las filas en
+// personasCobro: {id de la deuda si ya existe, nombre, monto}.
+let modoCobro='una',personasCobro=[];
+const gastoCobro=()=>datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(document.getElementById('iGastoOrigen').value))||null;
+
+export function setModoCobro(modo){
+  if(modo==='varias'&&modoCobro!=='varias'&&!personasCobro.length){
+    // Parte de lo que ya escribiste: esa persona queda como la primera.
+    const nombre=document.getElementById('iCobrarPersona').value.trim(),monto=document.getElementById('iCobrarMonto').value;
+    const existente=deudaDeGasto(document.getElementById('iGastoOrigen').value);
+    personasCobro=[{id:existente?.[0]||null,nombre,monto:nombre?monto:''},{id:null,nombre:'',monto:''}];
+  }else if(modoCobro==='varias')leerPersonasCobro();
+  modoCobro=modo;
+  for(const [m,id] of [['una','cobrarModoUna'],['varias','cobrarModoVarias'],['cuotas','cobrarModoCuotas']]){
+    const b=document.getElementById(id);b.classList.toggle('active',m===modo);b.setAttribute('aria-pressed',String(m===modo));
+  }
+  document.getElementById('cobrarUna').hidden=modo==='varias';
+  document.getElementById('cobrarCuotas').hidden=modo!=='cuotas';
+  document.getElementById('cobrarVarias').hidden=modo!=='varias';
+  if(modo==='varias')renderPersonasCobro();
+  if(modo==='cuotas')resumirCuotasCobro();
+}
+
+function leerPersonasCobro(){
+  personasCobro=personasCobro.map((p,i)=>({...p,
+    nombre:document.getElementById('cpNombre-'+i)?.value??p.nombre,monto:document.getElementById('cpMonto-'+i)?.value??p.monto}));
+}
+
+function renderPersonasCobro(){
+  const lista=document.getElementById('cobrarPersonas');
+  lista.innerHTML=personasCobro.map((p,i)=>`<div class="cobrar-persona"><input id="cpNombre-${i}" class="sel" type="text" list="personasDeuda" placeholder="Nombre" autocomplete="off" aria-label="Persona ${i+1}" value="${escAttr(p.nombre||'')}"><input id="cpMonto-${i}" class="sel cp-monto" type="number" step="0.01" min="0" inputmode="decimal" placeholder="S/" aria-label="Cuánto te debe la persona ${i+1}" value="${escAttr(String(p.monto??''))}" oninput="resumirPersonasCobro()"><button type="button" class="cobrar-persona-x" onclick="quitarPersonaCobro(${i})" aria-label="Quitar a la persona ${i+1}"${personasCobro.length<=1?' disabled':''}>✕</button></div>`).join('');
+  // El valor se fija también como propiedad: el atributo no basta si el
+  // campo ya existía.
+  personasCobro.forEach((p,i)=>{
+    const n=document.getElementById('cpNombre-'+i),m=document.getElementById('cpMonto-'+i);
+    if(n)n.value=p.nombre||'';if(m)m.value=String(p.monto??'');
+  });
+  resumirPersonasCobro();
+}
+
+export function agregarPersonaCobro(){
+  leerPersonasCobro();personasCobro.push({id:null,nombre:'',monto:''});renderPersonasCobro();
+  setTimeout(()=>document.getElementById('cpNombre-'+(personasCobro.length-1))?.focus(),50);
+}
+
+export function quitarPersonaCobro(i){
+  leerPersonasCobro();
+  if(personasCobro.length<=1)return;
+  personasCobro.splice(i,1);renderPersonasCobro();
+}
+
+// Reparte el gasto en partes iguales. Si tú también pagas tu parte, te deben
+// todas menos una; si no, entre ellos cubren el gasto completo.
+export function repartirCobroIgual(){
+  leerPersonasCobro();
+  const gasto=gastoCobro();
+  if(!gasto||!personasCobro.length)return;
+  const total=Math.round(Number(gasto[4])*100),yo=document.getElementById('iCobrarYo').checked;
+  const partes=personasCobro.length+(yo?1:0),base=Math.floor(total/partes);
+  let cada=personasCobro.map(()=>base);
+  if(yo){const redondo=Math.round(total/partes);if(redondo*personasCobro.length<=total)cada=cada.map(()=>redondo);}
+  else for(let i=0;i<total-base*partes;i++)cada[i]++;
+  personasCobro=personasCobro.map((p,i)=>({...p,monto:(cada[i]/100).toFixed(2)}));
+  renderPersonasCobro();
+}
+
+export function resumirPersonasCobro(){
+  const nota=document.getElementById('cobrarTotalVarias'),gasto=gastoCobro();
+  if(!nota)return;
+  let suma=0;
+  personasCobro.forEach((p,i)=>{const n=Number(document.getElementById('cpMonto-'+i)?.value??p.monto);if(Number.isFinite(n)&&n>0)suma+=Math.round(n*100);});
+  const total=gasto?Math.round(Number(gasto[4])*100):0;
+  nota.textContent=!gasto?'':suma>total?'Entre todos suman '+fmt(suma/100)+': más que el gasto de '+fmt(total/100)+'.'
+    :'Te deben '+fmt(suma/100)+' de '+fmt(total/100)+(total>suma?' · tu parte: '+fmt((total-suma)/100):'')+'.';
+}
+
+export function resumirCuotasCobro(){
+  if(modoCobro!=='cuotas')return;
+  const nota=document.getElementById('cobrarCuotasResumen'),gasto=gastoCobro();
+  const raw=String(document.getElementById('iCobrarMonto').value).trim(),n=Number(document.getElementById('iCuotasN').value);
+  const total=Math.round((raw===''?Number(gasto?.[4]):Number(raw))*100),primera=document.getElementById('iCuotasFecha').value;
+  if(!gasto||!(total>0)||!Number.isInteger(n)||n<2||!primera){nota.textContent='';return;}
+  const plan=planCuotas(total,n,primera),ultima=plan[n-1].monto,cada=plan[0].monto;
+  nota.textContent=n+' cuotas de '+fmt(cada)+(ultima!==cada?' (la última, '+fmt(ultima)+')':'')+', una cada mes desde el '+fmtDateShort(pf(primera)).replace(/\.$/,'')+'.';
+}
+
+// "Quién te pagó" en una devolución de un gasto dividido. Sin elegir, la
+// devolución cubre las deudas en orden (la cuota más próxima primero).
+function llenarDeudaReembolso(){
+  const fila=document.getElementById('reembolsoDeudaRow'),sel=document.getElementById('iReembolsoDeuda');
+  if(!fila||!sel)return;
+  const id=document.getElementById('iGastoOrigen').value;
+  const activas=tipoA==='Reembolso'&&!editando&&id?deudasDeGasto(id):[];
+  fila.hidden=activas.length<2;
+  const previo=sel.value;
+  sel.innerHTML=activas.length<2?'':'<option value="">Sin especificar</option>'+activas.map(d=>{
+    const cuota=/Cuota \d+\/\d+$/.exec(d[2]||'')?.[0];
+    return `<option value="${escAttr(d[0])}">${escHtml((d[1]||'—')+(cuota?' · '+cuota:'')+' · falta '+fmt(pendienteDeuda(d)))}</option>`;
+  }).join('');
+  sel.value=activas.some(d=>String(d[0])===previo)?previo:'';
+}
+
+function deudaElegidaReembolso(){
+  const fila=document.getElementById('reembolsoDeudaRow'),id=document.getElementById('iReembolsoDeuda')?.value;
+  return fila&&!fila.hidden&&id?(datos.deudas||[]).find(d=>String(d[0])===String(id))||null:null;
 }
 
 // Con el interruptor encendido solo se anota quién te debe: fecha, descripción,
@@ -296,6 +415,14 @@ export function toggleCobrar(){
 // `total` es el equivalente en soles del gasto.
 function leerCobro(total,deudaAntes,anterior){
   if(tipoA!=='Gasto'||!deudaAntes)return null;
+  // Dividido entre varias personas o en cuotas: las deudas no siguen al gasto,
+  // solo se revisa que sigan cabiendo en él.
+  const todas=deudasDeGasto(anterior[6]);
+  if(todas.length>1){
+    const suma=todas.reduce((s,d)=>s+Math.round(Number(d[3])*100),0);
+    if(suma>Math.round(total*100))throw new Error(textoDeudas(todas,suma/100)+': el gasto no puede ser menos');
+    return {mantener:true};
+  }
   const todo=!!anterior&&Math.round(Number(deudaAntes[3])*100)===Math.round(Number(anterior[4])*100);
   const monto=todo?total:Number(deudaAntes[3]);
   if(Math.round(monto*100)>Math.round(total*100))throw new Error('Lo que te deben no puede superar el gasto');
@@ -305,72 +432,151 @@ function leerCobro(total,deudaAntes,anterior){
 }
 
 // Lee y valida el interruptor de la pestaña Reembolso antes de escribir nada.
-// Sin monto, la deuda es el gasto completo.
-function leerCobroPendiente(total,deudaAntes){
-  const persona=document.getElementById('iCobrarPersona').value.trim();
-  if(!persona)throw new Error('Escribe quién te lo tiene que devolver');
-  const raw=String(document.getElementById('iCobrarMonto').value).trim();
-  const monto=raw===''?total:Number(raw);
-  if(!Number.isFinite(monto)||monto<=0)throw new Error('Escribe cuánto te deben o déjalo vacío para todo el gasto');
-  if(Math.round(monto*100)>Math.round(total*100))throw new Error('Lo que te deben no puede superar el gasto');
-  if(deudaAntes&&Math.round(monto*100)<Math.round(cobradoDeuda(deudaAntes)*100))
-    throw new Error(persona+' ya te devolvió '+fmt(cobradoDeuda(deudaAntes))+': lo que te debe no puede ser menos');
-  return {persona,monto:Math.round(monto*100)/100,todo:raw===''};
+// Devuelve las deudas que debe tener el gasto: [{id si ya existe, persona,
+// descripcion, monto, fecha_venc (undefined = no se toca)}]. Sin monto, una
+// persona o las cuotas cubren el gasto completo.
+function leerCobroPendiente(gasto,activas){
+  const total=Number(gasto[4]),totalC=Math.round(total*100);
+  let deseadas;
+  if(modoCobro==='varias'){
+    leerPersonasCobro();
+    const filas=personasCobro.filter(p=>p.id||String(p.nombre).trim()||String(p.monto).trim());
+    if(!filas.length)throw new Error('Escribe quiénes te lo tienen que devolver');
+    deseadas=filas.map(p=>{
+      const persona=String(p.nombre).trim(),monto=Number(p.monto);
+      if(!persona)throw new Error('Falta el nombre de una persona');
+      if(!Number.isFinite(monto)||monto<=0)throw new Error('Escribe cuánto te debe '+persona);
+      const antes=activas.find(d=>String(d[0])===String(p.id));
+      return {id:p.id||null,persona,descripcion:antes?.[2]||gasto[1],monto:Math.round(monto*100)/100};
+    });
+  }else{
+    const persona=document.getElementById('iCobrarPersona').value.trim();
+    if(!persona)throw new Error('Escribe quién te lo tiene que devolver');
+    const raw=String(document.getElementById('iCobrarMonto').value).trim();
+    const monto=raw===''?total:Number(raw);
+    if(!Number.isFinite(monto)||monto<=0)throw new Error('Escribe cuánto te deben o déjalo vacío para todo el gasto');
+    if(modoCobro==='cuotas'){
+      const n=Number(document.getElementById('iCuotasN').value),primera=document.getElementById('iCuotasFecha').value;
+      if(!Number.isInteger(n)||n<2||n>60)throw new Error('Elige entre 2 y 60 cuotas');
+      if(!primera)throw new Error('Elige cuándo vence la primera cuota');
+      if(Math.round(monto*100)<n)throw new Error('Cada cuota debe ser de al menos S/ 0.01');
+      deseadas=planCuotas(Math.round(monto*100),n,primera).map((c,i)=>({id:activas[i]?.[0]||null,persona,
+        descripcion:gasto[1]+' · Cuota '+(i+1)+'/'+n,monto:c.monto,fecha_venc:c.venc}));
+    }else deseadas=[{id:activas[0]?.[0]||null,persona,descripcion:gasto[1],monto:Math.round(monto*100)/100,todo:raw===''}];
+  }
+  const suma=deseadas.reduce((s,x)=>s+Math.round(x.monto*100),0);
+  if(suma>totalC)throw new Error(deseadas.length>1?'Entre todos te deben '+fmt(suma/100)+': más que el gasto de '+fmt(total):'Lo que te deben no puede superar el gasto');
+  // Lo ya devuelto no se puede borrar ni dejar por encima de lo que se debe.
+  for(const x of deseadas){
+    const antes=x.id?activas.find(d=>String(d[0])===String(x.id)):null;
+    if(antes&&Math.round(x.monto*100)<Math.round(cobradoDeuda(antes)*100))
+      throw new Error((antes[1]||'Esta persona')+' ya te devolvió '+fmt(cobradoDeuda(antes))+': lo que te debe no puede ser menos');
+  }
+  const quedan=new Set(deseadas.filter(x=>x.id).map(x=>String(x.id)));
+  for(const d of activas)if(!quedan.has(String(d[0]))&&cobradoDeuda(d)>0)
+    throw new Error((d[1]||'Esta persona')+' ya te devolvió '+fmt(cobradoDeuda(d))+': no se puede quitar. Archívala en Deudas.');
+  return deseadas;
 }
 
 // "Quitar esta deuda": el gasto vuelve a contar entero como gasto tuyo. Los
 // reembolsos que ya hubieras registrado no se tocan. Se puede deshacer.
 async function quitarCobroPendiente__base(){
   const id=document.getElementById('iGastoOrigen').value;
-  const deuda=deudaDeGasto(id);
-  if(!deuda||guardandoTx)return;
+  const deudas=deudasDeGasto(id);
+  if(!deudas.length||guardandoTx)return;
   guardandoTx=true;
+  const quitadas=[];
   try{
-    await sbDelete('deudas',deuda[0]);
-    datos.deudas=datos.deudas.filter(d=>d!==deuda);
+    for(const deuda of deudas){
+      await sbDelete('deudas',deuda[0]);quitadas.push(deuda);
+      datos.deudas=datos.deudas.filter(d=>d!==deuda);
+    }
     cerrarM(true);render();
-    ofrecerDeshacer('Deuda de '+(deuda[1]||'esta persona')+' quitada',()=>sbInsert('deudas',cuerpoDeuda(deuda)));
+    ofrecerDeshacer(deudas.length>1?deudas.length+' deudas quitadas':'Deuda de '+(deudas[0][1]||'esta persona')+' quitada',async()=>{for(const d of quitadas)await sbInsert('deudas',cuerpoDeuda(d));});
   }
-  catch(e){toast(e.message||'No se pudo quitar la deuda','error');}
+  catch(e){toast(e.message||'No se pudo quitar la deuda','error');if(quitadas.length)cargar({silencioso:true});}
   finally{guardandoTx=false;}
 }
 export const quitarCobroPendiente=guardedOnce(quitarCobroPendiente__base);
 
-// Reembolso con el interruptor encendido: no entra dinero, solo se crea o
-// cambia la deuda del gasto elegido.
+// Reembolso con el interruptor encendido: no entra dinero, solo se crean,
+// cambian o quitan las deudas del gasto elegido.
 async function guardarCobroPendiente(){
   const id=document.getElementById('iGastoOrigen').value;
   const gasto=datos.transacciones.find(t=>t[3]==='Gasto'&&String(t[6])===String(id));
   if(!gasto){toast('Selecciona el gasto que te deben','error');return;}
-  const deudaAntes=deudaDeGasto(id);
-  let cobro;
-  try{cobro=leerCobroPendiente(Number(gasto[4]),deudaAntes);}catch(e){toast(e.message,'error');return;}
+  const activas=deudasDeGasto(id);
+  let deseadas;
+  try{deseadas=leerCobroPendiente(gasto,activas);}catch(e){toast(e.message,'error');return;}
   guardandoTx=true;
   const usuarioGuardado=sessionUserId();
   const controles=[...document.querySelectorAll('#modal input,#modal select,#modal button')];
   const estados=controles.map(el=>el.disabled);
   controles.forEach(el=>{el.disabled=true;});
   document.getElementById('modal').setAttribute('aria-busy','true');
+  const cambios={creadas:[],cambiadas:[],borradas:[]};
   try{
-    const cambio=await sincronizarCobro({id:gasto[6],descripcion:gasto[1],monto:gasto[4]},cobro,deudaAntes,toDateInput(gasto[0]));
+    await sincronizarDeudasGasto(gasto,deseadas,activas,cambios);
     if(sessionUserId()!==usuarioGuardado)throw new Error('La sesión cambió durante el guardado.');
-    const actual=deudaDeGasto(id);
-    const mensaje=(actual?.[1]||cobro.persona)+' te debe '+fmt(actual?pendienteDeuda(actual):cobro.monto);
+    const actuales=deudasDeGasto(id);
+    const mensaje=textoDeudas(actuales,pendienteDeudas(actuales));
     cerrarM(true);render();
-    if(!cambio){toast(mensaje,'success');return;}
-    ofrecerDeshacer(mensaje,async()=>{
-      if(cambio.creada)await sbDelete('deudas',cambio.creada);
-      else if(cambio.antes){const a=cambio.antes;await sbUpdate('deudas',a[0],{persona:a[1],descripcion:a[2],monto:Number(a[3]),fecha_inicio:a[5]});}
-    });
+    if(!cambios.creadas.length&&!cambios.cambiadas.length&&!cambios.borradas.length){toast(mensaje,'success');return;}
+    ofrecerDeshacer(mensaje,()=>deshacerDeudasGasto(cambios));
   }
-  catch(e){toast(e.message||'Error al guardar','error');}
+  catch(e){
+    toast(e.message||'Error al guardar','error');
+    // Si algo ya se escribió, se relee para no mostrar un estado a medias.
+    if(cambios.creadas.length||cambios.cambiadas.length||cambios.borradas.length)cargar({silencioso:true});
+  }
   finally{guardandoTx=false;controles.forEach((el,i)=>{el.disabled=estados[i];});document.getElementById('modal').setAttribute('aria-busy','false');}
+}
+
+// Deja el gasto con las deudas pedidas. Primero borra y baja montos, después
+// sube y crea: así la suma nunca pasa el gasto a mitad de camino (el servidor
+// lo rechazaría). Anota en `cambios` lo hecho, para deshacer.
+async function sincronizarDeudasGasto(gasto,deseadas,activas,cambios){
+  const fecha=toDateInput(gasto[0]);
+  const quedan=new Set(deseadas.filter(x=>x.id).map(x=>String(x.id)));
+  for(const d of activas.filter(d=>!quedan.has(String(d[0])))){
+    await sbDelete('deudas',d[0]);
+    datos.deudas=datos.deudas.filter(x=>x!==d);cambios.borradas.push(d);
+  }
+  const ediciones=deseadas.filter(x=>x.id).map(x=>{
+    const antes=activas.find(d=>String(d[0])===String(x.id));
+    const body={persona:x.persona,descripcion:x.descripcion,monto:x.monto,fecha_inicio:fecha};
+    if(x.fecha_venc!==undefined)body.fecha_venc=x.fecha_venc;
+    const igual=antes[1]===body.persona&&antes[2]===body.descripcion&&Math.round(Number(antes[3])*100)===Math.round(body.monto*100)
+      &&toDateInput(antes[5])===fecha&&(body.fecha_venc===undefined||(antes[6]?toDateInput(antes[6]):null)===body.fecha_venc);
+    return igual?null:{antes,body};
+  }).filter(Boolean).sort((a,b)=>(a.body.monto-Number(a.antes[3]))-(b.body.monto-Number(b.antes[3])));
+  for(const {antes,body} of ediciones){
+    await sbUpdate('deudas',antes[0],body);
+    cambios.cambiadas.push({antes,monto:body.monto});
+    const i=datos.deudas.indexOf(antes);
+    if(i>=0)datos.deudas[i]=[antes[0],body.persona,body.descripcion,body.monto,antes[4],fecha,body.fecha_venc===undefined?antes[6]:body.fecha_venc,antes[7],antes[8]];
+  }
+  const nuevas=deseadas.filter(x=>!x.id);
+  if(nuevas.length){
+    const rows=await sbInsert('deudas',nuevas.map(x=>({persona:x.persona,descripcion:x.descripcion,monto:x.monto,fecha_inicio:fecha,
+      fecha_venc:x.fecha_venc??null,tipo:'me-deben',transaccion_id:gasto[6]})));
+    for(const row of rows){datos.deudas.push(filaDeuda(row));cambios.creadas.push(row.id);}
+  }
+}
+
+async function deshacerDeudasGasto(cambios){
+  for(const id of cambios.creadas)await sbDelete('deudas',id);
+  // Al revés que al guardar: primero lo que había subido vuelve a bajar.
+  for(const {antes} of [...cambios.cambiadas].sort((a,b)=>(b.monto-Number(b.antes[3]))-(a.monto-Number(a.antes[3])))){
+    await sbUpdate('deudas',antes[0],{persona:antes[1],descripcion:antes[2],monto:Number(antes[3]),fecha_inicio:antes[5],fecha_venc:antes[6]||null});
+  }
+  for(const d of cambios.borradas)await sbInsert('deudas',cuerpoDeuda(d));
 }
 
 // Crea, cambia o quita la deuda de un gasto ya guardado. Devuelve cómo estaba
 // antes, para deshacer.
 async function sincronizarCobro(gasto,cobro,deudaAntes,fecha){
-  if(!cobro&&!deudaAntes)return null;
+  if((!cobro&&!deudaAntes)||cobro?.mantener)return null;
   if(!cobro){
     await sbDelete('deudas',deudaAntes[0]);
     datos.deudas=datos.deudas.filter(d=>d!==deudaAntes);
@@ -473,8 +679,8 @@ export function setTipo(t,sincronizar=true){
 async function eliminar__base(){
   if(guardandoTx)return;
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
-  const deuda=t?deudaDeGasto(t[6]):null,archivada=t&&!deuda?deudaArchivadaDeGasto(t[6]):null;
-  if(!confirm(deuda?'¿Eliminar esta transacción? También se quitará lo que te debe '+(deuda[1]||'esa persona')+'.':'¿Eliminar esta transacción?'))return;
+  const deudas=t?deudasDeGasto(t[6]):[],archivadas=t?(datos.deudasArchivadas||[]).filter(d=>d[10]&&String(d[10])===String(t[6])):[];
+  if(!confirm(deudas.length?'¿Eliminar esta transacción? También se quitará lo que te '+(deudas.length>1&&new Set(deudas.map(d=>norm(d[1]))).size>1?'deben esas personas':'debe '+(deudas[0][1]||'esa persona'))+'.':'¿Eliminar esta transacción?'))return;
   // Lo que el borrado arrastra en Supabase (ciclo elegido a mano, deuda por
   // cobrar, vínculo de un abono), para reponerlo si se deshace.
   const copia=t?[...t]:null;
@@ -483,15 +689,15 @@ async function eliminar__base(){
   try{
     await sbDelete('transacciones',editando);
     datos.transacciones=datos.transacciones.filter(x=>String(getTxRow(x))!==String(editando));
-    if(deuda)datos.deudas=datos.deudas.filter(d=>d!==deuda);
-    if(archivada)datos.deudasArchivadas=datos.deudasArchivadas.filter(d=>d!==archivada);
+    datos.deudas=datos.deudas.filter(d=>!deudas.includes(d));
+    datos.deudasArchivadas=datos.deudasArchivadas.filter(d=>!archivadas.includes(d));
     cerrarM();render();
     if(!copia?.[6]){toast('Eliminada','success');return;}
     ofrecerDeshacer(etiquetaTx(copia[3],'eliminad'),async()=>{
       await sbInsert('transacciones',cuerpoTx(copia));
       for(const c of ciclos)await sbInsert('ciclos_override',c);
-      if(deuda)await sbInsert('deudas',cuerpoDeuda(deuda));
-      if(archivada)await sbInsert('deudas',cuerpoDeuda(archivada,true));
+      for(const d of deudas)await sbInsert('deudas',cuerpoDeuda(d));
+      for(const d of archivadas)await sbInsert('deudas',cuerpoDeuda(d,true));
       for(const id of abonos)await sbUpdate('deudas_abonos',id,{tx_id:copia[6]});
     });
   }
@@ -606,8 +812,12 @@ async function guardar__base(){
   const copiaAnterior=anterior?[...anterior]:null;
   if(tipoA==='Reembolso'||anterior?.[3]==='Reembolso')body.transaccion_origen_id=tipoA==='Reembolso'?origenReembolso:null;
   let loteReembolso=null;
+  // En un gasto dividido, la devolución puede decir quién pagó. Lo que pase de
+  // lo que esa persona debía se guarda como ingreso extra.
+  const deudaPago=gastoOrigen&&!idGuardado?deudaElegidaReembolso():null;
+  if(deudaPago)body.deuda_id=deudaPago[0];
   if(gastoOrigen){
-    const pendiente=pendienteReembolso(gastoOrigen,idGuardado);
+    const pendiente=deudaPago?Math.min(pendienteReembolso(gastoOrigen,idGuardado),pendienteDeuda(deudaPago)):pendienteReembolso(gastoOrigen,idGuardado);
     if(Math.round(equivalente*100)>Math.round(pendiente*100)){
       if(idGuardado){toast('La devolución supera el importe pendiente. Registra el dinero adicional como un nuevo ingreso.','error');return;}
       if(CREDIT_CARDS.some(card=>sameAccount(card.cuenta,cu))){toast('Para el excedente, elige la cuenta donde recibiste el dinero. El pago a la tarjeta se registra en Tarjetas.','error');return;}
@@ -685,8 +895,7 @@ export const guardar=guardedOnce(guardar__base);
 // gastoNetoHasta sigue el dinero real y no resta lo que aún no llega.
 export function gastoNeto(t){
   if(t[3]!=='Gasto')return 0;
-  const deuda=deudaDeGasto(t[6]);
-  return netoCentimos(Math.round((Number(t[4])||0)*100),devueltoCentimos(t[6]),deuda?Math.round(Number(deuda[3])*100):0)/100;
+  return netoCentimos(Math.round((Number(t[4])||0)*100),devueltoCentimos(t[6]),cubiertoPorDeudas(t[6]))/100;
 }
 
 export function gastoNetoHasta(t,hasta){
@@ -739,7 +948,7 @@ function llenarGastosReembolso(selected=''){
  candidatos.sort((a,b)=>pf(b[0])-pf(a[0]));
  select.innerHTML=candidatos.length===0
    ? '<option value="">No hay gastos pendientes de reembolso en este período.</option>'
-   : '<option value="">Selecciona el gasto original…</option>'+candidatos.map(t=>{const deuda=deudaDeGasto(t[6]);return `<option value="${escAttr(t[6])}">${escHtml(fmtDateShort(pf(t[0]))+' · '+t[1]+' · '+fmt(t[4])+' · pendiente '+fmt(pendienteReembolso(t,editando))+' · '+t[5]+(deuda?' · por cobrar a '+deuda[1]:''))}</option>`;}).join('');
+   : '<option value="">Selecciona el gasto original…</option>'+candidatos.map(t=>{const deudas=deudasDeGasto(t[6]),varias=new Set(deudas.map(d=>norm(d[1]))).size>1;return `<option value="${escAttr(t[6])}">${escHtml(fmtDateShort(pf(t[0]))+' · '+t[1]+' · '+fmt(t[4])+' · pendiente '+fmt(pendienteReembolso(t,editando))+' · '+t[5]+(deudas.length?' · por cobrar a '+(varias?deudas.length+' personas':deudas[0][1]):''))}</option>`;}).join('');
  select.value=selected; select.disabled=!!selected&&!!editando&&datos.transacciones.some(t=>String(t[6])===String(editando)&&t[3]==='Reembolso');
  seleccionarGastoReembolso();
 }
@@ -748,8 +957,9 @@ export function seleccionarGastoReembolso(cambioOrigen=false){
  if(tipoA!=='Reembolso')return;
  if(cambioOrigen===true)precargarCobroReembolso();
  const original=datos.transacciones.find(t=>String(t[6])===document.getElementById('iGastoOrigen').value);
- const pendiente=original?pendienteReembolso(original,editando):0;
- let mensaje=original?'Pendiente de devolver: '+fmt(pendiente):'Selecciona un gasto para vincular la devolución.';
+ const deudaPago=original&&!editando?deudaElegidaReembolso():null;
+ const pendiente=original?deudaPago?Math.min(pendienteReembolso(original,editando),pendienteDeuda(deudaPago)):pendienteReembolso(original,editando):0;
+ let mensaje=original?(deudaPago?'Te debe '+(deudaPago[1]||'esta persona')+': ':'Pendiente de devolver: ')+fmt(pendiente):'Selecciona un gasto para vincular la devolución.';
  const monto=Number(elv('iMon')),tc=Number(elv('iTc'));
  const equivalente=monedaTx()==='USD'?tc>0?equivalenteSoles(elv('iMon'),elv('iTc')):0:monto;
  if(original&&!editando&&Number.isFinite(equivalente)&&equivalente>pendiente){
@@ -778,7 +988,8 @@ function dividirReembolso(body,pendiente){
  }
  const ingreso={...body,tipo:'Ingreso',categoria:'Otros ingresos',descripcion:'Excedente de '+(body.descripcion||'reembolso'),
    monto:body.moneda_original==='USD'?equivalenteSoles(extraNominal.toFixed(2),String(body.tc)):Math.round((body.monto-devuelto)*100)/100,
-   monto_original:body.moneda_original==='USD'?extraNominal:null,transaccion_origen_id:null,cuenta_destino:null};
+   monto_original:body.moneda_original==='USD'?extraNominal:null,transaccion_origen_id:null,cuenta_destino:null,
+   ...(body.deuda_id!==undefined?{deuda_id:null}:{})};
  const refund={...body,tipo:'Reembolso',monto:devuelto,monto_original:body.moneda_original==='USD'?nominal:null,cuenta_destino:null};
  return devuelto>0?[refund,ingreso]:[ingreso];
 }

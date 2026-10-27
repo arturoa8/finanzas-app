@@ -15,7 +15,7 @@ import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
 import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './transactions.js';
-import {deudaDeGasto, porCobrarDeGasto} from './por-cobrar.js';
+import {deudasDeGasto, porCobrarDeGasto, textoDeudas} from './por-cobrar.js';
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
@@ -118,8 +118,8 @@ function renderFilterPill(){
   if(!c)return;
   const etiquetas=[];
   if(filtroCategoria)etiquetas.push(getEmoji(filtroCategoria).e+' '+cleanName(filtroCategoria));
-  const tipos={gastos:'Gastos',ingresos:'Ingresos',transferencias:'Transferencias'};
-  if(tipos[filtroTipo])etiquetas.push(tipos[filtroTipo]);
+  // Gastos e Ingresos se marcan en su propio ticket, no aquí.
+  if(filtroTipo==='transferencias')etiquetas.push('Transferencias');
   if(filtroCuentaMovimientos)etiquetas.push(filtroCuentaMovimientos);
   if(movimientosUSD)etiquetas.push('En dólares');
   c.innerHTML=etiquetas.length?`<button type="button" class="chip active-cat" style="margin-bottom:14px" onclick="quitarFiltro()" aria-label="Quitar filtros: ${esc(etiquetas.join(', '))}">${escHtml(etiquetas.join(' · '))} <span aria-hidden="true" style="font-weight:700;margin-left:4px">✕</span></button>`:'';
@@ -148,15 +148,17 @@ function actualizarChips(){
   // Las cuentas archivadas siguen presentes en sus movimientos históricos.
   if(filtroCuentaMovimientos&&!datos.transacciones.some(t=>norm(t[5])===norm(filtroCuentaMovimientos)
     ||(t[3]==='Transferencia'&&norm(t[7])===norm(filtroCuentaMovimientos))))filtroCuentaMovimientos=null;
-  // Los KPI de Inicio enlazan al historial sin cambiar el resumen.
+  // El ticket del filtro activo queda sombreado; tocarlo otra vez lo quita.
   const out=document.getElementById('kpiOut'),inn=document.getElementById('kpiIn');
-  out?.classList.remove('active-pill');
-  inn?.classList.remove('active-pill');
+  out?.classList.toggle('active-pill',filtroTipo==='gastos');
+  inn?.classList.toggle('active-pill',filtroTipo==='ingresos');
+  out?.setAttribute('aria-pressed',String(filtroTipo==='gastos'));
+  inn?.setAttribute('aria-pressed',String(filtroTipo==='ingresos'));
 }
 
 // === KPI PILLS COMO FILTROS ===
 export function togglePillTipo(t,desdeResumen=false){
-  if(desdeResumen){
+  if(desdeResumen&&filtroTipo!==t){
     movimientosUSD=verUSD;filtroCategoria=null;busqueda='';filtroCuentaMovimientos=null;
     const buscador=document.getElementById('searchInp');if(buscador)buscador.value='';
     filtroTipo=t;
@@ -360,10 +362,10 @@ function filaTxPrincipal(t){
   // efectivo y cada devolución debajo, en vez de aparecer como filas sueltas.
   // Un gasto por cobrar dice quién te lo debe y cuánto falta.
   const reembolsos=t[3]==='Gasto'?reembolsosDe(t[6]):[];
-  const deuda=t[3]==='Gasto'?deudaDeGasto(t[6]):null,porCobrar=deuda?porCobrarDeGasto(t):0;
+  const deudas=t[3]==='Gasto'?deudasDeGasto(t[6]):[],porCobrar=deudas.length?porCobrarDeGasto(t):0;
   const neto=reembolsos.length>0||porCobrar>0;
   const extra=neto
-    ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(deuda[1]||'Alguien')} te debe ${fmt(porCobrar)}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
+    ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(textoDeudas(deudas,porCobrar))}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
     : '';
   const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(neto?gastoNeto(t):m);
   const row=getTxRow(t);

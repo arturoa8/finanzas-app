@@ -273,3 +273,24 @@ button:disabled{opacity:.45;cursor:wait;}
 #cobrarQuitarBtn{margin-top:12px;}
 .cuenta-row[hidden],#abonoGastoBox[hidden]{display:none;}
 #abonoGastoBox{margin:0 0 14px;}
+
+/* Gasto por cobrar: una persona, entre varias o en cuotas. */
+.cobrar-modo{display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:14px;padding:4px;margin:0 0 14px;}
+.cobrar-modo .seg-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.3);}
+#cobrarUna[hidden],#cobrarCuotas[hidden],#cobrarVarias[hidden],#dCuotasDetalle[hidden],#dCuotasBox[hidden],#abonoExcedente[hidden]{display:none;}
+.cobrar-persona{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.cobrar-persona .sel{min-width:0;flex:1;margin:0;}
+.cobrar-persona .cp-monto{flex:0 0 96px;}
+.cobrar-persona-x{flex:0 0 36px;height:36px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--dim);font-size:.9rem;cursor:pointer;}
+.cobrar-persona-x:disabled{opacity:.35;cursor:not-allowed;}
+.cobrar-acciones{display:flex;gap:8px;margin:2px 0 12px;}
+.cobrar-acciones .btn{flex:1;}
+.cobrar-check{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--dim);margin:0 0 10px;cursor:pointer;}
+.cobrar-check input{width:18px;height:18px;accent-color:var(--green);}
+#dCuotasBox{margin:4px 0 16px;}
+#dCuotasDetalle{margin-top:12px;}
+#dCuotasDetalle .transfer-note,#abonoExcedente{font-size:.75rem;margin:0 0 10px;}
+#abonoExcedente{color:var(--green);margin-top:-4px;}
+#cobrarTotalVarias{margin-bottom:10px;}
+#modal #cobrarPersonas .sel{margin:0;}
+#cobrarCuotasResumen{margin-bottom:10px;}

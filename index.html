@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.10.20.02">
+<meta name="version-app" content="2026.10.27.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -184,8 +184,8 @@ try{
         <div class="currency">S/</div>
       </div>
       <div class="kpi-row" id="kpiRow">
-        <div class="kpi neg" id="kpiOut" onclick="togglePillTipo('gastos',true)">- S/ 0</div>
-        <div class="kpi pos" id="kpiIn" onclick="togglePillTipo('ingresos',true)">+ S/ 0</div>
+        <div class="kpi neg" id="kpiOut" role="button" aria-pressed="false" onclick="togglePillTipo('gastos',true)">- S/ 0</div>
+        <div class="kpi pos" id="kpiIn" role="button" aria-pressed="false" onclick="togglePillTipo('ingresos',true)">+ S/ 0</div>
         <button type="button" class="kpi kpi-usd" id="btnUsd" aria-pressed="false" aria-label="Ver en dólares" onclick="toggleVistaUSD()">US$</button>
       </div>
       <div class="bal-nota" id="balNota" hidden></div>
@@ -563,15 +563,37 @@ try{
           <span class="cobrar-track" aria-hidden="true"></span>
         </label>
         <div id="cobrarDetalle" hidden>
-          <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarPersona">Quién</label><input id="iCobrarPersona" class="sel" type="text" list="personasDeuda" placeholder="Ej. Mamá" autocomplete="off" enterkeyhint="next"></div>
-          <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarMonto">Cuánto</label><input id="iCobrarMonto" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Todo el gasto"></div>
+          <div class="cobrar-modo" role="group" aria-label="Cómo te lo devuelven">
+            <button type="button" class="seg-btn active" id="cobrarModoUna" aria-pressed="true" onclick="setModoCobro('una')">Una persona</button>
+            <button type="button" class="seg-btn" id="cobrarModoVarias" aria-pressed="false" onclick="setModoCobro('varias')">Entre varias</button>
+            <button type="button" class="seg-btn" id="cobrarModoCuotas" aria-pressed="false" onclick="setModoCobro('cuotas')">En cuotas</button>
+          </div>
+          <div id="cobrarUna">
+            <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarPersona">Quién</label><input id="iCobrarPersona" class="sel" type="text" list="personasDeuda" placeholder="Ej. Mamá" autocomplete="off" enterkeyhint="next"></div>
+            <div class="cuenta-row"><label class="cuenta-lbl" for="iCobrarMonto">Cuánto</label><input id="iCobrarMonto" class="sel" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Todo el gasto" oninput="resumirCuotasCobro()"></div>
+          </div>
+          <div id="cobrarCuotas" hidden>
+            <div class="cuenta-row"><label class="cuenta-lbl" for="iCuotasN">Cuotas</label><input id="iCuotasN" class="sel" type="number" step="1" min="2" max="60" inputmode="numeric" value="2" oninput="resumirCuotasCobro()"></div>
+            <div class="cuenta-row"><label class="cuenta-lbl" for="iCuotasFecha">Primera vence</label><input id="iCuotasFecha" class="sel" type="date" onchange="resumirCuotasCobro()"></div>
+            <p class="transfer-note" id="cobrarCuotasResumen"></p>
+          </div>
+          <div id="cobrarVarias" hidden>
+            <div id="cobrarPersonas"></div>
+            <div class="cobrar-acciones">
+              <button type="button" class="btn btn-s" onclick="agregarPersonaCobro()">+ Persona</button>
+              <button type="button" class="btn btn-s" onclick="repartirCobroIgual()">Partes iguales</button>
+            </div>
+            <label class="cobrar-check" for="iCobrarYo"><input type="checkbox" id="iCobrarYo" checked onchange="repartirCobroIgual()"> Yo también pago mi parte</label>
+            <p class="transfer-note" id="cobrarTotalVarias"></p>
+          </div>
           <datalist id="personasDeuda"></datalist>
-          <p class="transfer-note">No entra dinero ahora. Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero.</p>
+          <p class="transfer-note">No entra dinero ahora. Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero. Si te paga de más, lo que sobra queda como ingreso extra.</p>
         </div>
         <p class="transfer-note" id="cobrarNotaReembolso" hidden></p>
         <button type="button" class="btn btn-s" id="cobrarQuitarBtn" onclick="quitarCobroPendiente()" hidden>Quitar esta deuda</button>
       </div>
       <div id="refundDevolucion">
+      <div class="cuenta-row" id="reembolsoDeudaRow" hidden><label class="cuenta-lbl" for="iReembolsoDeuda">Quién te pagó</label><select class="sel" id="iReembolsoDeuda" onchange="seleccionarGastoReembolso()"></select></div>
       <p class="transfer-note" id="refundAvailable"></p>
       <p class="transfer-note">La cuenta que elijas abajo es donde realmente llegó el dinero. Si te pagaron por Yape, selecciona Yape. Si el comercio devolvió el dinero a la tarjeta, selecciona la misma tarjeta.</p>
       <p class="transfer-note">El reembolso reduce el gasto original. Si recibes más de lo pendiente, el excedente se guarda como ingreso adicional en esa cuenta. La deuda de la tarjeta baja cuando registres el pago o la devolución llegue directamente a la tarjeta.</p>
@@ -862,10 +884,21 @@ try{
     </div>
     <input type="text" class="big-input" id="dPersona" placeholder="Persona o entidad (ej: Banco BCP)">
     <input type="text" class="big-input" id="dDesc" placeholder="Descripción (ej: Préstamo personal)">
-    <input type="number" class="big-input muto" id="dMonto" placeholder="Monto total" step="0.01" inputmode="decimal">
+    <input type="number" class="big-input muto" id="dMonto" placeholder="Monto total" step="0.01" inputmode="decimal" oninput="resumirCuotasDeuda()">
     <div class="pill-row" style="margin:14px 0 6px;">
-      <label class="mpill"><span>Desde</span><input type="date" id="dFechaInicio"></label>
-      <label class="mpill"><span>Vence</span><input type="date" id="dFechaVenc"></label>
+      <label class="mpill"><span>Desde</span><input type="date" id="dFechaInicio" onchange="resumirCuotasDeuda()"></label>
+      <label class="mpill"><span>Vence</span><input type="date" id="dFechaVenc" onchange="resumirCuotasDeuda()"></label>
+    </div>
+    <div id="dCuotasBox" class="cobrar-fields">
+      <label class="cobrar-switch" for="dCuotas">
+        <span class="cobrar-texto"><strong>En cuotas</strong><span>Se crea una deuda por cuota, una cada mes desde la fecha de Vence</span></span>
+        <input type="checkbox" id="dCuotas" role="switch" onchange="toggleCuotasDeuda()">
+        <span class="cobrar-track" aria-hidden="true"></span>
+      </label>
+      <div id="dCuotasDetalle" hidden>
+        <div class="cuenta-row"><label class="cuenta-lbl" for="dCuotasN">Cuotas</label><input id="dCuotasN" class="sel" type="number" step="1" min="2" max="60" inputmode="numeric" value="2" oninput="resumirCuotasDeuda()"></div>
+        <p class="transfer-note" id="dCuotasResumen"></p>
+      </div>
     </div>
     <div class="brow" id="deudaModalBtns">
       <button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button>
@@ -885,7 +918,8 @@ try{
     <div class="pill-row">
       <label class="mpill"><span>📅</span><input type="date" id="abonoFecha"></label>
     </div>
-    <input type="number" class="big-input muto" id="abonoMonto" placeholder="Monto a abonar" step="0.01" inputmode="decimal">
+    <input type="number" class="big-input muto" id="abonoMonto" placeholder="Monto a abonar" step="0.01" inputmode="decimal" oninput="avisarExcedenteAbono()">
+    <p class="transfer-note" id="abonoExcedente" hidden></p>
     <div id="abonoGastoBox" class="cobrar-fields" hidden>
       <label class="cobrar-switch" for="abonoGasto">
         <span class="cobrar-texto"><strong>Anotar este pago como gasto</strong><span>Actívalo si todavía no lo registraste en Movimientos</span></span>
