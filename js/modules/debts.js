@@ -31,11 +31,44 @@ function avisarErrorAbono(e){
   if(e.pending){const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=mensaje;}}
 }
 
+// Texto del estado de una deuda según su vencimiento: "Venció hace 3 días",
+// "Vence hoy", "Vence en 5 días". `dias` cuenta desde el comienzo de hoy.
+function estadoVencimiento(dias){
+  const dd=n=>n+' día'+(n===1?'':'s');
+  if(dias<0)return {tono:'vencida',texto:'Venció hace '+dd(-dias)};
+  if(dias===0)return {tono:'pronto',texto:'Vence hoy'};
+  if(dias===1)return {tono:'pronto',texto:'Vence mañana'};
+  return {tono:dias<=7?'pronto':'',texto:'Vence en '+dd(dias)};
+}
+
+const fechaCorta=iso=>fmtDateShort(pf(iso)).replace(/\.$/,'');
+
+// Resumen de la pestaña: cuánto es en total y qué pide atención. Explica en una
+// frase qué significa la pestaña, para quien no la recuerda.
+function resumenDeudas(esMeDeben,filas){
+  const total=filas.reduce((s,f)=>s+f.pendiente,0);
+  const vencidas=filas.filter(f=>f.vencida).length;
+  const pronto=filas.filter(f=>f.warnVenc).length;
+  const avisos=[];
+  if(vencidas)avisos.push(`<span class="dresumen-aviso vencida">${vencidas} vencida${vencidas===1?'':'s'}</span>`);
+  if(pronto)avisos.push(`<span class="dresumen-aviso pronto">${pronto} por vencer</span>`);
+  return `<div class="dresumen ${esMeDeben?'in':'out'}">
+    <div class="dresumen-lbl">${esMeDeben?'Te deben en total':'Debes en total'}</div>
+    <div class="dresumen-amt">${fmtD(total)}</div>
+    <div class="dresumen-meta"><span>${filas.length} deuda${filas.length===1?'':'s'}</span>${avisos.join('')}</div>
+    <p class="dresumen-ayuda">${esMeDeben?'Dinero que prestaste o pagaste por otros y todavía no te devuelven.':'Dinero que tú le debes a otras personas.'}</p>
+  </div>`;
+}
+
 export function renderDeb(){
   const l=document.getElementById('debs');
   if(dT==='archivadas'){renderDebArchivadas(l);return;}
+  const esMeDeben=dT==='me-deben';
   const activas=(datos.deudas||[]).filter(d=>(d[7]||'').toString().toLowerCase()===dT);
-  if(activas.length===0){l.innerHTML='<div class="empty">Nada por aquí</div>';return;}
+  if(activas.length===0){
+    l.innerHTML=`<div class="empty empty-deudas"><strong>${esMeDeben?'Nadie te debe nada':'No le debes nada a nadie'}</strong><span>${esMeDeben?'Cuando prestes dinero o pagues algo por otra persona, anótalo aquí para no olvidarte de cobrarlo.':'Si alguien te presta dinero o paga algo por ti, anótalo aquí para saber cuánto devolver.'}</span><button type="button" class="btn btn-p" onclick="abrirModalDeuda()">Registrar una deuda</button></div>`;
+    return;
+  }
   activas.sort((a,b)=>{
     const fa=a[6]?pf(toDateInput(a[6])):null;
     const fb=b[6]?pf(toDateInput(b[6])):null;
@@ -53,59 +86,63 @@ export function renderDeb(){
     const ib=b[5]?pf(toDateInput(b[5])):null;
     if(!ia&&!ib)return 0;if(!ia)return 1;if(!ib)return -1;return ia-ib;
   });
-  const esMeDeben=dT==='me-deben';
-  const hoy=new Date();
-  l.innerHTML=activas.map(d=>{
+  const ahora=new Date();
+  const hoy=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());
+  const filas=activas.map(d=>{
     const id=String(d[0]);
     const monto=parseFloat(d[3])||0;
+    const abonado=d[8]?cobradoDeuda(d):(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
+    const pendiente=Math.max(0,monto-abonado);
+    const fvVal=toDateInput(d[6]);
+    const fvDate=fvVal?pf(fvVal):null;
+    const dias=fvDate?Math.round((fvDate-hoy)/86400000):null;
+    return {d,id,monto,abonado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
+      vencida:dias!==null&&dias<0&&pendiente>0,warnVenc:dias!==null&&dias>=0&&dias<=7&&pendiente>0};
+  });
+  l.innerHTML=resumenDeudas(esMeDeben,filas)+filas.map(({d,id,monto,abonado,pendiente,fiVal,fvVal,dias,vencida,warnVenc})=>{
     // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
     const gasto=d[8]?gastoDeDeuda(d):null;
     // Gasto dividido entre varias personas: cuántas son (las cuotas ya lo dicen
     // en la descripción).
     const companeras=gasto?deudasDeGasto(d[8]):[];
     const entre=new Set(companeras.map(x=>norm(x[1]))).size>1?' · entre '+companeras.length:'';
-    const abonado=d[8]?cobradoDeuda(d):(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
-    const pendiente=Math.max(0,monto-abonado);
     const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
-    const fiVal=toDateInput(d[5]);const fvVal=toDateInput(d[6]);
-    const fvDate=fvVal?pf(fvVal):null;
-    const vencida=fvDate&&fvDate<hoy&&pendiente>0;
-    const cls=esMeDeben?'in':'out';const signo=esMeDeben?'+':'−';
-    const diasVenc=fvDate?Math.ceil((fvDate-hoy)/(1000*60*60*24)):null;
-    const warnVenc=fvDate&&diasVenc<=7&&diasVenc>=0&&pendiente>0;
+    const cls=esMeDeben?'in':'out';
+    const estado=dias!==null&&pendiente>0?estadoVencimiento(dias):null;
+    const lblFalta=esMeDeben?'Falta cobrar':'Falta pagar';
+    const frase=esMeDeben?(d[8]?'Ya te devolvieron ':'Ya te pagaron '):'Ya pagaste ';
     return `<div class="dcard${vencida?' vencida':''}">
       <div class="dcard-top">
         <div class="dcard-info">
           <div class="dcard-person">${escHtml(d[1]||'?')}</div>
           <div class="dcard-desc">${escHtml(d[2]||'')}</div>
           ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}${entre}</div>`:''}
-          ${vencida?'<div class="dcard-venc-warn">⚠ Vencida</div>':''}
-          ${warnVenc?`<div class="dcard-venc-warn" style="color:var(--yellow)">⚡ Vence en ${diasVenc} día${diasVenc!==1?'s':''}</div>`:''}
         </div>
         <div class="dcard-right">
-          <div class="dcard-amt ${cls}">${signo}${fmtD(pendiente)}</div>
-          ${abonado>0?`<div class="dcard-subamt">de ${fmtD(monto)}</div>`:''}
+          <div class="dcard-amt-lbl">${lblFalta}</div>
+          <div class="dcard-amt ${cls}">${fmtD(pendiente)}</div>
         </div>
       </div>
       ${abonado>0?`<div class="dcard-prog">
         <div class="dcard-progbar"><div class="dcard-progfill ${cls}" style="width:${pct}%"></div></div>
-        <div class="dcard-progmeta"><span>${d[8]?'Cobrado':'Abonado'} ${fmtD(abonado)}</span><span>${pct}%</span></div>
+        <div class="dcard-progmeta"><span>${frase}${fmtD(abonado)} de ${fmtD(monto)}</span><span>${pct}%</span></div>
       </div>`:''}
-      <div class="dcard-dates">
-        <div class="dcard-date">
-          <div class="dcard-date-lbl">DESDE</div>
-          <input type="date" value="${fiVal}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
-        </div>
-        <div class="dcard-date">
-          <div class="dcard-date-lbl">VENCE</div>
-          <input type="date" value="${fvVal}" onchange="editarFechaDeuda('${id}','venc',this.value)">
-        </div>
+      <div class="dcard-fechas">
+        <label class="dcard-fecha${estado?' '+estado.tono:''}">
+          <span class="dcard-fecha-txt"><b>${estado?(estado.tono==='vencida'?'⚠ ':'')+estado.texto:(fvVal?'Vence':'Sin fecha límite')}</b>${fvVal?' · '+fechaCorta(fvVal):''}</span>
+          ${fvVal?'':'<span class="dcard-fecha-add">Poner fecha</span>'}
+          <input type="date" value="${fvVal}" aria-label="Fecha límite" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','venc',this.value)">
+        </label>
+        <label class="dcard-fecha dcard-fecha-inicio">
+          <span class="dcard-fecha-txt">Desde ${fiVal?fechaCorta(fiVal):'—'}</span>
+          <input type="date" value="${fiVal}" aria-label="Fecha de inicio" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
+        </label>
       </div>
       <div class="dcard-actions">
-        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${d[8]?'Cobrar':'Abonar'}</button>
-        <button class="dcard-btn" onclick="abrirHistorialAbonos('${id}')">Historial</button>
-        <button class="dcard-btn" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">✎ Editar</button>
-        <button class="dcard-btn danger" onclick="abrirModalArchivar('${id}')">Archivar</button>
+        <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${esMeDeben?'Cobrar':'Registrar pago'}</button>
+        <button class="dcard-link" onclick="abrirHistorialAbonos('${id}')">Historial</button>
+        <button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
+        <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>
       </div>
     </div>`;
   }).join('');

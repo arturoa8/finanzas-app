@@ -41,3 +41,32 @@
 
 /* Deuda que nace de un gasto tuyo: con qué lo pagaste y cuándo. */
 .dcard-origen{font-size:0.7rem;color:var(--dim);margin-top:4px;}
+
+/* ── Deudas más claras: resumen arriba, estado en palabras, un botón principal ── */
+.dresumen{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px 18px;margin-bottom:14px;}
+.dresumen-lbl{font-size:0.72rem;font-weight:600;color:var(--muted);}
+.dresumen-amt{font-size:1.9rem;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px;}
+.dresumen.in .dresumen-amt{color:var(--green);}.dresumen.out .dresumen-amt{color:var(--red);}
+.dresumen-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:0.72rem;color:var(--dim);}
+.dresumen-aviso{font-weight:700;padding:2px 8px;border-radius:20px;}
+.dresumen-aviso.vencida{background:#ff3b6b1a;color:var(--red);}
+.dresumen-aviso.pronto{background:#ffb84d1f;color:var(--yellow);}
+.dresumen-ayuda{margin:10px 0 0;font-size:0.72rem;line-height:1.5;color:var(--muted);}
+
+.dcard-amt-lbl{font-size:0.62rem;font-weight:600;color:var(--muted);margin-bottom:1px;}
+.dcard-fechas{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;margin:12px 0 4px;}
+.dcard-fecha{position:relative;display:inline-flex;align-items:center;gap:8px;font-size:0.74rem;color:var(--dim);padding:6px 10px;margin:-6px -10px;border-radius:10px;cursor:pointer;}
+.dcard-fecha b{font-weight:700;color:var(--text);}
+.dcard-fecha.vencida b{color:var(--red);}
+.dcard-fecha.pronto b{color:var(--yellow);}
+.dcard-fecha-inicio{color:var(--muted);font-size:0.68rem;}
+.dcard-fecha-add{font-size:0.68rem;font-weight:700;color:var(--blue);}
+.dcard-fecha input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;background:none;}
+.dcard-actions{align-items:center;}
+.dcard-actions .dcard-btn.primary{flex:0 0 auto;padding:10px 22px;font-size:0.8rem;}
+.dcard-link{flex:1;padding:10px 4px;border:0;background:none;color:var(--dim);font-size:0.72rem;font-weight:600;font-family:inherit;cursor:pointer;border-radius:10px;}
+.dcard-link:active{background:var(--bg);}
+.empty-deudas{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.empty-deudas strong{font-size:0.95rem;color:var(--text);}
+.empty-deudas span{max-width:28ch;line-height:1.5;}
+.empty-deudas .btn{margin-top:10px;width:auto;padding:12px 22px;}
