@@ -296,11 +296,13 @@ function filaGrupo(i,m,v){
 // el detalle se abre en una hoja grande.
 function tarjetaGrupo(i){
   const v=verbos(i.esMeDeben);
-  return `<div class="dcard dgrupo${i.vencidas.length?' vencida':''}">
+  // Toda la tarjeta se toca para abrir el detalle; el botón de cobrar de una
+  // cuota no debe abrirlo, por eso frena el toque.
+  return `<div class="dcard dgrupo${i.vencidas.length?' vencida':''}" role="button" tabindex="0" aria-label="${escAttr('Ver detalle de '+i.titulo)}" data-k="${escAttr(i.clave)}" onclick="abrirDetalleGrupo(this.dataset.k)" onkeydown="if(event.target===this&amp;&amp;(event.key==='Enter'||event.key===' ')){event.preventDefault();abrirDetalleGrupo(this.dataset.k)}">
     ${cabeceraGrupo({...i,conTitulo:true},v)}
     <div class="dcard-actions">
-      ${i.clase==='cuotas'&&i.siguiente?`<button class="dcard-btn primary" onclick="abrirModalAbono('${i.siguiente.id}')">${i.esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(i.siguiente).toLowerCase())}</button>`:''}
-      <button class="dcard-link dgrupo-toggle" data-k="${escAttr(i.clave)}" onclick="abrirDetalleGrupo(this.dataset.k)">${i.verDetalle} <span class="dgrupo-flecha" aria-hidden="true">›</span></button>
+      ${i.clase==='cuotas'&&i.siguiente?`<button class="dcard-btn primary" onclick="event.stopPropagation();abrirModalAbono('${i.siguiente.id}')">${i.esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(i.siguiente).toLowerCase())}</button>`:''}
+      <span class="dcard-link dgrupo-toggle">${i.verDetalle} <span class="dgrupo-flecha" aria-hidden="true">›</span></span>
     </div>
   </div>`;
 }

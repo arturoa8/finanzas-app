@@ -101,3 +101,8 @@
 .drow-opciones .dcard-link{padding:8px 4px;}
 
 #grupoDeudaContent .dcard-person{font-size:1.1rem;font-weight:800;letter-spacing:-.02em;white-space:normal;}
+
+/* La tarjeta agrupada entera se toca para abrir el detalle, como las de Tarjetas. */
+.dgrupo{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,background .22s ease;}
+.dgrupo:active{transform:scale(.985);}
+.dgrupo-toggle{display:flex;align-items:center;justify-content:flex-end;gap:2px;cursor:pointer;}
