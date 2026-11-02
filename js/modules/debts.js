@@ -130,9 +130,9 @@ function pintarDeb(){
     else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
   }
   l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+items.map(it=>{
-    if(it.tipo==='sola')return tarjetaDeuda(it.f,esMeDeben);
+    if(it.tipo==='sola'){gruposVigentes.set('s'+it.f.id,{miembros:[it.f],esMeDeben,sola:true});return itemDeudaSola(it.f,esMeDeben);}
     gruposVigentes.set(it.k,{miembros:it.miembros,esMeDeben});
-    return tarjetaGrupo(infoGrupo(it.k,it.miembros,esMeDeben));
+    return itemDeudaGrupo(infoGrupo(it.k,it.miembros,esMeDeben));
   }).join('');
 }
 
@@ -167,8 +167,8 @@ function repintarDetalleGrupo(){
   if(!grupoDetalle)return;
   const g=gruposVigentes.get(grupoDetalle);
   if(!g){cerrarDetalleGrupo();return;}
-  const info=infoGrupo(grupoDetalle,g.miembros,g.esMeDeben);
-  document.getElementById('grupoDeudaContent').innerHTML=detalleGrupo(info);
+  document.getElementById('grupoDeudaTitle').textContent=g.sola?'Detalle de la deuda':'Detalle de deudas';
+  document.getElementById('grupoDeudaContent').innerHTML=g.sola?detalleDeudaSola(g.miembros[0],g.esMeDeben):detalleGrupo(infoGrupo(grupoDetalle,g.miembros,g.esMeDeben));
 }
 
 const verbos=esMeDeben=>esMeDeben
@@ -185,13 +185,15 @@ function campoFechaVence({id,fvVal,dias,pendiente}){
   </label>`;
 }
 
-function tarjetaDeuda(f,esMeDeben){
+// Una deuda suelta, completa: es el contenido de su hoja de detalle. En la lista
+// solo va la fila compacta (itemDeuda).
+function detalleDeudaSola(f,esMeDeben){
   const {d,id,monto,abonado,pendiente,fiVal,fvVal,dias,vencida}=f;
   const v=verbos(esMeDeben);
   // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
   const gasto=d[8]?gastoDeDeuda(d):null;
   const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
-  return `<div class="dcard${vencida?' vencida':''}">
+  return `<div class="dsola">
     <div class="dcard-top">
       <div class="dcard-info">
         <div class="dcard-person">${escHtml(d[1]||'?')}</div>
@@ -219,6 +221,43 @@ function tarjetaDeuda(f,esMeDeben){
       ${enlacesDeuda(id,gasto)}
     </div>
   </div>`;
+}
+
+// Fila compacta de la lista: quién, qué y cuánto, y una línea de estado. Se toca
+// para abrir la hoja de detalle con los botones (Cobrar, Historial, Editar…).
+function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida}){
+  return `<div class="ditem${vencida?' vencida':''}" role="button" tabindex="0" aria-label="${escAttr('Ver detalle de '+titulo)}" data-k="${escAttr(clave)}" onclick="abrirDetalleGrupo(this.dataset.k)" onkeydown="if(event.target===this&amp;&amp;(event.key==='Enter'||event.key===' ')){event.preventDefault();abrirDetalleGrupo(this.dataset.k)}">
+    <div class="ditem-main">
+      <div class="ditem-title">${escHtml(titulo)}${etiqueta?`<span class="dgrupo-tag">${escHtml(etiqueta)}</span>`:''}</div>
+      ${sub?`<div class="ditem-sub">${escHtml(sub)}</div>`:''}
+      ${estado?`<div class="ditem-estado ${tono||''}">${escHtml(estado)}</div>`:''}
+    </div>
+    <div class="ditem-right"><span class="ditem-amt ${cls}">${fmtD(monto)}</span><span class="ditem-flecha" aria-hidden="true">›</span></div>
+    ${pct>0?`<div class="ditem-barra"><span class="${cls}" style="width:${pct}%"></span></div>`:''}
+  </div>`;
+}
+
+// Línea de estado de una deuda suelta: "Venció hace 3 días · 3 oct".
+function estadoDeuda(f){
+  if(f.pendiente<0.005)return {texto:'Pagada',tono:'ok'};
+  if(f.dias===null)return {texto:'',tono:''};
+  const e=estadoVencimiento(f.dias);
+  return {texto:(e.tono==='vencida'?'⚠ ':'')+e.texto+' · '+fechaCorta(f.fvVal),tono:e.tono};
+}
+function itemDeudaSola(f,esMeDeben){
+  const {d}=f,v=verbos(esMeDeben),e=estadoDeuda(f);
+  return itemDeuda({clave:'s'+f.id,titulo:d[1]||'?',sub:d[2]||'',estado:e.texto,tono:e.tono,monto:f.pendiente,cls:v.cls,
+    pct:f.monto>0?Math.min(100,Math.round(f.abonado/f.monto*100)):0,vencida:f.vencida});
+}
+function itemDeudaGrupo(i){
+  const v=verbos(i.esMeDeben);
+  let texto='',tono='';
+  if(i.vencidas.length){texto='⚠ '+i.vencidas.length+' vencida'+(i.vencidas.length===1?'':'s');tono='vencida';}
+  else if(i.siguiente&&i.siguiente.dias!==null){
+    const e=estadoVencimiento(i.siguiente.dias);
+    texto=(i.clase==='cuotas'?'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1):e.texto)+' · '+fechaCorta(i.siguiente.fvVal);tono=e.tono;
+  }
+  return itemDeuda({clave:i.clave,titulo:i.titulo,etiqueta:i.etiqueta,sub:i.subtitulo,estado:texto,tono,monto:i.pendiente,cls:v.cls,pct:i.pct,vencida:i.vencidas.length>0});
 }
 
 const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="abrirHistorialAbonos('${id}')">Historial</button>
@@ -297,21 +336,6 @@ function filaGrupo(i,m,v){
     </div>`;
 }
 
-// Varias deudas de lo mismo en una sola tarjeta: total, avance y próxima fecha;
-// el detalle se abre en una hoja grande.
-function tarjetaGrupo(i){
-  const v=verbos(i.esMeDeben);
-  // Toda la tarjeta se toca para abrir el detalle; el botón de cobrar de una
-  // cuota no debe abrirlo, por eso frena el toque.
-  return `<div class="dcard dgrupo${i.vencidas.length?' vencida':''}" role="button" tabindex="0" aria-label="${escAttr('Ver detalle de '+i.titulo)}" data-k="${escAttr(i.clave)}" onclick="abrirDetalleGrupo(this.dataset.k)" onkeydown="if(event.target===this&amp;&amp;(event.key==='Enter'||event.key===' ')){event.preventDefault();abrirDetalleGrupo(this.dataset.k)}">
-    ${cabeceraGrupo({...i,conTitulo:true},v)}
-    <div class="dcard-actions">
-      ${i.clase==='cuotas'&&i.siguiente?`<button class="dcard-btn primary" onclick="event.stopPropagation();abrirModalAbono('${i.siguiente.id}')">${i.esMeDeben?'Cobrar':'Pagar'} ${escHtml(numCuota(i.siguiente).toLowerCase())}</button>`:''}
-      <span class="dcard-link dgrupo-toggle">${i.verDetalle} <span class="dgrupo-flecha" aria-hidden="true">›</span></span>
-    </div>
-  </div>`;
-}
-
 // Contenido de la hoja grande: el mismo resumen y todas las filas.
 function detalleGrupo(i){
   const v=verbos(i.esMeDeben);
@@ -355,7 +379,7 @@ function renderDebArchivadas(l){
   }).join('');
 }
 
-export function setDT(t,b){dT=t;document.querySelectorAll('.dt').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
+export function setDT(t,b){dT=t;document.querySelectorAll('.dtabs .detail-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
 
 // ── Modal deuda ──────────────────────────────────────────────────────────────
 export function abrirModalDeuda(){

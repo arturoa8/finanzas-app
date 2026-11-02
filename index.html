@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.11.02.01">
+<meta name="version-app" content="2026.11.02.02">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -463,12 +463,12 @@ try{
   <div class="container">
     <header class="header">
       <div class="page-title">Deudas</div>
-      <button class="icon-btn" onclick="abrirModalDeuda()" aria-label="Nueva deuda" style="color:var(--green);border-color:var(--green);font-size:1.2rem;font-weight:700;">+</button>
+      <button class="line-edit-btn" onclick="abrirModalDeuda()" aria-label="Nueva deuda">＋ Nueva deuda</button>
     </header>
-    <div class="dtabs">
-      <button class="dt active" id="dtMeDeben" onclick="setDT('me-deben',this)">Me Deben</button>
-      <button class="dt" id="dtLesDebo" onclick="setDT('les-debo',this)">Les Debo</button>
-      <button class="dt" id="dtArchivadas" onclick="setDT('archivadas',this)">Archivadas</button>
+    <div class="detail-tabs page-tabs dtabs">
+      <button class="detail-tab active" id="dtMeDeben" onclick="setDT('me-deben',this)">Me deben</button>
+      <button class="detail-tab" id="dtLesDebo" onclick="setDT('les-debo',this)">Les debo</button>
+      <button class="detail-tab" id="dtArchivadas" onclick="setDT('archivadas',this)">Archivadas</button>
     </div>
     <div id="debs"></div>
   </div>

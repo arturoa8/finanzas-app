@@ -32,8 +32,9 @@ let filtroTipo='todos';
 let busqueda='';
 let filtroCuentaMovimientos=null;
 
-// El detalle comparte el período de Inicio. Sus filtros se aplican solo a
-// categorías e historial, y conservan el balance y los KPI del resumen.
+// El detalle comparte el período de Inicio. Sus filtros (tipo, búsqueda, cuenta,
+// dólares) se aplican solo a categorías e historial y conservan el balance y los
+// KPI del resumen. La categoría elegida sí los cambia: ver movimientosDelResumen().
 let movimientosUSD=false;
 
 export function toggleMovimientosUSD(){movimientosUSD=!movimientosUSD;render();}
@@ -83,6 +84,13 @@ export function filtrarInicio(){
   return tx;
 }
 
+// Movimientos del período que alimentan los KPI y el balance de Período. Al
+// elegir una categoría muestran solo lo de esa categoría.
+function movimientosDelResumen(){
+  const tx=filtrarInicio();
+  return filtroCategoria?tx.filter(t=>norm(t[2])===norm(filtroCategoria)):tx;
+}
+
 export function filtrar(){
   let tx=movimientosDelPeriodo();
   if(filtroCategoria){tx=tx.filter(t=>norm(t[2])===norm(filtroCategoria));}
@@ -117,7 +125,7 @@ function renderFilterPill(){
   const c=document.getElementById('filterPill');
   if(!c)return;
   const etiquetas=[];
-  if(filtroCategoria)etiquetas.push(getEmoji(filtroCategoria).e+' '+cleanName(filtroCategoria));
+  // La categoría elegida ya se ve resaltada en su tarjeta: no lleva chip.
   // Gastos e Ingresos se marcan en su propio ticket, no aquí.
   if(filtroTipo==='transferencias')etiquetas.push('Transferencias');
   if(filtroCuentaMovimientos)etiquetas.push(filtroCuentaMovimientos);
@@ -186,7 +194,7 @@ function toggleNeta(){setModoBalance(modoBalance==='neto'?'periodo':'neto');}
 // se movió sin sumarlo a nada. Los filtros del historial no intervienen.
 function seleccionSoloTransferencias(){
   if(modoBalance!=='periodo')return false;
-  const rows=filtrarInicio();
+  const rows=movimientosDelResumen();
   return rows.length>0&&rows.every(t=>t[3]==='Transferencia');
 }
 
@@ -198,9 +206,9 @@ export function renderBal(){
   } else if(acumuladoMode){
     txBalance = datos.transacciones.filter(t=>{ try{return pf(t[0])<=hoy;}catch(e){return true;} });
   } else {
-    txBalance = filtrarInicio();
+    txBalance = movimientosDelResumen();
   }
-  const txPeriodo = filtrarInicio();
+  const txPeriodo = movimientosDelResumen();
   const pagosDesdeUSD=acumuladoMode?(datos.pagosTarjetas||[]).filter(p=>
     pagoEsUSD(p)&&esCuentaUSDNoInversion(p[6]||'')&&pf(p[4])<=hoy):[];
   const ajustesDePagosUSD=new Set(pagosDesdeUSD.map(p=>String(p[11]||'')).filter(Boolean));

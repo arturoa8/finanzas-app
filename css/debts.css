@@ -43,9 +43,9 @@
 .dcard-origen{font-size:0.7rem;color:var(--dim);margin-top:4px;}
 
 /* ── Deudas más claras: resumen arriba, estado en palabras, un botón principal ── */
-.dresumen{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:16px 18px;margin-bottom:14px;}
-.dresumen-lbl{font-size:0.72rem;font-weight:600;color:var(--muted);}
-.dresumen-amt{font-size:1.9rem;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px;}
+.dresumen{background:linear-gradient(180deg,rgba(24,24,27,.95),rgba(17,17,19,.95));border:1px solid var(--border);border-radius:18px;padding:14px;margin:4px 0 14px;box-shadow:0 10px 34px rgba(0,0,0,.18);}
+.dresumen-lbl{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.dresumen-amt{font-size:1.9rem;font-weight:900;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px;}
 .dresumen.in .dresumen-amt{color:var(--green);}.dresumen.out .dresumen-amt{color:var(--red);}
 .dresumen-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:0.72rem;color:var(--dim);}
 .dresumen-aviso{font-weight:700;padding:2px 8px;border-radius:20px;}
@@ -106,3 +106,24 @@
 .dgrupo{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,background .22s ease;}
 .dgrupo:active{transform:scale(.985);}
 .dgrupo-toggle{display:flex;align-items:center;justify-content:flex-end;gap:2px;cursor:pointer;}
+
+/* ── Lista compacta: una fila por deuda o grupo; el detalle va en la hoja ── */
+.ditem{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:13px 14px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,background .22s ease;}
+.ditem:active{transform:scale(.985);}
+.ditem.vencida{border-color:#ff3b6b44;}
+.ditem-main{min-width:0;}
+.ditem-title{font-size:.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ditem-sub{font-size:.7rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ditem-estado{font-size:.72rem;font-weight:700;color:var(--dim);margin-top:5px;}
+.ditem-estado.vencida{color:var(--red);}.ditem-estado.pronto{color:var(--yellow);}.ditem-estado.ok{color:var(--green);}
+.ditem-right{display:flex;align-items:center;gap:6px;}
+.ditem-amt{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}
+.ditem-amt.in{color:var(--green);}.ditem-amt.out{color:var(--red);}
+.ditem-flecha{color:var(--muted);font-size:1.15rem;line-height:1;}
+.ditem-barra{grid-column:1 / -1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:9px;}
+.ditem-barra span{display:block;height:100%;border-radius:2px;}
+.ditem-barra .in{background:var(--green);}.ditem-barra .out{background:var(--red);}
+.private .ditem-amt{filter:blur(8px)}
+/* La hoja de una deuda suelta usa el mismo encabezado grande que la de un grupo. */
+#grupoDeudaContent .dsola .dcard-person{font-size:1.1rem;font-weight:800;letter-spacing:-.02em;white-space:normal;}
+#grupoDeudaContent .dsola .dcard-fechas{margin-bottom:0;}
