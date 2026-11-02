@@ -4,7 +4,7 @@
 import {cuentasApp} from './accounts.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {render} from './dashboard.js';
-import {archivarFila, cobradoDeuda, cobrosDeGasto, deudasDeGasto, desarchivarFila, devueltoCentimos, filaDeuda, gastoDeDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
+import {archivarFila, cobradoDeuda, cobrosDeGasto, deudasDeGasto, desarchivarFila, devueltoCentimos, entregaDeIngresoCentimos, filaDeuda, gastoDeDeuda, ingresoIdDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
 import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
 import {sbDelete, sbInsert, sbUpdate} from '../services/supabase.js';
 import {abonoPendiente, ejecutarAbono} from '../services/debt-operations.js';
@@ -20,6 +20,9 @@ import {escAttr, escHtml, fmtC, fmtD, norm} from '../utils/formatters.js';
 export let dT='me-deben';
 
 let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='me-deben';
+// El pago que se registra es de una deuda que sale de un ingreso: siempre mueve
+// una cuenta y nunca cuenta como gasto tuyo.
+let abonoEntrega=false;
 
 let editandoAbonoId=null,historialDeudaId=null;
 let solicitudAbonoId=null,solicitudAbonoTxId=null;
@@ -192,6 +195,7 @@ function detalleDeudaSola(f,esMeDeben){
   const v=verbos(esMeDeben);
   // Un gasto por cobrar se salda con reembolsos del gasto, no con abonos.
   const gasto=d[8]?gastoDeDeuda(d):null;
+  const ingresoOrigen=ingresoIdDeuda(d)?(datos.transacciones||[]).find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoIdDeuda(d))):null;
   const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
   return `<div class="dsola">
     <div class="dcard-top">
@@ -199,6 +203,7 @@ function detalleDeudaSola(f,esMeDeben){
         <div class="dcard-person">${escHtml(d[1]||'?')}</div>
         <div class="dcard-desc">${escHtml(d[2]||'')}</div>
         ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
+        ${ingresoOrigen?`<div class="dcard-origen">Sale de «${escHtml(ingresoOrigen[1]||'tu ingreso')}» (${fmtD(ingresoOrigen[4])} · ${fmtDateShort(pf(ingresoOrigen[0]))}). No cuenta como ingreso ni como gasto tuyo.</div>`:''}
       </div>
       <div class="dcard-right">
         <div class="dcard-amt-lbl">${v.falta}</div>
@@ -391,6 +396,7 @@ export function abrirModalDeuda(){
   document.getElementById('dFechaInicio').value=toDateInput(new Date());
   document.getElementById('dFechaVenc').value='';
   setDeudaTipo(dT==='les-debo'?'les-debo':'me-deben');
+  document.getElementById('dIngreso').value='';
   prepararCuotasDeuda(true);
   document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
   document.getElementById('modalDeuda').classList.add('active');
@@ -407,6 +413,7 @@ export function abrirModalDeudaEdit(id){
   document.getElementById('dFechaInicio').value=toDateInput(d[5]);
   document.getElementById('dFechaVenc').value=toDateInput(d[6]);
   setDeudaTipo(d[7]||'me-deben');
+  document.getElementById('dIngreso').value=ingresoIdDeuda(d)||'';
   prepararCuotasDeuda(false);
   document.getElementById('deudaModalBtns').innerHTML='<button class="btn btn-s" onclick="cerrarModalDeuda()">Cancelar</button><button class="btn btn-p" onclick="guardarDeuda()">Guardar</button>';
   document.getElementById('modalDeuda').classList.add('active');
@@ -446,6 +453,34 @@ export function setDeudaTipo(t){
   deudaTipoModal=t;
   document.getElementById('dTipoMeDeben').classList.toggle('active',t==='me-deben');
   document.getElementById('dTipoLesDebo').classList.toggle('active',t==='les-debo');
+  llenarIngresosDeuda();
+}
+
+// "Sale del ingreso": solo en "Les debo". Lista los ingresos recientes en soles
+// con algo todavía sin repartir, más el que ya tiene esta deuda. Pasar una parte
+// de un ingreso a otra persona (la cuota de la universidad que viene en el
+// sueldo de tu papá) lo deja neto: esa parte no es ingreso tuyo, y pagarla
+// tampoco es gasto tuyo.
+function llenarIngresosDeuda(){
+  const fila=document.getElementById('dIngresoRow'),nota=document.getElementById('dIngresoNota'),sel=document.getElementById('dIngreso');
+  const visible=deudaTipoModal==='les-debo';
+  fila.hidden=!visible;nota.hidden=!visible;
+  if(!visible){sel.innerHTML='';return;}
+  const previo=sel.value;
+  const actual=editandoDeuda?(datos.deudas||[]).find(x=>String(x[0])===String(editandoDeuda)):null;
+  const actualId=actual?ingresoIdDeuda(actual):null;
+  const desde=Date.now()-150*86400000;
+  const opciones=(datos.transacciones||[]).filter(t=>t[3]==='Ingreso'&&t[9]!=='USD'&&(String(t[6])===String(actualId)||pf(t[0]).getTime()>=desde))
+    .map(t=>{
+      // Lo que esta misma deuda ya tiene reservado se libera para poder editarla.
+      const propio=actual&&String(t[6])===String(actualId)?cent(actual[3]):0;
+      return {t,libre:(Math.round(Number(t[4])*100)-entregaDeIngresoCentimos(t)+propio)/100};
+    })
+    .filter(x=>x.libre>0.005||String(x.t[6])===String(actualId))
+    .sort((a,b)=>pf(b.t[0])-pf(a.t[0]));
+  sel.innerHTML='<option value="">Ninguno, es una deuda normal</option>'+opciones.map(({t,libre})=>
+    `<option value="${escAttr(String(t[6]))}">${escHtml((t[1]||'Ingreso')+' · '+fmtD(Number(t[4]))+' · '+fechaCorta(t[0])+(libre<Number(t[4])?' · libres '+fmtD(libre):''))}</option>`).join('');
+  sel.value=opciones.some(x=>String(x.t[6])===String(previo))?previo:'';
 }
 
 async function guardarDeuda__base(){
@@ -457,14 +492,26 @@ async function guardarDeuda__base(){
   const fechaInicio=document.getElementById('dFechaInicio').value;
   const fechaVenc=document.getElementById('dFechaVenc').value;
   const body={persona,descripcion:desc,monto:parseFloat(monto),fecha_inicio:fechaInicio,fecha_venc:fechaVenc||null,tipo:deudaTipoModal};
+  // Solo ingreso_id cuando hay uno (o se quita): antes de su migración la
+  // columna no existe y mandarla, aunque sea vacía, fallaría.
+  const ingresoId=deudaTipoModal==='les-debo'?document.getElementById('dIngreso').value||null:null;
+  const antesD=editandoDeuda?datos.deudas.find(x=>String(x[0])===String(editandoDeuda)):null;
+  if(ingresoId||(antesD&&ingresoIdDeuda(antesD)))body.ingreso_id=ingresoId;
+  if(ingresoId){
+    const ingreso=datos.transacciones.find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoId));
+    const propio=antesD&&String(ingresoIdDeuda(antesD))===String(ingresoId)?cent(antesD[3]):0;
+    const libre=ingreso?Math.round(Number(ingreso[4])*100)-entregaDeIngresoCentimos(ingreso)+propio:0;
+    if(!ingreso){toast('Elige un ingreso válido','error');return;}
+    if(Math.round(body.monto*100)>libre){toast('Del ingreso '+(ingreso[1]||'')+' solo quedan '+fmtD(libre/100)+' por repartir','error');return;}
+  }
   if(!editandoDeuda&&document.getElementById('dCuotas').checked)return guardarDeudaEnCuotas(body);
   try{
     if(editandoDeuda){
       const id=editandoDeuda;
       const d=datos.deudas.find(x=>String(x[0])===String(id));
-      const antes=d?{persona:d[1],descripcion:d[2],monto:Number(d[3]),fecha_inicio:d[5],fecha_venc:d[6]||null,tipo:d[7]}:null;
+      const antes=d?{persona:d[1],descripcion:d[2],monto:Number(d[3]),fecha_inicio:d[5],fecha_venc:d[6]||null,tipo:d[7],...('ingreso_id' in body?{ingreso_id:ingresoIdDeuda(d)}:{})}:null;
       await sbUpdate('deudas',id,body);
-      if(d){d[1]=persona;d[2]=desc;d[3]=parseFloat(monto);d[5]=fechaInicio;d[6]=fechaVenc||null;d[7]=deudaTipoModal;}
+      if(d){d[1]=persona;d[2]=desc;d[3]=parseFloat(monto);d[5]=fechaInicio;d[6]=fechaVenc||null;d[7]=deudaTipoModal;d[9]=ingresoId;}
       cerrarModalDeuda();render();
       if(antes)ofrecerDeshacer('Deuda actualizada',()=>sbUpdate('deudas',id,antes));else toast('Deuda actualizada','success');
     } else {
@@ -530,18 +577,27 @@ export function abrirModalAbono(id){
   // puede anotarse como gasto (apagado por defecto, porque sueles registrar ese
   // gasto aparte en Movimientos y así no se cuenta dos veces).
   const esLesDebo=!vinculada&&!esMeDeben;
-  document.getElementById('abonoGastoBox').hidden=!esLesDebo;
+  const ingresoOrigen=esLesDebo&&ingresoIdDeuda(d)?datos.transacciones.find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoIdDeuda(d))):null;
+  abonoEntrega=!!ingresoOrigen;
+  // Lo que entregas de un ingreso siempre sale de una cuenta, así que no hay
+  // interruptor: el pago se anota, pero no cuenta como gasto tuyo.
+  document.getElementById('abonoGastoBox').hidden=!esLesDebo||abonoEntrega;
   document.getElementById('abonoGasto').checked=false;
   document.getElementById('abonoCuentaLbl').textContent=esLesDebo?'Pagado desde':'Recibido en';
   if(vinculada)llenarCuentaCobro(gastoDeDeuda(d));
   else{llenarCuentaAbono(esMeDeben?'Ingreso':'Gasto');llenarCategoriaAbono();}
+  if(ingresoOrigen){
+    document.getElementById('abonoPendienteLbl').textContent+='. Sale de «'+(ingresoOrigen[1]||'tu ingreso')+'»: se descuenta de la cuenta, pero no cuenta como gasto tuyo.';
+    const cat=Array.from(document.getElementById('abonoCat').options||[]).find(o=>o.value&&norm(o.value)===norm(ingresoOrigen[2]));
+    if(cat)document.getElementById('abonoCat').value=cat.value;
+  }
   const pendienteTx=operacionPendiente?.id===solicitudAbonoId?operacionPendiente.tx:null;
   if(pendienteTx){
     if(esLesDebo)document.getElementById('abonoGasto').checked=true;
     document.getElementById('abonoCuenta').value=pendienteTx.cuenta||document.getElementById('abonoCuenta').value;
     if(esLesDebo)document.getElementById('abonoCat').value=pendienteTx.categoria||'';
   }
-  mostrarCamposAbono(vinculada||esMeDeben);
+  mostrarCamposAbono(vinculada||esMeDeben||abonoEntrega);
   document.getElementById('abonoGuardarBtn').textContent=vinculada?'Cobrar':'Abonar';
   document.getElementById('abonoTodoBtn').textContent=vinculada?'Todo':'Pagar todo';
   if(operacionPendiente?.id===solicitudAbonoId){document.getElementById('abonoMonto').value=operacionPendiente.abono.monto;document.getElementById('abonoFecha').value=toDateInput(operacionPendiente.abono.fecha);document.getElementById('abonoNota').value=operacionPendiente.abono.nota||'';}
@@ -549,7 +605,7 @@ export function abrirModalAbono(id){
 }
 
 function mostrarCamposAbono(conCuenta){
-  const gasto=!document.getElementById('abonoGastoBox').hidden&&document.getElementById('abonoGasto').checked;
+  const gasto=abonoEntrega||(!document.getElementById('abonoGastoBox').hidden&&document.getElementById('abonoGasto').checked);
   document.getElementById('abonoCuentaRow').hidden=!(conCuenta||gasto);
   document.getElementById('abonoCatRow').hidden=!gasto;
 }
@@ -662,7 +718,7 @@ async function guardarAbono__base(){
     if(pendiente<=0){toast('Esta deuda ya está pagada. Archívala como saldada.','error');return;}
     if(Math.round(monto*100)>pendiente){abonado=pendiente/100;extra=(Math.round(monto*100)-pendiente)/100;}
     tx={id:solicitudAbonoTxId,fecha:momento,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto:abonado,cuenta};
-  }else if(document.getElementById('abonoGasto').checked){
+  }else if(abonoEntrega||document.getElementById('abonoGasto').checked){
     const categoria=document.getElementById('abonoCat').value;
     if(!cuenta){toast('Elige de qué cuenta salió el pago','error');return;}
     if(!categoria){toast('Elige la categoría del gasto','error');return;}

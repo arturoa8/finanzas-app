@@ -7,7 +7,7 @@ import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {HISTORIAL_LIMITES_SELECT, filaLimite} from './cards/historial-limites.js';
-import {cobradoDeuda, cubiertoPorDeudas, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, deudasDeGasto, devueltoCentimos, filaDeuda, filaDeudaArchivada, netoCentimos, pendienteDeuda, planCuotas, sumarMeses, textoDeudas} from './por-cobrar.js';
+import {cobradoDeuda, cubiertoPorDeudas, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, deudasDeGasto, devueltoCentimos, esPagoDeEntrega, filaDeuda, filaDeudaArchivada, ingresoNeto, netoCentimos, pendienteDeuda, planCuotas, sumarMeses, textoDeudas} from './por-cobrar.js';
 import {filaPago} from './cards/payments.js';
 import {filaPresupuesto} from './presupuestos-calculo.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -135,12 +135,17 @@ async function cargar__base({silencioso=false}={}){
 export const cargar=singleFlight(cargar__base);
 configurarDeshacer({alTerminar:()=>cargar({silencioso:true})});
 
-// transaccion_id llega con la migración de gastos por cobrar. Sin ella la
-// columna no existe (42703) y las deudas se cargan como antes, sin vínculo.
+// transaccion_id llega con la migración de gastos por cobrar e ingreso_id con
+// la de ingresos por entregar. Sin ellas la columna no existe (42703) y las
+// deudas se cargan como antes, sin ese vínculo.
 const COLUMNAS_DEUDA='id,persona,descripcion,monto,abonado,fecha_inicio,fecha_venc,tipo,archivado,motivo_archivo,fecha_archivo';
 function pedirDeudas(){
   const pedir=extra=>sbSelectTodo('deudas_resumen','?select='+COLUMNAS_DEUDA+extra+'&order=id.asc');
-  return pedir(',transaccion_id').catch(e=>{if(e.code==='42703'||/transaccion_id/.test(e.message||''))return pedir('');throw e;});
+  const sinColumna=(e,col)=>e.code==='42703'||new RegExp(col).test(e.message||'');
+  return pedir(',transaccion_id,ingreso_id').catch(e=>{
+    if(!sinColumna(e,'ingreso_id|transaccion_id'))throw e;
+    return pedir(',transaccion_id').catch(e2=>{if(!sinColumna(e2,'transaccion_id'))throw e2;return pedir('');});
+  });
 }
 
 // Arreglo posicional → cuerpo para Supabase. Deshacer lo usa para volver a
@@ -895,6 +900,8 @@ export const guardar=guardedOnce(guardar__base);
 // gastoNetoHasta sigue el dinero real y no resta lo que aún no llega.
 export function gastoNeto(t){
   if(t[3]!=='Gasto')return 0;
+  // Pagar la parte que debías entregar mueve tu cuenta, pero no es gasto tuyo.
+  if(esPagoDeEntrega(t[6]))return 0;
   return netoCentimos(Math.round((Number(t[4])||0)*100),devueltoCentimos(t[6]),cubiertoPorDeudas(t[6]))/100;
 }
 
@@ -1004,7 +1011,7 @@ function validarReembolso(id,monto,cuenta,fecha,excluir=null){
 }
 
 export function totales(tx){
-  let i=0,g=0;tx.forEach(t=>{const m=parseFloat(t[4])||0;if(t[3]==='Ingreso')i+=m;g+=gastoNeto(t);});
+  let i=0,g=0;tx.forEach(t=>{i+=ingresoNeto(t);g+=gastoNeto(t);});
   return{i,g,bal:i-g};
 }
 

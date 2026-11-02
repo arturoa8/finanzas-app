@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.11.02.02">
+<meta name="version-app" content="2026.11.03.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -900,6 +900,11 @@ try{
       <label class="mpill"><span>Desde</span><input type="date" id="dFechaInicio" onchange="resumirCuotasDeuda()"></label>
       <label class="mpill"><span>Vence</span><input type="date" id="dFechaVenc" onchange="resumirCuotasDeuda()"></label>
     </div>
+    <div class="cuenta-row" id="dIngresoRow" hidden>
+      <label class="cuenta-lbl" for="dIngreso">Sale del ingreso</label>
+      <select class="sel" id="dIngreso"></select>
+    </div>
+    <p class="transfer-note" id="dIngresoNota" hidden>Si esta deuda sale de un ingreso (la cuota de la universidad que viene en el sueldo de tu papá), esa parte no cuenta como ingreso tuyo y, al pagarla, tampoco como gasto.</p>
     <div id="dCuotasBox" class="cobrar-fields">
       <label class="cobrar-switch" for="dCuotas">
         <span class="cobrar-texto"><strong>En cuotas</strong><span>Se crea una deuda por cuota, una cada mes desde la fecha de Vence</span></span>

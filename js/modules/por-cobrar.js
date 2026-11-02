@@ -18,21 +18,23 @@ import {fmt} from '../utils/formatters.js';
 
 const centimosDeuda=n=>Math.round((Number(n)||0)*100);
 
-// Único sitio donde una fila de deudas_resumen se convierte en arreglo. El
-// vínculo con el gasto va al final para no mover los índices de siempre:
+// Único sitio donde una fila de deudas_resumen se convierte en arreglo. Los
+// vínculos van al final para no mover los índices de siempre:
 //   activa:    0 id · 1 persona · 2 descripción · 3 monto · 4 abonado
-//              5 desde · 6 vence · 7 tipo · 8 gasto por cobrar
-//   archivada: 0-7 igual · 8 motivo · 9 fecha de archivo · 10 gasto
-export const filaDeuda=d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado??0,d.fecha_inicio,d.fecha_venc,d.tipo,d.transaccion_id||null];
-export const filaDeudaArchivada=d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado??0,d.fecha_inicio,d.fecha_venc,d.tipo,d.motivo_archivo,d.fecha_archivo,d.transaccion_id||null];
-export const archivarFila=(d,motivo,fecha)=>[...d.slice(0,8),motivo,fecha,d[8]??null];
-export const desarchivarFila=d=>[...d.slice(0,8),d[10]??null];
+//              5 desde · 6 vence · 7 tipo · 8 gasto por cobrar · 9 ingreso por entregar
+//   archivada: 0-7 igual · 8 motivo · 9 fecha de archivo · 10 gasto · 11 ingreso
+export const filaDeuda=d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado??0,d.fecha_inicio,d.fecha_venc,d.tipo,d.transaccion_id||null,d.ingreso_id||null];
+export const filaDeudaArchivada=d=>[d.id,d.persona,d.descripcion,d.monto,d.abonado??0,d.fecha_inicio,d.fecha_venc,d.tipo,d.motivo_archivo,d.fecha_archivo,d.transaccion_id||null,d.ingreso_id||null];
+export const archivarFila=(d,motivo,fecha)=>[...d.slice(0,8),motivo,fecha,d[8]??null,d[9]??null];
+export const desarchivarFila=d=>[...d.slice(0,8),d[10]??null,d[11]??null];
 
 // Cuerpo para volver a insertar una deuda tal como estaba (deshacer un borrado).
+// ingreso_id solo va cuando existe: antes de su migración la columna no está.
 export function cuerpoDeuda(d,archivada=false){
+  const ingreso=ingresoIdDeuda(d);
   return {id:d[0],persona:d[1],descripcion:d[2],monto:Number(d[3]),fecha_inicio:d[5],fecha_venc:d[6]||null,tipo:d[7],
     archivado:archivada,motivo_archivo:archivada?d[8]:null,fecha_archivo:archivada?d[9]:null,
-    transaccion_id:(archivada?d[10]:d[8])||null};
+    transaccion_id:(archivada?d[10]:d[8])||null,...(ingreso?{ingreso_id:ingreso}:{})};
 }
 
 // Deudas activas de un gasto, en el orden en que se cobran. La primera sirve
@@ -54,8 +56,11 @@ export function gastoDeDeuda(d){
   return id?(datos.transacciones||[]).find(t=>t[3]==='Gasto'&&String(t[6])===String(id))||null:null;
 }
 
-// Una fila activa guarda el gasto en d[8]; una archivada (11 campos), en d[10].
-const gastoIdDeuda=d=>d?(d.length>=11?d[10]:d[8])||null:null;
+// Una fila activa guarda el gasto en d[8]; una archivada (12 campos), en d[10].
+const esArchivada=d=>d.length>=11;
+const gastoIdDeuda=d=>d?(esArchivada(d)?d[10]:d[8])||null:null;
+// El ingreso del que sale una deuda "les-debo": d[9] activa, d[11] archivada.
+export const ingresoIdDeuda=d=>d?(esArchivada(d)?d[11]:d[9])||null:null;
 
 // Primero lo que vence antes (las cuotas), luego lo más antiguo; empates en
 // el orden de carga.
@@ -128,6 +133,8 @@ export function cubiertoPorDeudas(id){
 export function deudasPorGasto(){
   const mapa=new Map();
   for(const d of datos.deudas||[])if(d[8]&&!mapa.has(String(d[8])))mapa.set(String(d[8]),cubiertoPorDeudas(d[8]));
+  // Un pago de la parte que debes entregar no es gasto tuyo: queda cubierto entero.
+  for(const t of datos.transacciones||[])if(t[3]==='Gasto'&&esPagoDeEntrega(t[6]))mapa.set(String(t[6]),centimosDeuda(t[4]));
   return mapa;
 }
 
@@ -152,3 +159,48 @@ export function planCuotas(totalCentimos,n,primera){
   const base=Math.floor(totalCentimos/n);
   return Array.from({length:n},(_,i)=>({monto:(i===n-1?totalCentimos-base*(n-1):base)/100,venc:sumarMeses(primera,i)}));
 }
+
+// ── Ingresos por entregar ────────────────────────────────────────────────────
+// El sueldo de tu papá trae la cuota de la universidad, que es de tu mamá: esa
+// parte es una deuda "les-debo" apuntando al ingreso. Mientras exista (activa o
+// ya pagada) no es ingreso tuyo, igual que un gasto por cobrar no es gasto tuyo.
+// Una deuda archivada como "no pagó" deja de contar: esa plata volvió a ser tuya.
+const cuentaComoEntrega=d=>!(esArchivada(d)&&String(d[8]||'').toLowerCase()==='no pagó');
+
+function deudasDeIngresoTodas(id){
+  if(id==null||id==='')return [];
+  return [...(datos.deudas||[]),...(datos.deudasArchivadas||[])]
+    .filter(d=>String(ingresoIdDeuda(d))===String(id)&&cuentaComoEntrega(d));
+}
+
+// Deudas (activas o pagadas) que salen de un ingreso.
+export function deudasDeIngreso(id){return deudasDeIngresoTodas(id);}
+
+// Céntimos de un ingreso que debes entregar. Nunca más que el ingreso.
+export function entregaDeIngresoCentimos(t){
+  if(t[3]!=='Ingreso')return 0;
+  const total=deudasDeIngresoTodas(t[6]).reduce((s,d)=>s+centimosDeuda(d[3]),0);
+  return Math.min(total,centimosDeuda(t[4]));
+}
+
+// Ingreso que sí es tuyo, en soles.
+export function ingresoNeto(t){
+  if(t[3]!=='Ingreso')return 0;
+  return Math.max(0,centimosDeuda(t[4])-entregaDeIngresoCentimos(t))/100;
+}
+
+// Gastos que son un pago de la parte por entregar: nacen de un abono de una
+// deuda que sale de un ingreso. Mueven la cuenta pero no son gasto tuyo. Se
+// guarda el resultado mientras las listas no cambien.
+let memoPagos={clave:null,ids:new Set()};
+export function pagosDeEntrega(){
+  const deudas=datos.deudas||[],archivadas=datos.deudasArchivadas||[],abonos=datos.deudasAbonos||[];
+  const clave=[deudas,archivadas,abonos,deudas.length,archivadas.length,abonos.length];
+  if(memoPagos.clave&&clave.every((x,i)=>x===memoPagos.clave[i]))return memoPagos.ids;
+  const conIngreso=new Set([...deudas,...archivadas].filter(d=>ingresoIdDeuda(d)&&cuentaComoEntrega(d)).map(d=>String(d[0])));
+  const ids=new Set();
+  if(conIngreso.size)for(const ab of abonos)if(ab[5]&&conIngreso.has(String(ab[1])))ids.add(String(ab[5]));
+  memoPagos={clave,ids};
+  return ids;
+}
+export const esPagoDeEntrega=id=>id!=null&&pagosDeEntrega().has(String(id));

@@ -15,7 +15,7 @@ import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
 import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './transactions.js';
-import {deudasDeGasto, porCobrarDeGasto, textoDeudas} from './por-cobrar.js';
+import {deudasDeGasto, deudasDeIngreso, entregaDeIngresoCentimos, esPagoDeEntrega, ingresoNeto, porCobrarDeGasto, textoDeudas} from './por-cobrar.js';
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
@@ -223,7 +223,9 @@ export function renderBal(){
     // duplicaría el ajuste que aportesNetosInversion hace para transferencias.
     if(fueraDePerimetro(t[5]||''))return;
     const m = parseFloat(t[4]) || 0;
-    if(t[3] === 'Ingreso') iBal += m;
+    // Efectivo hasta hoy es dinero real: el ingreso entra entero. Lo demás
+    // descuenta la parte que debes entregar.
+    if(t[3] === 'Ingreso') iBal += acumuladoMode?m:ingresoNeto(t);
     gBal += acumuladoMode?gastoNetoHasta(t,hoy):gastoNeto(t);
   });
 
@@ -231,7 +233,7 @@ export function renderBal(){
   txPeriodo.forEach(t=>{
     if(fueraDePerimetro(t[5]||''))return;
     const m = parseFloat(t[4]) || 0;
-    if(t[3] === 'Ingreso') iPeriodo += m;
+    if(t[3] === 'Ingreso') iPeriodo += ingresoNeto(t);
     gPeriodo += gastoNeto(t);
   });
 
@@ -376,9 +378,15 @@ function filaTxPrincipal(t){
   const reembolsos=t[3]==='Gasto'?reembolsosDe(t[6]):[];
   const deudas=t[3]==='Gasto'?deudasDeGasto(t[6]):[],porCobrar=deudas.length?porCobrarDeGasto(t):0;
   const neto=reembolsos.length>0||porCobrar>0;
-  const extra=neto
+  // Un ingreso con una parte por entregar dice cuánto es tuyo; el pago de esa
+  // parte, que no cuenta como gasto.
+  const entrega=t[3]==='Ingreso'?entregaDeIngresoCentimos(t)/100:0;
+  const extraEntrega=entrega>0
+    ? `<div class="tx-refund-sub tx-por-cobrar">Debes entregar ${fmt(entrega)}${deudasDeIngreso(t[6]).length===1?' a '+escHtml(deudasDeIngreso(t[6])[0][1]||'—'):''} · te quedan ${fmt(ingresoNeto(t))}</div>`
+    : t[3]==='Gasto'&&esPagoDeEntrega(t[6])?'<div class="tx-refund-sub">Parte que entregabas: no cuenta como gasto tuyo</div>':'';
+  const extra=extraEntrega||(neto
     ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(textoDeudas(deudas,porCobrar))}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
-    : '';
+    : '');
   const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(neto?gastoNeto(t):m);
   const row=getTxRow(t);
   const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
@@ -412,7 +420,8 @@ function renderListaTx(tx,l){
     const key=f.getFullYear()+'-'+f.getMonth()+'-'+f.getDate();
     if(!groups[key]){groups[key]={date:f,items:[],in:0,out:0};order.push(key);}
     const m=parseFloat(t[4])||0;
-    if(t[3]==='Ingreso'||t[3]==='Reembolso')groups[key].in+=m;groups[key].out+=gastoNeto(t);
+    if(t[3]==='Ingreso')groups[key].in+=ingresoNeto(t);else if(t[3]==='Reembolso')groups[key].in+=m;
+    groups[key].out+=gastoNeto(t);
     groups[key].items.push(t);
   });
   l.innerHTML=order.map(key=>{
@@ -508,7 +517,7 @@ export async function cargarPatrimonio(forzar){
 
 export function render(){
   renderBase();
-  const rows=filtrarInicio(),income=rows.filter(t=>t[3]==='Ingreso').reduce((s,t)=>s+Number(t[4]),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);
+  const rows=filtrarInicio(),income=rows.reduce((s,t)=>s+ingresoNeto(t),0),expense=rows.reduce((s,t)=>s+gastoNeto(t),0);
   const soloTr=seleccionSoloTransferencias();
   const title=soloTr?'Transferencias del período':income>0?'Tu período, de un vistazo':'Movimientos del período';
   const detail=soloTr?'Movimiento entre tus cuentas: no cuenta como ingreso ni como gasto.':income>0

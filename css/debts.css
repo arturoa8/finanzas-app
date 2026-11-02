@@ -127,3 +127,10 @@
 /* La hoja de una deuda suelta usa el mismo encabezado grande que la de un grupo. */
 #grupoDeudaContent .dsola .dcard-person{font-size:1.1rem;font-weight:800;letter-spacing:-.02em;white-space:normal;}
 #grupoDeudaContent .dsola .dcard-fechas{margin-bottom:0;}
+
+/* "Sale del ingreso" en Nueva deuda: el selector lleva el nombre y el importe
+   del ingreso, así que va debajo de su etiqueta, a todo el ancho. */
+#dIngresoRow{flex-direction:column;align-items:stretch;gap:6px;margin-top:10px}
+#dIngresoRow .cuenta-lbl{width:auto}
+#dIngresoRow .sel{width:100%;max-width:100%;min-width:0;text-overflow:ellipsis}
+#dIngresoNota{font-size:.75rem;line-height:1.45;color:var(--muted);margin:8px 0 12px}
