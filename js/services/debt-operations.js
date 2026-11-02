@@ -35,7 +35,9 @@ async function completarAbono(op,validarSesion){
     const row=await sbUpdate('deudas_abonos',op.id,op.patch);
     if(!row)throw new Error('El abono ya no existe. Actualiza el historial.');
     validarSesion();
-    if(op.txId){const tx=await sbUpdate('transacciones',op.txId,{monto:op.patch.monto,fecha:op.patch.fecha});if(!tx)throw new Error('No se encontró el movimiento vinculado.');}
+    // txFecha: instante del movimiento vinculado. La fecha del abono es solo
+    // un día y, enviada tal cual, movería el movimiento al día anterior en Lima.
+    if(op.txId){const tx=await sbUpdate('transacciones',op.txId,{monto:op.patch.monto,fecha:op.txFecha||op.patch.fecha});if(!tx)throw new Error('No se encontró el movimiento vinculado.');}
     return row;
   }
   if(op.tipo==='eliminar'){

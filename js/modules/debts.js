@@ -26,6 +26,11 @@ let solicitudAbonoId=null,solicitudAbonoTxId=null;
 // Cobro de un gasto por cobrar que se está corrigiendo (id del Reembolso).
 let editandoCobroId=null;
 const cent=n=>Math.round((Number(n)||0)*100);
+// Instante de un movimiento que nace de un abono. El campo de fecha entrega
+// 'AAAA-MM-DD'; enviado tal cual, la base lo guarda a medianoche UTC, que en
+// Lima es el día anterior a las 19:00 (un cobro del 1 de noviembre caía en
+// octubre). Con la hora de Lima fija el día que elegiste.
+function momentoDeAbono(fecha,hora=horaDe(new Date())){const [yy,mm,dd]=fecha.split('-');return buildFechaISO(yy,mm,dd,hora);}
 function avisarErrorAbono(e){
   const mensaje=e.message||'No se pudo guardar el abono';toast(mensaje,'error');
   if(e.pending){const aviso=document.getElementById('dataStatus');if(aviso){aviso.hidden=false;aviso.textContent=mensaje;}}
@@ -623,6 +628,7 @@ async function guardarAbono__base(){
   if(editandoCobroId)return guardarCobroEditado(d,monto,fecha,nota);
   if(d?.[8])return cobrarGasto(d,monto,fecha,nota);
   const cuenta=document.getElementById('abonoCuenta').value;
+  const momento=momentoDeAbono(fecha);
   let tx=null,abonado=monto,extra=0;
   if(tipo==='me-deben'){
     if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
@@ -631,19 +637,19 @@ async function guardarAbono__base(){
     const pendiente=Math.round(pendienteAbono(d)*100);
     if(pendiente<=0){toast('Esta deuda ya está pagada. Archívala como saldada.','error');return;}
     if(Math.round(monto*100)>pendiente){abonado=pendiente/100;extra=(Math.round(monto*100)-pendiente)/100;}
-    tx={id:solicitudAbonoTxId,fecha,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto:abonado,cuenta};
+    tx={id:solicitudAbonoTxId,fecha:momento,descripcion:d?d[1]:'',categoria:'Inversiones',tipo:'Ingreso',monto:abonado,cuenta};
   }else if(document.getElementById('abonoGasto').checked){
     const categoria=document.getElementById('abonoCat').value;
     if(!cuenta){toast('Elige de qué cuenta salió el pago','error');return;}
     if(!categoria){toast('Elige la categoría del gasto','error');return;}
-    tx={id:solicitudAbonoTxId,fecha,descripcion:d?(d[1]||'')+(d[2]?' · '+d[2]:''):'',categoria,tipo:'Gasto',monto,cuenta};
+    tx={id:solicitudAbonoTxId,fecha:momento,descripcion:d?(d[1]||'')+(d[2]?' · '+d[2]:''):'',categoria,tipo:'Gasto',monto,cuenta};
   }
   try{
     const id=solicitudAbonoId;
     await ejecutarAbono({tipo:'crear',id,tx,abono:{id,deuda_id:abonosDeudaId,monto:abonado,fecha,nota,tx_id:tx?.id||null}});
     let ingresoExtra=null;
     if(extra>0){
-      try{ingresoExtra=await sbInsert('transacciones',{fecha,descripcion:'Excedente de '+(d?.[1]||'pago')+(nota?' · '+nota:''),categoria:'Otros ingresos',tipo:'Ingreso',monto:extra,cuenta});}
+      try{ingresoExtra=await sbInsert('transacciones',{fecha:momento,descripcion:'Excedente de '+(d?.[1]||'pago')+(nota?' · '+nota:''),categoria:'Otros ingresos',tipo:'Ingreso',monto:extra,cuenta});}
       catch(e){toast('Se guardó el pago, pero no los '+fmtD(extra)+' de más. Regístralos como ingreso.','error');}
     }
     cerrarModalAbono();await cargar({silencioso:true});
@@ -988,10 +994,14 @@ async function guardarEditAbono__base(){
       }
     }
     const copiaExtra=info?.extra?[...info.extra]:null;
-    await ejecutarAbono({tipo:'editar',id,txId,patch:{monto:abonado,fecha,nota}});
+    // El movimiento vinculado conserva su hora si el día no cambió; si cambió,
+    // se arma con la hora de Lima (ver momentoDeAbono).
+    const espejo=ab&&txId?espejoDeAbono(ab):null;
+    const txFecha=espejo?(toDateInput(espejo[0])===fecha?espejo[0]:momentoDeAbono(fecha,horaDe(espejo[0]))):undefined;
+    await ejecutarAbono({tipo:'editar',id,txId,txFecha,patch:{monto:abonado,fecha,nota}});
     let extraCreado=null;
     if(info){
-      const extraNuevo=exceso>0?{fecha,cuenta:info.tx[5],descripcion:'Excedente de '+(info.d[1]||'pago')+(nota?' · '+nota:''),monto:exceso/100}:null;
+      const extraNuevo=exceso>0?{fecha:txFecha||fecha,cuenta:info.tx[5],descripcion:'Excedente de '+(info.d[1]||'pago')+(nota?' · '+nota:''),monto:exceso/100}:null;
       try{
         if(copiaExtra&&extraNuevo)await sbUpdate('transacciones',copiaExtra[6],extraNuevo);
         else if(copiaExtra)await sbDelete('transacciones',copiaExtra[6]);
@@ -1004,7 +1014,7 @@ async function guardarEditAbono__base(){
     if(historialDeudaId)renderHistorialAbonos();
     if(antes)ofrecerDeshacer('Abono actualizado'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':''),async()=>{
       if(extraCreado)await sbDelete('transacciones',extraCreado.id);
-      await ejecutarAbono({tipo:'editar',id,txId,patch:antes});
+      await ejecutarAbono({tipo:'editar',id,txId,txFecha:espejo?espejo[0]:undefined,patch:antes});
       if(copiaExtra&&exceso>0)await sbUpdate('transacciones',copiaExtra[6],{fecha:copiaExtra[0],cuenta:copiaExtra[5],descripcion:copiaExtra[1],monto:Number(copiaExtra[4])});
       else if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));
     });
