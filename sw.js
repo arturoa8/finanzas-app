@@ -5,7 +5,8 @@
 // viejas en el teléfono. Si algún día se quiere uso sin conexión, es otra
 // decisión, no un efecto colateral de las notificaciones.
 //
-// Formato del push (JSON): {titulo, cuerpo, url, tag}. Todo opcional.
+// Formato del push (JSON): {titulo, cuerpo, url, tag, pagina}. Todo opcional.
+// `pagina` ('deb') abre esa página de la app al tocar el aviso.
 // iOS exige que CADA push muestre una notificación (userVisibleOnly): si el
 // mensaje llega vacío o malformado, igual se muestra una genérica; de lo
 // contrario Safari cancela la suscripción tras unos pocos pushes silenciosos.
@@ -27,7 +28,7 @@ self.addEventListener('push',event=>{
     body:String(m.cuerpo||'Abre la app para verlo.'),
     icon:'icons/icon-192.png',
     tag:m.tag?String(m.tag):undefined,
-    data:{url:typeof m.url==='string'?m.url:'./'}
+    data:{url:typeof m.url==='string'?m.url:'./',pagina:typeof m.pagina==='string'?m.pagina:null}
   }));
 });
 
@@ -37,7 +38,11 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     const ventanas=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     const abierta=ventanas.find(v=>v.url.startsWith(self.registration.scope));
-    if(abierta){await abierta.focus();return;}
+    if(abierta){
+      // Ya abierta: la app cambia de página con el mensaje (ver app.js).
+      if(event.notification.data?.pagina)abierta.postMessage({tipo:'abrir',pagina:event.notification.data.pagina});
+      await abierta.focus();return;
+    }
     await self.clients.openWindow(destino);
   })());
 });

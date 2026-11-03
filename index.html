@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.11.03.03">
+<meta name="version-app" content="2026.11.03.04">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -777,6 +777,7 @@ try{
           <section class="line-config-item"><h3 class="line-config-name">Avisos en este dispositivo</h3>
             <p class="hint" id="pushEstado" aria-live="polite">Comprobando…</p>
             <div class="backup-actions push-acciones"><button type="button" class="btn btn-p" id="pushActivar" hidden>Activar notificaciones</button><button type="button" class="btn btn-s" id="pushProbar" hidden>Enviar una prueba</button><button type="button" class="btn btn-s" id="pushDesactivar" hidden>Desactivar</button></div>
+            <p class="hint push-avisos">Con las notificaciones activadas, la app te avisa de tus deudas a las 9:00 a. m.: el día antes y el día que vence una que todavía tiene algo pendiente. Tocar el aviso abre Deudas.</p>
             <details class="settings-help"><summary>Cómo funcionan</summary><p class="hint">Cada dispositivo se activa por separado. En iPhone hay que instalar la app en la pantalla de inicio y abrirla desde ahí. La prueba manda una notificación real a los dispositivos activados de tu cuenta.</p></details>
           </section>
         </div>
@@ -957,6 +958,7 @@ try{
       <button class="btn btn-s" style="flex:0 0 auto;" onclick="cerrarModalAbono()">Cancelar</button>
       <button class="btn btn-p" style="flex:1;min-width:100px;" id="abonoGuardarBtn" onclick="guardarAbono()">Abonar</button>
     </div>
+    <button type="button" class="dpago-eliminar" id="abonoEliminarBtn" hidden onclick="eliminarCobroEditando()">Eliminar este cobro</button>
   </div>
 </div>
 
@@ -976,37 +978,27 @@ try{
   </div>
 </div>
 
-<!-- MODAL HISTORIAL ABONOS -->
-<div class="modal centered" id="modalHistorialAbonos">
-  <div class="mc compact-mc" style="max-height:85vh;display:flex;flex-direction:column;">
-    <div class="mc-top">
-      <div class="mt" id="historialAbonosTitle">Historial de abonos</div>
-      <button class="mh-x" onclick="cerrarHistorialAbonos()">✕</button>
-    </div>
-    <div id="historialAbonosList" style="overflow-y:auto;flex:1;min-height:0;"></div>
-    <div class="brow" style="margin-top:12px;">
-      <button class="btn btn-s" onclick="cerrarHistorialAbonos()">Cerrar</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL EDITAR ABONO -->
 <div class="modal centered" id="modalEditAbono">
   <div class="mc compact-mc">
     <div class="mc-top">
-      <div class="mt">Editar abono</div>
+      <div class="mt">Editar pago</div>
       <button class="mh-x" onclick="cerrarEditAbono()">✕</button>
     </div>
+    <p class="dpago-contexto" id="editAbonoContexto"></p>
     <div class="pill-row">
-      <label class="mpill"><span>📅</span><input type="date" id="editAbonoFecha"></label>
+      <label class="mpill"><span>📅</span><input type="date" id="editAbonoFecha" aria-label="Fecha del pago"></label>
     </div>
-    <input type="number" class="big-input muto" id="editAbonoMonto" placeholder="Monto" step="0.01" inputmode="decimal" oninput="avisarExcedenteEditAbono()">
+    <label class="dpago-lbl" for="editAbonoMonto">Monto</label>
+    <input type="number" class="big-input muto" id="editAbonoMonto" placeholder="S/ 0.00" step="0.01" inputmode="decimal" oninput="avisarExcedenteEditAbono()">
     <p class="transfer-note" id="editAbonoExcedente" hidden></p>
-    <input type="text" class="big-input" id="editAbonoNota" placeholder="Nota (opcional)">
+    <label class="dpago-lbl" for="editAbonoNota">Nota</label>
+    <input type="text" class="big-input" id="editAbonoNota" placeholder="Opcional">
     <div class="brow">
       <button class="btn btn-s" onclick="cerrarEditAbono()">Cancelar</button>
       <button class="btn btn-p" onclick="guardarEditAbono()">Guardar</button>
     </div>
+    <button type="button" class="dpago-eliminar" onclick="eliminarAbonoEditando()">Eliminar este pago</button>
   </div>
 </div>
 

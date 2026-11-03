@@ -149,15 +149,33 @@
 .darch:active{background:transparent;}
 @media(hover:hover){.darch:hover{background:transparent;}}
 
-/* Historial de abonos y cobros. */
-.dhist{background:var(--card2);border-radius:14px;padding:10px 14px;margin-bottom:8px;}
-.dhist-fila{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.dhist-main{min-width:0;}
-.dhist-amt{font-weight:700;font-variant-numeric:tabular-nums;color:var(--green);}
-.dhist-meta{font-size:.75rem;line-height:1.4;color:var(--dim);margin-top:2px;}
-.dhist-acciones{display:flex;gap:6px;flex-shrink:0;}
-.dhist-acciones .dcard-btn{min-width:40px;min-height:36px;}
-.dhist-vacio{padding:20px 0;}
+/* Pagos de una deuda, dentro de su detalle: cada fila se toca para corregirla. */
+.dpagos{margin:16px 0 4px;}
+.dpagos-titulo{display:flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;color:var(--dim);margin:0 0 6px;}
+.dpagos-titulo span{min-width:18px;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,.07);color:var(--dim);font-size:.64rem;text-align:center;}
+.dpagos-vacio{margin:0;font-size:.74rem;color:var(--muted);}
+.dpagos-lista{background:var(--card2);border-radius:14px;overflow:hidden;max-height:34vh;overflow-y:auto;overscroll-behavior:contain;}
+.dpago{position:relative;display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border:0;background:none;color:inherit;font-family:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .35s ease;}
+.dpago+.dpago::before{content:"";position:absolute;top:0;left:14px;right:0;height:1px;background:var(--border);}
+.dpago:active{background:var(--card3);transition-duration:.07s;}
+@media(hover:hover){.dpago:hover{background:var(--card3);}}
+.dpago:focus-visible{outline-offset:-3px;border-radius:12px;}
+.dpago-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.dpago-amt{font-size:.88rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+.dpago-meta{font-size:.7rem;line-height:1.4;color:var(--muted);overflow-wrap:anywhere;}
+.dpago-editar{flex-shrink:0;font-size:.72rem;font-weight:600;color:var(--green);}
+/* Hoja de editar un pago: de qué deuda es y qué es cada campo. */
+.dpago-contexto{margin:-4px 0 14px;font-size:.78rem;line-height:1.4;color:var(--dim);}
+.dpago-contexto:empty{display:none;}
+.dpago-lbl{display:block;margin:12px 0 2px;font-size:.72rem;font-weight:600;color:var(--muted);}
+/* Eliminar va aparte, como texto rojo. */
+.dpago-eliminar{display:block;width:100%;margin-top:14px;padding:12px;border:0;border-radius:12px;background:none;color:var(--red);font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer;}
+.dpago-eliminar:active{background:rgba(255,59,107,.1);}
+.dpago-eliminar[hidden]{display:none;}
+/* Dentro del menú ⋯ de una fila de grupo, los pagos ocupan todo el ancho. */
+.drow-opciones .dpagos{flex-basis:100%;margin:6px 0;}
+.drow-opciones .dpagos-lista{background:var(--card);}
+.drow-enlaces{display:flex;flex-basis:100%;}
 
 /* En computadora la lista no se estira a todo el ancho: el importe queda cerca del nombre. */
 @media(min-width:1050px){#p-deb .container{max-width:760px}}

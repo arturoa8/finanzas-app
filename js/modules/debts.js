@@ -24,7 +24,7 @@ let editandoDeuda=null,abonosDeudaId=null,archivarDeudaId=null,deudaTipoModal='m
 // una cuenta y nunca cuenta como gasto tuyo.
 let abonoEntrega=false;
 
-let editandoAbonoId=null,historialDeudaId=null;
+let editandoAbonoId=null;
 let solicitudAbonoId=null,solicitudAbonoTxId=null;
 // Cobro de un gasto por cobrar que se está corrigiendo (id del Reembolso).
 let editandoCobroId=null;
@@ -222,6 +222,7 @@ function detalleDeudaSola(f,esMeDeben){
         <input type="date" value="${fiVal}" aria-label="Fecha de inicio" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
       </label>
     </div>
+    ${listaPagos(d,esMeDeben)}
     <div class="dcard-actions">
       <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${v.accion}</button>
       ${enlacesDeuda(id,gasto)}
@@ -230,7 +231,7 @@ function detalleDeudaSola(f,esMeDeben){
 }
 
 // Fila compacta de la lista: quién, qué y cuánto, y una línea de estado. Se toca
-// para abrir la hoja de detalle con los botones (Cobrar, Historial, Editar…).
+// para abrir la hoja de detalle con los botones (Cobrar, Editar, Archivar) y sus pagos.
 function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida}){
   return `<div class="ditem${vencida?' vencida':''}" role="button" tabindex="0" aria-label="${escAttr('Ver detalle de '+titulo)}" data-k="${escAttr(clave)}" onclick="abrirDetalleGrupo(this.dataset.k)" onkeydown="if(event.target===this&amp;&amp;(event.key==='Enter'||event.key===' ')){event.preventDefault();abrirDetalleGrupo(this.dataset.k)}">
     <div class="ditem-main">
@@ -269,8 +270,7 @@ function itemDeudaGrupo(i){
   return itemDeuda({clave:i.clave,titulo:i.titulo,etiqueta:i.etiqueta,sub:i.subtitulo,estado:texto,tono,monto:i.pendiente,cls:v.cls,pct:i.pct,vencida:i.vencidas.length>0});
 }
 
-const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="abrirHistorialAbonos('${id}')">Historial</button>
-      <button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
+const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
       <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>`;
 
 const numCuota=m=>{const c=reCuota.exec(m.d[2]||'');return c?'Cuota '+c[2]+'/'+c[3]:'Cuota';};
@@ -323,7 +323,7 @@ const cabeceraGrupo=(i,v)=>`<div class="dcard-top">
     ${i.estado?`<div class="dcard-fechas">${i.estado}</div>`:''}`;
 
 // Una fila del detalle: la persona, la cuota o la deuda, con su botón de cobro y
-// un menú ⋯ con la fecha límite, el historial, editar y archivar.
+// un menú ⋯ con la fecha límite, sus pagos, editar y archivar.
 function filaGrupo(i,m,v){
   const paga=m.pendiente<0.005;
   const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
@@ -342,7 +342,8 @@ function filaGrupo(i,m,v){
       </div>
       <div class="drow-opciones">
         ${campoFechaVence(m)}
-        ${enlacesDeuda(m.id,m.d[8]?gastoDeDeuda(m.d):null)}
+        ${listaPagos(m.d,i.esMeDeben)}
+        <div class="drow-enlaces">${enlacesDeuda(m.id,m.d[8]?gastoDeDeuda(m.d):null)}</div>
       </div>
     </div>`;
 }
@@ -600,6 +601,7 @@ export function abrirModalAbono(id){
   mostrarCamposAbono(vinculada||esMeDeben||abonoEntrega);
   document.getElementById('abonoGuardarBtn').textContent=vinculada?'Cobrar':'Abonar';
   document.getElementById('abonoTodoBtn').textContent=vinculada?'Todo':'Pagar todo';
+  document.getElementById('abonoEliminarBtn').hidden=true;
   if(operacionPendiente?.id===solicitudAbonoId){document.getElementById('abonoMonto').value=operacionPendiente.abono.monto;document.getElementById('abonoFecha').value=toDateInput(operacionPendiente.abono.fecha);document.getElementById('abonoNota').value=operacionPendiente.abono.nota||'';}
   document.getElementById('modalAbono').classList.add('active');
 }
@@ -652,8 +654,8 @@ export function avisarExcedenteAbono(){
 
 export function cerrarModalAbono(){
   document.getElementById('modalAbono').classList.remove('active');abonosDeudaId=null;
-  // Al corregir un cobro se vuelve al historial de donde se abrió.
-  if(editandoCobroId){editandoCobroId=null;if(historialDeudaId){renderHistorialAbonos();document.getElementById('modalHistorialAbonos').classList.add('active');}}
+  // Al cerrar, debajo sigue el detalle de la deuda, ya repintado.
+  editandoCobroId=null;document.getElementById('abonoEliminarBtn').hidden=true;
 }
 
 export function abonarTodo(){
@@ -818,7 +820,7 @@ async function confirmarDesarchivar__base(id){
 // llamadas internas queden igual de protegidas que en el monolito.
 export const confirmarDesarchivar=guardedOnce(confirmarDesarchivar__base);
 
-// ── Historial de abonos ──────────────────────────────────────────────────────
+// ── Abonos: lectura de filas ─────────────────────────────────────────────────
 // Formato nuevo: [AbonoID('A...'), DeudaID('D...'), Monto, Fecha, Nota]
 // Formato viejo: [DeudaID('D...'), Monto, Fecha, Nota]
 function _abIsNew(ab){return true;}
@@ -856,62 +858,38 @@ function otrosAbonosDelMovimiento(ab){
 }
 const sumaAbonos=abs=>abs.reduce((s,x)=>s+cent(_abMonto(x)),0);
 
-export function abrirHistorialAbonos(id){
-  historialDeudaId=id;
-  const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
-  document.getElementById('historialAbonosTitle').textContent=(d?.[8]?'Cobros — ':'Abonos — ')+(d?d[1]||'':'');
-  renderHistorialAbonos();
-  document.getElementById('modalHistorialAbonos').classList.add('active');
+// ── Pagos de una deuda ───────────────────────────────────────────────────────
+// Se ven dentro del detalle de la deuda, sin una ventana aparte: cada pago se
+// toca para corregirlo, y desde ahí también se elimina.
+//
+// Abonos (deudas sueltas) o cobros (gastos por cobrar, que son los reembolsos
+// del gasto), del más reciente al más antiguo: {tipo, id, monto, fecha, meta}.
+export function pagosDeDeuda(d){
+  if(!d)return [];
+  if(d[8]){
+    // En un gasto dividido, solo los cobros de esta persona y los que no dicen
+    // de quién son (esos se marcan).
+    const dividido=deudasDeGasto(d[8]).length>1;
+    return (datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(d[8])&&(!t[16]||String(t[16])===String(d[0])))
+      .sort((a,b)=>pf(b[0])-pf(a[0]))
+      .map(t=>{const x=excedenteDeCobro(t);return {tipo:'cobro',id:String(t[6]),monto:Number(t[4]),fecha:t[0],
+        meta:['en '+(t[5]||'—'),dividido&&!t[16]?'sin persona':'',x?'+'+fmtD(x[4])+' de más como ingreso':''].filter(Boolean).join(' · ')};});
+  }
+  return (datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(d[0]))
+    .sort((a,b)=>pf(_abFecha(b))-pf(_abFecha(a)))
+    .map(ab=>{const tx=espejoDeAbono(ab),x=abonoConExtra(ab)?.extra;return {tipo:'abono',id:_abId(ab),monto:_abMonto(ab),fecha:_abFecha(ab),
+      meta:[_abNota(ab),tx?'en '+(tx[5]||'—'):'',x?'+'+fmtD(x[4])+' de más como ingreso':''].filter(Boolean).join(' · ')};});
 }
 
-export function cerrarHistorialAbonos(){
-  document.getElementById('modalHistorialAbonos').classList.remove('active');
-  historialDeudaId=null;
-}
-
-function renderHistorialAbonos(){
-  const lista=document.getElementById('historialAbonosList');
-  const deuda=(datos.deudas||[]).find(x=>String(x[0])===String(historialDeudaId));
-  if(deuda?.[8]){renderHistorialCobros(lista,deuda);return;}
-  const abs=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(historialDeudaId));
-  if(abs.length===0){lista.innerHTML='<div class="empty dhist-vacio">Sin abonos registrados</div>';return;}
-  lista.innerHTML=[...abs].reverse().map(ab=>{
-    const abonoId=_abId(ab);
-    const fDisp=_abFecha(ab)?pf(_abFecha(ab)).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'—';
-    const nota=_abNota(ab);
-    return `<div class="dhist">
-      <div class="dhist-fila">
-        <div class="dhist-main">
-          <div class="dhist-amt">${fmtD(_abMonto(ab))}</div>
-          <div class="dhist-meta">${fDisp}${nota?' · '+escHtml(nota):''}${(()=>{const x=abonoConExtra(ab)?.extra;return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
-        </div>
-        ${abonoId?`<div class="dhist-acciones"><button class="dcard-btn" onclick="abrirEditAbono('${abonoId}')">✎</button><button class="dcard-btn danger" onclick="eliminarAbono('${abonoId}')">✕</button></div>`:''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// Los cobros de un gasto son sus reembolsos: se editan como cualquier
-// movimiento y se borran con la opción de deshacer.
-function renderHistorialCobros(lista,deuda){
-  // En un gasto dividido, solo los cobros de esta persona y los que no dicen
-  // de quién son (esos se marcan).
-  const dividido=deudasDeGasto(deuda[8]).length>1;
-  const cobros=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(deuda[8])&&(!t[16]||String(t[16])===String(deuda[0])))
-    .sort((a,b)=>pf(b[0])-pf(a[0]));
-  if(cobros.length===0){lista.innerHTML='<div class="empty dhist-vacio">Todavía no te devolvió nada</div>';return;}
-  lista.innerHTML=cobros.map(t=>{
-    const id=escAttr(String(t[6]));
-    return `<div class="dhist">
-      <div class="dhist-fila">
-        <div class="dhist-main">
-          <div class="dhist-amt">${fmtD(t[4])}</div>
-          <div class="dhist-meta">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}${dividido&&!t[16]?' · sin persona':''}${(()=>{const x=excedenteDeCobro(t);return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
-        </div>
-        <div class="dhist-acciones"><button class="dcard-btn" onclick="editarCobro('${id}')" aria-label="Editar cobro">✎</button><button class="dcard-btn danger" onclick="eliminarCobro('${id}')" aria-label="Eliminar cobro">✕</button></div>
-      </div>
-    </div>`;
-  }).join('');
+function listaPagos(d,esMeDeben){
+  const pagos=pagosDeDeuda(d);
+  const titulo=esMeDeben?(d[8]?'Lo que te devolvió':'Lo que te pagó'):'Lo que pagaste';
+  if(!pagos.length)return `<div class="dpagos"><div class="dpagos-titulo">${titulo}</div><p class="dpagos-vacio">${esMeDeben?'Todavía no te pagó nada.':'Todavía no registraste pagos.'}</p></div>`;
+  return `<div class="dpagos"><div class="dpagos-titulo">${titulo}<span>${pagos.length}</span></div>
+    <div class="dpagos-lista">${pagos.map(p=>`<button type="button" class="dpago" aria-label="${escAttr('Editar el pago de '+fmtD(p.monto))}" onclick="${p.tipo==='cobro'?`editarCobro('${escAttr(p.id)}','${escAttr(String(d[0]))}')`:`abrirEditAbono('${escAttr(p.id)}')`}">
+      <span class="dpago-main"><span class="dpago-amt">${fmtD(p.monto)}</span><span class="dpago-meta">${escHtml([p.fecha?fechaCorta(p.fecha):'—',p.meta].filter(Boolean).join(' · '))}</span></span>
+      <span class="dpago-editar" aria-hidden="true">Editar</span>
+    </button>`).join('')}</div></div>`;
 }
 
 // El ingreso extra que se guardó junto con un cobro: mismo momento, misma
@@ -938,13 +916,13 @@ function horaDe(f){const d=pf(f);return `${d.getHours()%12||12}:${String(d.getMi
 // Corregir un cobro: la misma ventana de Cobrar, con lo que se registró. Se
 // escribe lo que la persona pagó en total; si pasa lo que debía, lo demás
 // queda como ingreso extra, igual que al cobrar.
-export function editarCobro(txId){
+// `deudaId`: la deuda desde cuyo detalle se abrió, para los cobros que no dicen de quién son.
+export function editarCobro(txId,deudaId=null){
   const t=(datos.transacciones||[]).find(x=>String(x[6])===String(txId));
-  const d=t?(datos.deudas||[]).find(x=>String(x[0])===String(t[16]||historialDeudaId)):null;
-  if(!t||!d||!d[8]){cerrarHistorialAbonos();editarTx(txId);return;}
+  const d=t?(datos.deudas||[]).find(x=>String(x[0])===String(t[16]||deudaId)):null;
+  if(!t||!d||!d[8]){cerrarDetalleGrupo();editarTx(txId);return;}
   const extra=excedenteDeCobro(t),base='Devolución de '+(d[1]||'');
   abonosDeudaId=String(d[0]);editandoCobroId=String(txId);
-  document.getElementById('modalHistorialAbonos').classList.remove('active');
   document.getElementById('abonoTitle').textContent='Corregir cobro — '+(d[1]||'');
   document.getElementById('abonoPendienteLbl').textContent='Debía '+fmtD(debiaAntesDeCobro(d,t)/100)+'. Escribe lo que te pagó en total; si es más, lo que sobra queda como ingreso extra.';
   document.getElementById('abonoFecha').value=toDateInput(t[0]);
@@ -960,6 +938,7 @@ export function editarCobro(txId){
   mostrarCamposAbono(true);
   document.getElementById('abonoGuardarBtn').textContent='Guardar';
   document.getElementById('abonoTodoBtn').textContent='Lo que debía';
+  document.getElementById('abonoEliminarBtn').hidden=false;
   avisarExcedenteAbono();
   document.getElementById('modalAbono').classList.add('active');
 }
@@ -988,7 +967,6 @@ async function guardarCobroEditado(d,monto,fecha,nota){
     else if(extraNuevo)extraCreado=await sbInsert('transacciones',{...extraNuevo,categoria:'Otros ingresos',tipo:'Ingreso',cuenta_destino:null,transaccion_origen_id:null,deuda_id:null});
     editandoCobroId=null;cerrarModalAbono();
     await cargar({silencioso:true});
-    if(historialDeudaId){renderHistorialAbonos();document.getElementById('modalHistorialAbonos').classList.add('active');}
     ofrecerDeshacer('Cobro corregido'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':''),async()=>{
       if(extraCreado)await sbDelete('transacciones',extraCreado.id);
       await sbUpdate('transacciones',t[6],antes);
@@ -1008,11 +986,16 @@ async function eliminarCobro__base(txId){
     await sbDelete('transacciones',txId);
     await cargar({silencioso:true});
     render();
-    if(historialDeudaId)renderHistorialAbonos();
     ofrecerDeshacer('Cobro eliminado',async()=>{await sbInsert('transacciones',cuerpoTx(copia));if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));});
   }catch(e){toast(e.message||'No se pudo eliminar el cobro','error');}
 }
 export const eliminarCobro=guardedOnce(eliminarCobro__base);
+
+// "Eliminar" en la hoja de corregir un cobro: se puede deshacer.
+export async function eliminarCobroEditando(){
+  const id=editandoCobroId;if(!id)return;
+  cerrarModalAbono();await eliminarCobro(id);
+}
 
 // Abono de una deuda "Me deben" con su ingreso espejo: lo que pedía la deuda
 // antes de este abono, en céntimos, y el ingreso extra que se guardó con él
@@ -1043,13 +1026,14 @@ export function abrirEditAbono(abonoId){
   const ab=(datos.deudasAbonos||[]).find(x=>_abId(x)===String(abonoId));
   if(!ab)return;
   editandoAbonoId=abonoId;
+  // De qué deuda es el pago: "Luis Paredes · Préstamo para la laptop".
+  const deuda=deudaDeAbono(ab);
+  document.getElementById('editAbonoContexto').textContent=deuda?[deuda[1],deuda[2]].filter(Boolean).join(' · '):'';
   // Se muestra lo que te pagó en total: el abono más su ingreso extra.
   const info=abonoConExtra(ab);
   document.getElementById('editAbonoMonto').value=info?.extra?((cent(_abMonto(ab))+cent(info.extra[4]))/100).toFixed(2):_abMonto(ab);
   document.getElementById('editAbonoFecha').value=toDateInput(_abFecha(ab));
   document.getElementById('editAbonoNota').value=_abNota(ab);
-  // Cierra el historial para evitar conflicto de z-index entre modales
-  document.getElementById('modalHistorialAbonos').classList.remove('active');
   avisarExcedenteEditAbono();
   document.getElementById('modalEditAbono').classList.add('active');
 }
@@ -1057,8 +1041,6 @@ export function abrirEditAbono(abonoId){
 export function cerrarEditAbono(){
   document.getElementById('modalEditAbono').classList.remove('active');
   editandoAbonoId=null;
-  // Reabre el historial si venía de ahí
-  if(historialDeudaId) document.getElementById('modalHistorialAbonos').classList.add('active');
 }
 
 async function guardarEditAbono__base(){
@@ -1106,7 +1088,6 @@ async function guardarEditAbono__base(){
     await cargar({silencioso:true});
     cerrarEditAbono();
     render();
-    if(historialDeudaId)renderHistorialAbonos();
     if(antes)ofrecerDeshacer('Abono actualizado'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':'')+(compartido&&txMonto!==Number(espejo[4])?' · el gasto queda en '+fmtD(txMonto):''),async()=>{
       if(extraCreado)await sbDelete('transacciones',extraCreado.id);
       await ejecutarAbono({tipo:'editar',id,txId,txFecha:espejo?espejo[0]:undefined,txMonto:compartido?Number(espejo[4]):undefined,patch:antes});
@@ -1135,7 +1116,6 @@ async function eliminarAbono__base(abonoId){
     if(extra)await sbDelete('transacciones',extra[6]).catch(()=>toast('Se eliminó el abono, pero no su ingreso extra. Bórralo en Movimientos.','error'));
     await cargar({silencioso:true});
     render();
-    if(historialDeudaId)renderHistorialAbonos();
     // Al deshacer, el gasto compartido vuelve a su monto antes de reponer el abono.
     if(copia)ofrecerDeshacer('Abono eliminado'+(txMonto!=null?' · el gasto queda en '+fmtD(txMonto):''),async()=>{
       if(txMonto!=null&&tx)await sbUpdate('transacciones',txId,{monto:Number(tx[4])});
@@ -1147,6 +1127,12 @@ async function eliminarAbono__base(abonoId){
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.
 export const eliminarAbono=guardedOnce(eliminarAbono__base);
+
+// "Eliminar" en la hoja de editar un abono: se puede deshacer.
+export async function eliminarAbonoEditando(){
+  const id=editandoAbonoId;if(!id)return;
+  cerrarEditAbono();await eliminarAbono(id);
+}
 
 // ── Edición inline de fechas ─────────────────────────────────────────────────
 async function editarFechaDeuda__base(id,campo,valor){

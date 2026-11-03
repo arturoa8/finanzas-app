@@ -17,6 +17,7 @@ import {initializeDeshacer} from './ui/deshacer.js';
 import {initializeSegmentedThumb} from './ui/segmented-thumb.js';
 import {exportarMovimientosCSV, descargarRespaldo} from './modules/backup.js';
 import {initializeNotificaciones} from './modules/notificaciones.js';
+import {setPg} from './ui/navigation.js';
 import {detenerPrecargaPortafolio, limpiarCachePortafolio, precargarPortafolio} from './modules/portfolio/portfolio.js';
 
 [
@@ -47,6 +48,11 @@ initializeSheetDrag();
 initializeDeshacer();
 initializeSegmentedThumb();
 initializeNotificaciones();
+// Tocar un aviso de deudas abre Deudas: si la app estaba cerrada llega con
+// #deudas; si ya estaba abierta, el service worker manda un mensaje.
+const abrirPaginaDeAviso=p=>{if(p==='deb')setPg('deb');};
+if(location.hash==='#deudas'){history.replaceState(null,'',location.pathname+location.search);abrirPaginaDeAviso('deb');}
+navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.tipo==='abrir')abrirPaginaDeAviso(e.data.pagina);});
 document.getElementById('exportCSV')?.addEventListener('click',exportarMovimientosCSV);
 document.getElementById('exportBackup')?.addEventListener('click',descargarRespaldo);
 bootAuth();
