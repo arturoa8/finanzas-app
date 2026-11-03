@@ -43,15 +43,17 @@
 .dcard-origen{font-size:0.7rem;color:var(--dim);margin-top:4px;}
 
 /* ── Deudas más claras: resumen arriba, estado en palabras, un botón principal ── */
-.dresumen{background:linear-gradient(180deg,rgba(24,24,27,.95),rgba(17,17,19,.95));border:1px solid var(--border);border-radius:18px;padding:14px;margin:4px 0 14px;box-shadow:0 10px 34px rgba(0,0,0,.18);}
-.dresumen-lbl{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
-.dresumen-amt{font-size:1.9rem;font-weight:900;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px;}
+/* Sin caja: la cifra va sobre el fondo, como el saldo en Wallet, y la lista
+   agrupada de abajo es la única superficie. */
+.dresumen{padding:6px 4px 0;margin:2px 0 18px;}
+.dresumen-lbl{font-size:.82rem;font-weight:600;color:var(--dim);}
+.dresumen-amt{font-size:2.5rem;font-weight:800;letter-spacing:-0.035em;line-height:1.05;font-variant-numeric:tabular-nums;margin:4px 0 10px;}
 .dresumen.in .dresumen-amt{color:var(--green);}.dresumen.out .dresumen-amt{color:var(--red);}
 .dresumen-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:0.72rem;color:var(--dim);}
-.dresumen-aviso{font-weight:700;padding:2px 8px;border-radius:20px;}
+.dresumen-aviso{font-weight:600;padding:3px 8px;border-radius:7px;}
 .dresumen-aviso.vencida{background:#ff3b6b1a;color:var(--red);}
 .dresumen-aviso.pronto{background:#ffb84d1f;color:var(--yellow);}
-.dresumen-ayuda{margin:10px 0 0;font-size:0.72rem;line-height:1.5;color:var(--muted);}
+.dresumen-ayuda{margin:10px 0 0;max-width:46ch;font-size:0.74rem;line-height:1.5;color:var(--muted);text-wrap:pretty;}
 
 .dcard-amt-lbl{font-size:0.62rem;font-weight:600;color:var(--muted);margin-bottom:1px;}
 .dcard-fechas{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;margin:12px 0 4px;}
@@ -73,7 +75,7 @@
 
 /* ── Varias deudas de lo mismo (personas o cuotas) en una tarjeta ── */
 .private .dresumen-amt,.private .drow-amt{filter:blur(8px)}
-.dgrupo-tag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:20px;font-size:0.62rem;font-weight:700;vertical-align:middle;background:#7aa2ff1a;color:var(--blue);}
+.dgrupo-tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:6px;font-size:0.64rem;font-weight:600;vertical-align:1px;background:rgba(255,255,255,.07);color:var(--dim);}
 .dgrupo .dcard-fechas{margin-top:10px;}
 .dgrupo-toggle{flex:1;text-align:right;}
 .dgrupo-flecha{display:inline-block;margin-left:2px;font-size:1.05rem;line-height:1;}
@@ -81,21 +83,21 @@
 /* Hoja grande con el detalle del grupo: se desplaza por dentro. */
 .grupo-scroll{max-height:56vh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;margin-top:14px;padding-right:2px;}
 #grupoDeudaContent .dcard-fechas{margin-bottom:0;}
-.drow{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:4px 10px;padding:11px 0;border-bottom:1px solid var(--border);}
+.drow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"nombre importe acciones" "estado estado acciones" "opciones opciones opciones";align-items:center;gap:2px 12px;padding:12px 0;border-bottom:1px solid var(--border);}
 .drow:last-child{border-bottom:0;padding-bottom:2px;}
-.drow-main{min-width:0;}
-.drow-name{font-size:0.84rem;font-weight:700;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere;}
-.drow-sub{font-size:0.68rem;color:var(--muted);margin-top:2px;}
+.drow-name{grid-area:nombre;min-width:0;font-size:0.88rem;font-weight:600;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere;}
+.drow-sub{grid-area:estado;font-size:0.7rem;line-height:1.4;color:var(--muted);}
+.drow-acciones{grid-area:acciones;display:flex;align-items:center;gap:4px;}
 .drow-sub.vencida{color:var(--red);}.drow-sub.pronto{color:var(--yellow);}
-.drow-amt{font-size:0.88rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;}
-.drow-amt.in{color:var(--green);}.drow-amt.out{color:var(--red);}.drow-amt.ok{color:var(--green);}
+.drow-amt{grid-area:importe;font-size:0.9rem;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;color:var(--text);}
+.drow-amt.ok{color:var(--green);font-size:.76rem;font-weight:600;}
 .drow.pagada .drow-name,.drow.pagada .drow-sub{color:var(--muted);}
-.drow-btn{padding:7px 12px;border-radius:10px;border:1px solid var(--green);background:none;color:var(--green);font-size:0.72rem;font-weight:700;font-family:inherit;cursor:pointer;}
-.drow-btn:active{transform:scale(.95);}
+.drow-btn{min-height:34px;padding:7px 14px;border-radius:10px;border:0;background:rgba(0,214,143,.14);color:var(--green);font-size:0.74rem;font-weight:700;font-family:inherit;cursor:pointer;transition:transform .64s var(--resorte),background-color .2s ease;}
+.drow-btn:active{transform:scale(.95);transition-duration:.07s;}
+@media(hover:hover){.drow-btn:hover{background:rgba(0,214,143,.22);}.drow-mas:hover{background:var(--card2);}}
 .drow-mas{width:32px;height:32px;border:0;border-radius:10px;background:none;color:var(--dim);font-size:1.1rem;line-height:1;cursor:pointer;font-family:inherit;}
 .drow-mas:active{background:var(--bg);}
-.drow.pagada .drow-mas{grid-column:3 / 5;justify-self:end;}
-.drow-opciones{display:none;grid-column:1 / -1;flex-wrap:wrap;align-items:center;gap:2px 4px;margin-top:6px;padding:6px 10px;background:var(--bg);border-radius:12px;}
+.drow-opciones{display:none;grid-area:opciones;flex-wrap:wrap;align-items:center;gap:2px 4px;margin-top:6px;padding:6px 10px;background:var(--bg);border-radius:12px;}
 .drow.mas .drow-opciones{display:flex;}
 .drow-opciones .dcard-fecha{margin:0;padding:6px 4px;flex-basis:100%;}
 .drow-opciones .dcard-link{padding:8px 4px;}
@@ -108,19 +110,23 @@
 .dgrupo-toggle{display:flex;align-items:center;justify-content:flex-end;gap:2px;cursor:pointer;}
 
 /* ── Lista compacta: una fila por deuda o grupo; el detalle va en la hoja ── */
-.ditem{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:13px 14px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,background .22s ease;}
-.ditem:active{transform:scale(.985);}
-.ditem.vencida{border-color:#ff3b6b44;}
+.dlista{background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:12px;}
+.dlista-ayuda{margin:2px 4px 14px;font-size:.74rem;line-height:1.5;color:var(--muted);max-width:46ch;text-wrap:pretty;}
+.ditem{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;background:transparent;border:0;border-radius:0;padding:14px 16px;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .35s ease;}
+/* Separador con sangría, alineado con el texto (no toca los bordes). */
+.ditem+.ditem::before{content:"";position:absolute;top:0;left:16px;right:0;height:1px;background:var(--border);}
+.ditem:active{background:var(--card2);transition-duration:.07s;}
+@media(hover:hover){.ditem:hover{background:var(--card2);}}
+.ditem:focus-visible{outline-offset:-3px;border-radius:14px;}
 .ditem-main{min-width:0;}
-.ditem-title{font-size:.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ditem-title{font-size:.94rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ditem-sub{font-size:.7rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ditem-estado{font-size:.72rem;font-weight:700;color:var(--dim);margin-top:5px;}
+.ditem-estado{font-size:.72rem;font-weight:600;color:var(--dim);margin-top:4px;}
 .ditem-estado.vencida{color:var(--red);}.ditem-estado.pronto{color:var(--yellow);}.ditem-estado.ok{color:var(--green);}
 .ditem-right{display:flex;align-items:center;gap:6px;}
-.ditem-amt{font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;}
-.ditem-amt.in{color:var(--green);}.ditem-amt.out{color:var(--red);}
-.ditem-flecha{color:var(--muted);font-size:1.15rem;line-height:1;}
-.ditem-barra{grid-column:1 / -1;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:9px;}
+.ditem-amt{font-size:.98rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+.ditem-flecha{color:var(--muted);font-size:1.15rem;line-height:1;margin-right:-4px;}
+.ditem-barra{grid-column:1 / -1;height:3px;background:var(--card3);border-radius:2px;overflow:hidden;margin-top:10px;}
 .ditem-barra span{display:block;height:100%;border-radius:2px;}
 .ditem-barra .in{background:var(--green);}.ditem-barra .out{background:var(--red);}
 .private .ditem-amt{filter:blur(8px)}
@@ -134,3 +140,24 @@
 #dIngresoRow .cuenta-lbl{width:auto}
 #dIngresoRow .sel{width:100%;max-width:100%;min-width:0;text-overflow:ellipsis}
 #dIngresoNota{font-size:.75rem;line-height:1.45;color:var(--muted);margin:8px 0 12px}
+
+/* Archivadas: filas de la misma lista, con "Restaurar" como enlace. */
+.darch{cursor:default;}
+.darch .ditem-title,.darch .ditem-amt{color:var(--dim);}
+.darch-right{flex-direction:column;align-items:flex-end;gap:2px;}
+.darch-restaurar{flex:none;padding:6px 0 0;color:var(--green);font-size:.72rem;}
+.darch:active{background:transparent;}
+@media(hover:hover){.darch:hover{background:transparent;}}
+
+/* Historial de abonos y cobros. */
+.dhist{background:var(--card2);border-radius:14px;padding:10px 14px;margin-bottom:8px;}
+.dhist-fila{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.dhist-main{min-width:0;}
+.dhist-amt{font-weight:700;font-variant-numeric:tabular-nums;color:var(--green);}
+.dhist-meta{font-size:.75rem;line-height:1.4;color:var(--dim);margin-top:2px;}
+.dhist-acciones{display:flex;gap:6px;flex-shrink:0;}
+.dhist-acciones .dcard-btn{min-width:40px;min-height:36px;}
+.dhist-vacio{padding:20px 0;}
+
+/* En computadora la lista no se estira a todo el ancho: el importe queda cerca del nombre. */
+@media(min-width:1050px){#p-deb .container{max-width:760px}}

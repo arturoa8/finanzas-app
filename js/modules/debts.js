@@ -132,11 +132,12 @@ function pintarDeb(){
     if(!miembros||miembros.length<2)items.push(it);
     else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
   }
-  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+items.map(it=>{
+  // Las filas van juntas en una sola lista agrupada, como en Ajustes de iOS.
+  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+'<div class="dlista">'+items.map(it=>{
     if(it.tipo==='sola'){gruposVigentes.set('s'+it.f.id,{miembros:[it.f],esMeDeben,sola:true});return itemDeudaSola(it.f,esMeDeben);}
     gruposVigentes.set(it.k,{miembros:it.miembros,esMeDeben});
     return itemDeudaGrupo(infoGrupo(it.k,it.miembros,esMeDeben));
-  }).join('');
+  }).join('')+'</div>';
 }
 
 const reCuota=/^(.*) · Cuota (\d+)\/(\d+)$/;
@@ -251,7 +252,10 @@ function estadoDeuda(f){
 }
 function itemDeudaSola(f,esMeDeben){
   const {d}=f,v=verbos(esMeDeben),e=estadoDeuda(f);
-  return itemDeuda({clave:'s'+f.id,titulo:d[1]||'?',sub:d[2]||'',estado:e.texto,tono:e.tono,monto:f.pendiente,cls:v.cls,
+  // "Universidad 3/5 · sale de Pago 2": de dónde sale lo que entregas.
+  const ingreso=ingresoIdDeuda(d)?(datos.transacciones||[]).find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoIdDeuda(d))):null;
+  const sub=[d[2]||'',ingreso?'sale de '+(ingreso[1]||'tu ingreso'):''].filter(Boolean).join(' · ');
+  return itemDeuda({clave:'s'+f.id,titulo:d[1]||'?',sub,estado:e.texto,tono:e.tono,monto:f.pendiente,cls:v.cls,
     pct:f.monto>0?Math.min(100,Math.round(f.abonado/f.monto*100)):0,vencida:f.vencida});
 }
 function itemDeudaGrupo(i){
@@ -326,14 +330,16 @@ function filaGrupo(i,m,v){
   const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
   const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
   const nombre=i.clase==='personas'?(m.d[1]||'?'):i.clase==='cuotas'?numCuota(m):(m.d[2]||'Sin descripción');
+  // El estado va en su propia línea bajo el nombre y el importe, a lo ancho de
+  // ambos: así "Venció hace 10 días · Ya pagó…" no se parte en tres líneas.
   return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
-      <div class="drow-main">
-        <div class="drow-name">${escHtml(nombre)}</div>
-        <div class="drow-sub${e?' '+e.tono:''}">${escHtml(sub)}</div>
+      <div class="drow-name">${escHtml(nombre)}</div>
+      <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓ Pagado':fmtD(m.pendiente)}</div>
+      <div class="drow-sub${e?' '+e.tono:''}">${escHtml(paga?(m.fvVal?'Vencía '+fechaCorta(m.fvVal):''):sub)}</div>
+      <div class="drow-acciones">
+        ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
+        <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>
       </div>
-      <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓':fmtD(m.pendiente)}</div>
-      ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
-      <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>
       <div class="drow-opciones">
         ${campoFechaVence(m)}
         ${enlacesDeuda(m.id,m.d[8]?gastoDeDeuda(m.d):null)}
@@ -352,36 +358,30 @@ function detalleGrupo(i){
 
 function renderDebArchivadas(l){
   const arch=datos.deudasArchivadas||[];
-  if(arch.length===0){l.innerHTML='<div class="empty">Sin deudas archivadas</div>';return;}
-  l.innerHTML=[...arch].reverse().map(d=>{
+  if(arch.length===0){l.innerHTML='<div class="empty empty-deudas"><strong>Nada archivado</strong><span>Cuando una deuda se salde o la des por perdida, archívala y quedará aquí.</span></div>';return;}
+  // Una fila por deuda: quién, qué y cómo terminó. Restaurar va como enlace,
+  // no como botón grande: es lo menos frecuente.
+  l.innerHTML='<p class="dlista-ayuda">Deudas que ya cerraste. Restaura una si la archivaste por error.</p><div class="dlista">'+[...arch].reverse().map(d=>{
     const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
     const monto=parseFloat(d[3])||0;
     const logAb=d[10]?cobradoDeuda(d):calcAbonadoFromLog(d[0]);
     const abonado=logAb>0?logAb:(parseFloat(d[4])||0);
     const motivo=(d[8]||'').toString().toLowerCase();
     const isPagado=motivo.includes('pagado')||motivo.includes('saldada');
-    const cls=esMeDeben?'in':'out';const signo=esMeDeben?'+':'−';
-    const faDisp=d[9]?pf(d[9]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'';
-    return `<div class="dcard" style="opacity:0.75;">
-      <div class="dcard-top">
-        <div class="dcard-info">
-          <div class="dcard-person">${escHtml(d[1]||'?')}
-            <span class="dcard-badge ${esMeDeben?'medeben':'lesdebo'}">${esMeDeben?'Me debían':'Les debía'}</span>
-            <span class="dcard-badge ${isPagado?'pagado':'nopago'}">${isPagado?'Saldada':'No pagó'}</span>
-          </div>
-          <div class="dcard-desc">${escHtml(d[2]||'')}</div>
-          ${faDisp?`<div class="dcard-desc">Archivada ${faDisp}</div>`:''}
-        </div>
-        <div class="dcard-right">
-          <div class="dcard-amt ${cls}">${signo}${fmtD(monto)}</div>
-          ${abonado>0&&abonado<monto?`<div class="dcard-subamt">Abonado ${fmtD(abonado)}</div>`:''}
-        </div>
+    const faDisp=d[9]?fechaCorta(d[9]):'';
+    const estado=(isPagado?'Saldada':esMeDeben?'No pagó':'No se pagó')+(abonado>0&&abonado<monto?' · pagó '+fmtD(abonado):'')+(faDisp?' · '+faDisp:'');
+    return `<div class="ditem darch">
+      <div class="ditem-main">
+        <div class="ditem-title">${escHtml(d[1]||'?')}</div>
+        <div class="ditem-sub">${escHtml([esMeDeben?'Te debía':'Le debías',d[2]||''].filter(Boolean).join(' · '))}</div>
+        <div class="ditem-estado ${isPagado?'ok':'vencida'}">${escHtml(estado)}</div>
       </div>
-      <div class="dcard-actions">
-        <button class="dcard-btn" onclick="confirmarDesarchivar('${escHtml(String(d[0]))}')">Desarchivar</button>
+      <div class="ditem-right darch-right">
+        <span class="ditem-amt">${fmtD(monto)}</span>
+        <button type="button" class="dcard-link darch-restaurar" onclick="confirmarDesarchivar('${escAttr(String(d[0]))}')">Restaurar</button>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+'</div>';
 }
 
 export function setDT(t,b){dT=t;document.querySelectorAll('.dtabs .detail-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
@@ -874,18 +874,18 @@ function renderHistorialAbonos(){
   const deuda=(datos.deudas||[]).find(x=>String(x[0])===String(historialDeudaId));
   if(deuda?.[8]){renderHistorialCobros(lista,deuda);return;}
   const abs=(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(historialDeudaId));
-  if(abs.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Sin abonos registrados</div>';return;}
+  if(abs.length===0){lista.innerHTML='<div class="empty dhist-vacio">Sin abonos registrados</div>';return;}
   lista.innerHTML=[...abs].reverse().map(ab=>{
     const abonoId=_abId(ab);
     const fDisp=_abFecha(ab)?pf(_abFecha(ab)).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'}):'—';
     const nota=_abNota(ab);
-    return `<div class="dcard" style="margin-bottom:8px;padding:10px 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <div>
-          <div style="font-weight:700;color:var(--green)">${fmtD(_abMonto(ab))}</div>
-          <div style="font-size:0.75rem;color:var(--dim)">${fDisp}${nota?' · '+escHtml(nota):''}${(()=>{const x=abonoConExtra(ab)?.extra;return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
+    return `<div class="dhist">
+      <div class="dhist-fila">
+        <div class="dhist-main">
+          <div class="dhist-amt">${fmtD(_abMonto(ab))}</div>
+          <div class="dhist-meta">${fDisp}${nota?' · '+escHtml(nota):''}${(()=>{const x=abonoConExtra(ab)?.extra;return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
         </div>
-        ${abonoId?`<div style="display:flex;gap:6px;"><button class="dcard-btn" onclick="abrirEditAbono('${abonoId}')">✎</button><button class="dcard-btn danger" onclick="eliminarAbono('${abonoId}')">✕</button></div>`:''}
+        ${abonoId?`<div class="dhist-acciones"><button class="dcard-btn" onclick="abrirEditAbono('${abonoId}')">✎</button><button class="dcard-btn danger" onclick="eliminarAbono('${abonoId}')">✕</button></div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -899,16 +899,16 @@ function renderHistorialCobros(lista,deuda){
   const dividido=deudasDeGasto(deuda[8]).length>1;
   const cobros=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&String(t[8])===String(deuda[8])&&(!t[16]||String(t[16])===String(deuda[0])))
     .sort((a,b)=>pf(b[0])-pf(a[0]));
-  if(cobros.length===0){lista.innerHTML='<div class="empty" style="padding:20px 0">Todavía no te devolvió nada</div>';return;}
+  if(cobros.length===0){lista.innerHTML='<div class="empty dhist-vacio">Todavía no te devolvió nada</div>';return;}
   lista.innerHTML=cobros.map(t=>{
     const id=escAttr(String(t[6]));
-    return `<div class="dcard" style="margin-bottom:8px;padding:10px 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <div>
-          <div style="font-weight:700;color:var(--green)">${fmtD(t[4])}</div>
-          <div style="font-size:0.75rem;color:var(--dim)">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}${dividido&&!t[16]?' · sin persona':''}${(()=>{const x=excedenteDeCobro(t);return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
+    return `<div class="dhist">
+      <div class="dhist-fila">
+        <div class="dhist-main">
+          <div class="dhist-amt">${fmtD(t[4])}</div>
+          <div class="dhist-meta">${pf(t[0]).toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'})} · en ${escHtml(t[5]||'—')}${dividido&&!t[16]?' · sin persona':''}${(()=>{const x=excedenteDeCobro(t);return x?' · +'+fmtD(x[4])+' de más como ingreso':'';})()}</div>
         </div>
-        <div style="display:flex;gap:6px;"><button class="dcard-btn" onclick="editarCobro('${id}')" aria-label="Editar cobro">✎</button><button class="dcard-btn danger" onclick="eliminarCobro('${id}')" aria-label="Eliminar cobro">✕</button></div>
+        <div class="dhist-acciones"><button class="dcard-btn" onclick="editarCobro('${id}')" aria-label="Editar cobro">✎</button><button class="dcard-btn danger" onclick="eliminarCobro('${id}')" aria-label="Eliminar cobro">✕</button></div>
       </div>
     </div>`;
   }).join('');
