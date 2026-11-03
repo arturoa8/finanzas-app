@@ -37,13 +37,17 @@ async function completarAbono(op,validarSesion){
     validarSesion();
     // txFecha: instante del movimiento vinculado. La fecha del abono es solo
     // un día y, enviada tal cual, movería el movimiento al día anterior en Lima.
-    if(op.txId){const tx=await sbUpdate('transacciones',op.txId,{monto:op.patch.monto,fecha:op.txFecha||op.patch.fecha});if(!tx)throw new Error('No se encontró el movimiento vinculado.');}
+    // txMonto: el movimiento lo comparten varios abonos (un gasto que pagó dos
+    // cuotas) y vale la suma de todos, no solo la de este.
+    if(op.txId){const tx=await sbUpdate('transacciones',op.txId,{monto:op.txMonto??op.patch.monto,fecha:op.txFecha||op.patch.fecha});if(!tx)throw new Error('No se encontró el movimiento vinculado.');}
     return row;
   }
   if(op.tipo==='eliminar'){
     await sbDelete('deudas_abonos',op.id);
     validarSesion();
-    if(op.txId)await sbDelete('transacciones',op.txId);
+    // Compartido con otros abonos: queda con lo que suman ellos, no se borra.
+    if(op.txId&&op.txMonto!=null){if(!await sbUpdate('transacciones',op.txId,{monto:op.txMonto}))throw new Error('No se encontró el movimiento vinculado.');}
+    else if(op.txId)await sbDelete('transacciones',op.txId);
     return null;
   }
   throw new Error('Operación pendiente no reconocida.');

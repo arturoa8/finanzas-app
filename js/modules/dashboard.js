@@ -381,9 +381,10 @@ function filaTxPrincipal(t){
   // Un ingreso con una parte por entregar dice cuánto es tuyo; el pago de esa
   // parte, que no cuenta como gasto.
   const entrega=t[3]==='Ingreso'?entregaDeIngresoCentimos(t)/100:0;
+  const pagoEntrega=t[3]==='Gasto'&&esPagoDeEntrega(t[6]);
   const extraEntrega=entrega>0
     ? `<div class="tx-refund-sub tx-por-cobrar">Debes entregar ${fmt(entrega)}${deudasDeIngreso(t[6]).length===1?' a '+escHtml(deudasDeIngreso(t[6])[0][1]||'—'):''} · te quedan ${fmt(ingresoNeto(t))}</div>`
-    : t[3]==='Gasto'&&esPagoDeEntrega(t[6])?'<div class="tx-refund-sub">Parte que entregabas: no cuenta como gasto tuyo</div>':'';
+    : pagoEntrega?'<div class="tx-refund-sub">Parte que entregabas: no cuenta como gasto tuyo</div>':'';
   const extra=extraEntrega||(neto
     ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(textoDeudas(deudas,porCobrar))}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
     : '');
@@ -392,7 +393,7 @@ function filaTxPrincipal(t){
   const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
   const pill=dual
     ? `<div class="tamt-pill transfer dual"><span class="pdot"></span><span class="leg-out">− ${enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m)}</span><span class="leg-in">+ ${fmtMoneda(Number(t[14]),t[13]||monedaCuenta(t[7]||''))}</span></div>`
-    : `<div class="tamt-pill ${transfer?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div>`;
+    : `<div class="tamt-pill ${transfer||pagoEntrega?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div>`;
   return `<div class="tx" onclick="editarTx('${escHtml(String(row).replace(/'/g,"\\'"))}')"><div class="ti" style="background:${em.c}">${em.e}</div><div><div class="tcat">${escHtml(reembolso?'Reembolso · '+(c||'—'):c||'—')}</div><div class="tdesc">${escHtml(d)}</div>${extra}</div>${pill}</div>${nested}`;
 }
 

@@ -3,7 +3,7 @@
 
 import {renderSaldoCuentas} from './accounts.js';
 import {gastoNeto, gastosPorCat, reembolsado, totales} from './transactions.js';
-import {porCobrarDeGasto} from './por-cobrar.js';
+import {esPagoDeEntrega, porCobrarDeGasto} from './por-cobrar.js';
 import {datos} from '../state.js';
 import {renderChart, renderYearMini} from '../ui/charts.js';
 import {getMesActivo} from '../ui/navigation.js';
@@ -73,8 +73,10 @@ export function renderAnalisis(){
   const gReembolsos=tx.filter(t=>t[3]==='Gasto').reduce((s,t)=>s+reembolsado(t[6]),0);
   // Lo que pagaste por otras personas y aún no te devuelven tampoco es gasto tuyo.
   const gPorCobrar=tx.reduce((s,t)=>s+porCobrarDeGasto(t),0);
+  // El pago de la parte de un ingreso que entregabas a otra persona tampoco.
+  const gEntrega=tx.filter(t=>t[3]==='Gasto'&&esPagoDeEntrega(t[6])).reduce((s,t)=>s+(Number(t[4])||0),0);
   document.getElementById('mGastoNeto').textContent=fmt(tot.g);
-  document.getElementById('mGastoSub').textContent='bruto '+fmt(gBruto)+' · reembolsos '+fmt(gReembolsos)+(gPorCobrar>0?' · por cobrar '+fmt(gPorCobrar):'')+' · neto';
+  document.getElementById('mGastoSub').textContent='bruto '+fmt(gBruto)+' · reembolsos '+fmt(gReembolsos)+(gPorCobrar>0?' · por cobrar '+fmt(gPorCobrar):'')+(gEntrega>0?' · entregado a otros '+fmt(gEntrega):'')+' · neto';
 
   // Promedio diario gastos — excluye 'Estudios' (cuotas de universidad): son
   // montos grandes y puntuales que no representan el gasto diario real, y

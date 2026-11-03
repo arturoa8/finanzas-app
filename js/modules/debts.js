@@ -750,6 +750,8 @@ async function cobrarGasto(d,monto,fecha,nota){
   if(!gasto){toast('No encuentro el gasto de esta deuda. Pulsa Actualizar.','error');return;}
   // Lo que debe esta persona, sin pasar lo que queda del gasto por devolver.
   const pendiente=Math.min(pendienteDeuda(d),Math.max(0,Math.round(Number(gasto[4])*100)-devueltoCentimos(gasto[6]))/100);
+  // Ya no debe nada: todo el pago sería ingreso extra. Igual que en una deuda suelta.
+  if(pendiente<0.005){toast((d[1]||'Esta persona')+' ya te devolvió todo. Archívala como saldada.','error');return;}
   const centimos=Math.round(monto*100),devuelto=Math.min(centimos,Math.round(pendiente*100)),exceso=centimos-devuelto;
   const cuenta=document.getElementById('abonoCuenta').value;
   if(!cuenta){toast('Elige dónde recibiste el dinero','error');return;}
@@ -844,6 +846,15 @@ function _abFecha(ab){return _abIsNew(ab)?(ab[3]||''):(ab[2]||'');}
 function _abNota(ab){return _abIsNew(ab)?(ab[4]||''):(ab[3]||'');}
 
 function _abTxId(ab){return ab[5]||null;}
+
+// Otros abonos que usan el mismo movimiento: la cuota 2/5 dividida en dos
+// deudas se pagó con un solo gasto, que vale la suma de sus abonos. Editar o
+// borrar uno de ellos ajusta ese gasto; nunca lo pisa con un solo abono ni lo borra.
+function otrosAbonosDelMovimiento(ab){
+  const tx=_abTxId(ab);
+  return tx?(datos.deudasAbonos||[]).filter(x=>x!==ab&&String(_abTxId(x))===String(tx)):[];
+}
+const sumaAbonos=abs=>abs.reduce((s,x)=>s+cent(_abMonto(x)),0);
 
 export function abrirHistorialAbonos(id){
   historialDeudaId=id;
@@ -1077,8 +1088,12 @@ async function guardarEditAbono__base(){
     // El movimiento vinculado conserva su hora si el día no cambió; si cambió,
     // se arma con la hora de Lima (ver momentoDeAbono).
     const espejo=ab&&txId?espejoDeAbono(ab):null;
-    const txFecha=espejo?(toDateInput(espejo[0])===fecha?espejo[0]:momentoDeAbono(fecha,horaDe(espejo[0]))):undefined;
-    await ejecutarAbono({tipo:'editar',id,txId,txFecha,patch:{monto:abonado,fecha,nota}});
+    // Compartido con otros abonos: el gasto pasa a valer la nueva suma y
+    // conserva su fecha, que es la de todos.
+    const otros=ab?otrosAbonosDelMovimiento(ab):[],compartido=!!espejo&&otros.length>0;
+    const txMonto=compartido?(sumaAbonos(otros)+Math.round(abonado*100))/100:undefined;
+    const txFecha=espejo?(compartido||toDateInput(espejo[0])===fecha?espejo[0]:momentoDeAbono(fecha,horaDe(espejo[0]))):undefined;
+    await ejecutarAbono({tipo:'editar',id,txId,txFecha,txMonto,patch:{monto:abonado,fecha,nota}});
     let extraCreado=null;
     if(info){
       const extraNuevo=exceso>0?{fecha:txFecha||fecha,cuenta:info.tx[5],descripcion:'Excedente de '+(info.d[1]||'pago')+(nota?' · '+nota:''),monto:exceso/100}:null;
@@ -1092,9 +1107,9 @@ async function guardarEditAbono__base(){
     cerrarEditAbono();
     render();
     if(historialDeudaId)renderHistorialAbonos();
-    if(antes)ofrecerDeshacer('Abono actualizado'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':''),async()=>{
+    if(antes)ofrecerDeshacer('Abono actualizado'+(exceso>0?' · '+fmtD(exceso/100)+' de más como ingreso':'')+(compartido&&txMonto!==Number(espejo[4])?' · el gasto queda en '+fmtD(txMonto):''),async()=>{
       if(extraCreado)await sbDelete('transacciones',extraCreado.id);
-      await ejecutarAbono({tipo:'editar',id,txId,txFecha:espejo?espejo[0]:undefined,patch:antes});
+      await ejecutarAbono({tipo:'editar',id,txId,txFecha:espejo?espejo[0]:undefined,txMonto:compartido?Number(espejo[4]):undefined,patch:antes});
       if(copiaExtra&&exceso>0)await sbUpdate('transacciones',copiaExtra[6],{fecha:copiaExtra[0],cuenta:copiaExtra[5],descripcion:copiaExtra[1],monto:Number(copiaExtra[4])});
       else if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));
     });
@@ -1114,12 +1129,18 @@ async function eliminarAbono__base(abonoId){
     const copia=ab?{tipo:'crear',id:String(abonoId),tx:tx?cuerpoTx(tx):null,abono:{id:String(abonoId),deuda_id:_abDeudaId(ab),monto:_abMonto(ab),fecha:_abFecha(ab),nota:_abNota(ab),tx_id:tx?txId:null}}:null;
     // Su ingreso extra, si lo tuvo, se va con él y vuelve con él.
     const extra=ab?abonoConExtra(ab)?.extra:null,copiaExtra=extra?[...extra]:null;
-    await ejecutarAbono({tipo:'eliminar',id:abonoId,txId});
+    // Si otro abono usa el mismo gasto, el gasto queda con lo que suman los demás.
+    const otros=ab&&txId?otrosAbonosDelMovimiento(ab):[],txMonto=otros.length?sumaAbonos(otros)/100:null;
+    await ejecutarAbono({tipo:'eliminar',id:abonoId,txId,...(txMonto!=null?{txMonto}:{})});
     if(extra)await sbDelete('transacciones',extra[6]).catch(()=>toast('Se eliminó el abono, pero no su ingreso extra. Bórralo en Movimientos.','error'));
     await cargar({silencioso:true});
     render();
     if(historialDeudaId)renderHistorialAbonos();
-    if(copia)ofrecerDeshacer('Abono eliminado',async()=>{await ejecutarAbono(copia);if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));});
+    // Al deshacer, el gasto compartido vuelve a su monto antes de reponer el abono.
+    if(copia)ofrecerDeshacer('Abono eliminado'+(txMonto!=null?' · el gasto queda en '+fmtD(txMonto):''),async()=>{
+      if(txMonto!=null&&tx)await sbUpdate('transacciones',txId,{monto:Number(tx[4])});
+      await ejecutarAbono(copia);if(copiaExtra)await sbInsert('transacciones',cuerpoTx(copiaExtra));
+    });
     else toast('Abono eliminado','success');
   }catch(e){avisarErrorAbono(e);}
 }
@@ -1131,13 +1152,18 @@ export const eliminarAbono=guardedOnce(eliminarAbono__base);
 async function editarFechaDeuda__base(id,campo,valor){
   const d=(datos.deudas||[]).find(x=>String(x[0])===String(id));
   if(!d)return;
-  const patch=campo==='inicio'?{fecha_inicio:valor}:{fecha_venc:valor};
+  // Borrar "Vence" la deja sin fecha límite; "Desde" es obligatoria y el
+  // campo vuelve a mostrar la que tenía.
+  if(campo==='inicio'&&!valor){toast('La deuda necesita una fecha de inicio','error');render();return;}
+  const patch=campo==='inicio'?{fecha_inicio:valor}:{fecha_venc:valor||null};
   const antes=campo==='inicio'?{fecha_inicio:d[5]}:{fecha_venc:d[6]||null};
   try{
     await sbUpdate('deudas',id,patch);
-    if(campo==='inicio') d[5]=valor; else d[6]=valor;
-    ofrecerDeshacer('Fecha guardada',()=>sbUpdate('deudas',id,antes));
-  }catch(e){toast('Error al guardar fecha','error');}
+    if(campo==='inicio') d[5]=valor; else d[6]=valor||null;
+    // El estado ("Vence en 3 días") y el orden de la lista dependen de la fecha.
+    render();
+    ofrecerDeshacer(campo==='inicio'?'Fecha guardada':valor?'Fecha límite guardada':'Fecha límite quitada',()=>sbUpdate('deudas',id,antes));
+  }catch(e){toast('Error al guardar fecha','error');render();}
 }
 // Se envuelve en el punto de definicion, no al exponerla, para que las
 // llamadas internas queden igual de protegidas que en el monolito.

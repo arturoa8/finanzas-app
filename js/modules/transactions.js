@@ -7,7 +7,7 @@ import {recuperarPagosTarjetaPendientes} from '../services/card-operations.js';
 import {guardarReembolsoConExcedente, recuperarReembolsosPendientes} from '../services/refund-operations.js';
 import {CREDIT_CARDS} from './cards/config.js';
 import {HISTORIAL_LIMITES_SELECT, filaLimite} from './cards/historial-limites.js';
-import {cobradoDeuda, cubiertoPorDeudas, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, deudasDeGasto, devueltoCentimos, esPagoDeEntrega, filaDeuda, filaDeudaArchivada, ingresoNeto, netoCentimos, pendienteDeuda, planCuotas, sumarMeses, textoDeudas} from './por-cobrar.js';
+import {cobradoDeuda, cubiertoPorDeudas, cuerpoDeuda, deudaArchivadaDeGasto, deudaDeGasto, deudasDeGasto, devueltoCentimos, esPagoDeEntrega, filaDeuda, filaDeudaArchivada, ingresoIdDeuda, ingresoNeto, netoCentimos, pendienteDeuda, planCuotas, sumarMeses, textoDeudas} from './por-cobrar.js';
 import {filaPago} from './cards/payments.js';
 import {filaPresupuesto} from './presupuestos-calculo.js';
 import {elv, monedaCuenta, monedaTx, setTcFuente, sincronizarCamposMoneda, tcFuenteActual} from './currencies.js';
@@ -491,13 +491,20 @@ async function quitarCobroPendiente__base(){
   if(!deudas.length||guardandoTx)return;
   guardandoTx=true;
   const quitadas=[];
+  // Al borrar la deuda, sus devoluciones pierden de quién eran (deuda_id pasa a
+  // null): se guardan para devolvérselo al deshacer.
+  const ids=new Set(deudas.map(d=>String(d[0])));
+  const devoluciones=(datos.transacciones||[]).filter(t=>t[3]==='Reembolso'&&t[16]&&ids.has(String(t[16]))).map(t=>[t[6],t[16]]);
   try{
     for(const deuda of deudas){
       await sbDelete('deudas',deuda[0]);quitadas.push(deuda);
       datos.deudas=datos.deudas.filter(d=>d!==deuda);
     }
     cerrarM(true);render();
-    ofrecerDeshacer(deudas.length>1?deudas.length+' deudas quitadas':'Deuda de '+(deudas[0][1]||'esta persona')+' quitada',async()=>{for(const d of quitadas)await sbInsert('deudas',cuerpoDeuda(d));});
+    ofrecerDeshacer(deudas.length>1?deudas.length+' deudas quitadas':'Deuda de '+(deudas[0][1]||'esta persona')+' quitada',async()=>{
+      for(const d of quitadas)await sbInsert('deudas',cuerpoDeuda(d));
+      for(const [tx,deuda] of devoluciones)await sbUpdate('transacciones',tx,{deuda_id:deuda});
+    });
   }
   catch(e){toast(e.message||'No se pudo quitar la deuda','error');if(quitadas.length)cargar({silencioso:true});}
   finally{guardandoTx=false;}
@@ -685,17 +692,27 @@ async function eliminar__base(){
   if(guardandoTx)return;
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
   const deudas=t?deudasDeGasto(t[6]):[],archivadas=t?(datos.deudasArchivadas||[]).filter(d=>d[10]&&String(d[10])===String(t[6])):[];
-  if(!confirm(deudas.length?'¿Eliminar esta transacción? También se quitará lo que te '+(deudas.length>1&&new Set(deudas.map(d=>norm(d[1]))).size>1?'deben esas personas':'debe '+(deudas[0][1]||'esa persona'))+'.':'¿Eliminar esta transacción?'))return;
+  // Un ingreso con una parte por entregar (la universidad en el sueldo de tu
+  // papá): Supabase borra también esas deudas "Les debo" y sus pagos.
+  const deIngreso=t&&t[3]==='Ingreso'?(datos.deudas||[]).filter(d=>String(ingresoIdDeuda(d))===String(t[6])):[];
+  const deIngresoArch=t&&t[3]==='Ingreso'?(datos.deudasArchivadas||[]).filter(d=>String(ingresoIdDeuda(d))===String(t[6])):[];
+  const deudasIngreso=new Set([...deIngreso,...deIngresoArch].map(d=>String(d[0])));
+  const abonosIngreso=(datos.deudasAbonos||[]).filter(a=>deudasIngreso.has(String(a[1])));
+  const aviso=deudas.length?' También se quitará lo que te '+(deudas.length>1&&new Set(deudas.map(d=>norm(d[1]))).size>1?'deben esas personas':'debe '+(deudas[0][1]||'esa persona'))+'.'
+    :deudasIngreso.size?' También se quitará la parte que entregas a '+[...new Set([...deIngreso,...deIngresoArch].map(d=>d[1]||'otra persona'))].join(', ')
+      +' ('+[...deIngreso,...deIngresoArch].map(d=>d[2]||'deuda').join(', ')+')'+(abonosIngreso.length?' y sus pagos registrados':'')+'.':'';
+  if(!confirm('¿Eliminar esta transacción?'+aviso))return;
   // Lo que el borrado arrastra en Supabase (ciclo elegido a mano, deuda por
-  // cobrar, vínculo de un abono), para reponerlo si se deshace.
+  // cobrar o por entregar, vínculo de un abono), para reponerlo si se deshace.
   const copia=t?[...t]:null;
   const ciclos=t?(datos.ciclosOverride||[]).filter(c=>String(c[2])===String(t[6])).map(c=>({id:c[0],tarjeta:c[1],tx_id:c[2],ciclo_key:c[3]})):[];
   const abonos=t?(datos.deudasAbonos||[]).filter(a=>String(a[5])===String(t[6])).map(a=>a[0]):[];
   try{
     await sbDelete('transacciones',editando);
     datos.transacciones=datos.transacciones.filter(x=>String(getTxRow(x))!==String(editando));
-    datos.deudas=datos.deudas.filter(d=>!deudas.includes(d));
-    datos.deudasArchivadas=datos.deudasArchivadas.filter(d=>!archivadas.includes(d));
+    datos.deudas=datos.deudas.filter(d=>!deudas.includes(d)&&!deIngreso.includes(d));
+    datos.deudasArchivadas=datos.deudasArchivadas.filter(d=>!archivadas.includes(d)&&!deIngresoArch.includes(d));
+    datos.deudasAbonos=datos.deudasAbonos.filter(a=>!abonosIngreso.includes(a));
     cerrarM();render();
     if(!copia?.[6]){toast('Eliminada','success');return;}
     ofrecerDeshacer(etiquetaTx(copia[3],'eliminad'),async()=>{
@@ -703,6 +720,9 @@ async function eliminar__base(){
       for(const c of ciclos)await sbInsert('ciclos_override',c);
       for(const d of deudas)await sbInsert('deudas',cuerpoDeuda(d));
       for(const d of archivadas)await sbInsert('deudas',cuerpoDeuda(d,true));
+      for(const d of deIngreso)await sbInsert('deudas',cuerpoDeuda(d));
+      for(const d of deIngresoArch)await sbInsert('deudas',cuerpoDeuda(d,true));
+      for(const a of abonosIngreso)await sbInsert('deudas_abonos',{id:a[0],deuda_id:a[1],monto:Number(a[2]),fecha:a[3],nota:a[4]||'',tx_id:a[5]||null});
       for(const id of abonos)await sbUpdate('deudas_abonos',id,{tx_id:copia[6]});
     });
   }
