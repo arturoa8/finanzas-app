@@ -180,7 +180,7 @@ function renderCardTxDetail(){
       <div class="tx-detail-row"><span>Monto</span><span style="color:var(--red)">− ${fmt(tx[4])}</span></div>
       ${tx[9]==='USD'&&Number(tx[10])>0?`<div class="tx-detail-row"><span>En dólares</span><span>US$ ${fmtN(Number(tx[10]))}${Number(tx[11])>0?' · TC '+Number(tx[11]).toFixed(3):''}</span></div>`:''}
       <div class="tx-detail-row"><span>Categoría</span><span>${cleanName(tx[2])}</span></div>
-      <div class="tx-detail-row"><span>Cuenta</span><span>${tx[5]||card.nombre}</span></div>
+      <div class="tx-detail-row"><span>Cuenta</span><span>${escHtml(tx[5]||card.nombre)}</span></div>
       <div class="tx-detail-row"><span>Ciclo visible</span><span>${fmtDateShort(cycle.start)} – ${fmtDateShort(cycle.end)}</span></div>
       <div class="tx-detail-row"><span>Asignación</span><span>${modo}</span></div>
     </div>

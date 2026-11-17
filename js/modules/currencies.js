@@ -55,8 +55,15 @@ export function costoPromedioUSD(hasta=null,excluirId=null){
     if(ev.pago){sale(Number(ev.pago[3])||0);return;}
     const t=ev.t,soles=Number(t[4])||0,orig=Number(t[10])||0;
     if(t[3]==='Transferencia'){
-      if(esUSD(t[7])&&Number(t[14])>0)entra(Number(t[14]),soles);
-      else if(esUSD(t[5]))sale(orig);
+      const desdeUSD=esUSD(t[5]),haciaUSD=esUSD(t[7]),llega=Number(t[14])||0;
+      if(desdeUSD&&haciaUSD){
+        // Traslado entre dos cuentas tuyas en dólares: el pozo es el mismo,
+        // no hay compra ni gasto. Contarlo como compra nueva diluía el
+        // promedio. Solo si llegó menos de lo que salió (comisión) esa
+        // diferencia se consume, igual que un gasto.
+        if(orig>0&&llega>0&&orig>llega)sale(orig-llega);
+      }else if(haciaUSD&&llega>0)entra(llega,soles);
+      else if(desdeUSD)sale(orig);
     }else if(esUSD(t[5])&&t[9]==='USD'&&orig>0){
       if(t[3]==='Gasto')sale(orig);else entra(orig,soles);
     }
