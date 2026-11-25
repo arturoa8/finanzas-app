@@ -14,6 +14,7 @@
 // lo que te deben además de lo ya devuelto. Al archivarla (pagó o no pagó),
 // solo se resta lo devuelto y el resto vuelve a contar como gasto tuyo.
 import {datos} from '../state.js';
+import {toDateInput} from '../utils/dates.js';
 import {fmt} from '../utils/formatters.js';
 
 const centimosDeuda=n=>Math.round((Number(n)||0)*100);
@@ -204,3 +205,43 @@ export function pagosDeEntrega(){
   return ids;
 }
 export const esPagoDeEntrega=id=>id!=null&&pagosDeEntrega().has(String(id));
+
+// Cómo va la entrega de un ingreso, deuda por deuda: cada pago con su gasto
+// (si lo tiene) y el día en que sale o salió el dinero. Sirve para la lista de
+// movimientos: lo entregado, lo que se entregará un día futuro y lo que aún no
+// tiene pago. Los pagos de fecha futura NO cuentan como entregados todavía.
+// Devuelve [{d, persona, lineas:[{tipo:'entregado'|'futuro'|'pendiente', monto, dia, txId}]}].
+export function entregasDeIngreso(id){
+  const hoy=toDateInput(new Date());
+  const abonos=datos.deudasAbonos||[],txs=datos.transacciones||[];
+  return deudasDeIngresoTodas(id).map(d=>{
+    const lineas=[];let pagado=0;
+    for(const a of abonos){
+      if(String(a[1])!==String(d[0]))continue;
+      const tx=a[5]?txs.find(t=>String(t[6])===String(a[5])):null;
+      const dia=toDateInput(tx?tx[0]:a[3]),monto=centimosDeuda(a[2]);
+      pagado+=monto;
+      lineas.push({tipo:dia>hoy?'futuro':'entregado',monto,dia,txId:tx?String(tx[6]):null});
+    }
+    const resto=centimosDeuda(d[3])-pagado;
+    if(resto>0)lineas.push({tipo:'pendiente',monto:resto,dia:d[6]?toDateInput(d[6]):'',txId:null});
+    lineas.sort((x,y)=>(x.dia||'9999').localeCompare(y.dia||'9999'));
+    return {d,persona:d[1]||'—',lineas};
+  });
+}
+
+// Céntimos de un ingreso que todavía no salieron de tu cuenta: sin pago o con
+// pago de fecha futura. Es lo que "debes" hoy.
+export function debesEntregarCentimos(t){
+  if(t[3]!=='Ingreso')return 0;
+  return entregasDeIngreso(t[6]).reduce((s,e)=>s+e.lineas.filter(l=>l.tipo!=='entregado').reduce((x,l)=>x+l.monto,0),0);
+}
+
+// Ingreso del que sale un gasto de pago de entrega (para anidarlo debajo), o null.
+export function ingresoDePagoEntrega(txId){
+  if(txId==null)return null;
+  const ab=(datos.deudasAbonos||[]).find(a=>a[5]&&String(a[5])===String(txId));
+  if(!ab)return null;
+  const d=[...(datos.deudas||[]),...(datos.deudasArchivadas||[])].find(x=>String(x[0])===String(ab[1]));
+  return d&&cuentaComoEntrega(d)?ingresoIdDeuda(d):null;
+}

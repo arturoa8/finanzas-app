@@ -15,7 +15,7 @@ import {renderPresupuestos} from './presupuestos.js';
 import {obtenerValorActualPortafolio, pfCierreAnterior} from './portfolio/hero.js';
 import {pfHistoricoCache} from './portfolio/portfolio.js';
 import {gastoNeto, gastoNetoHasta, getTxRow, llenarSel, reembolsosDe} from './transactions.js';
-import {deudasDeGasto, deudasDeIngreso, entregaDeIngresoCentimos, esPagoDeEntrega, ingresoNeto, porCobrarDeGasto, textoDeudas} from './por-cobrar.js';
+import {debesEntregarCentimos, deudasDeGasto, entregaDeIngresoCentimos, entregasDeIngreso, esPagoDeEntrega, ingresoDePagoEntrega, ingresoNeto, porCobrarDeGasto, textoDeudas} from './por-cobrar.js';
 import {cargarTcMercado, leerTipoCambio, tcMercado, tcUsdPen} from '../services/exchange-rate.js';
 import {sbFetch} from '../services/supabase.js';
 import {datos} from '../state.js';
@@ -353,6 +353,17 @@ function filaReembolsoAnidada(r){
   return `<div class="tx-refund-line" onclick="event.stopPropagation();editarTx('${escHtml(String(rowId).replace(/'/g,"\\'"))}')">↳ Reembolso a ${escHtml(r[5]||'—')}: +${fmt(Number(r[4])||0)} <span class="tx-refund-date">· ${fmtDateShort(pf(r[0]))}</span></div>`;
 }
 
+// Una entrega de un ingreso, debajo de él: entregado (sale en su día), "debes
+// entregar" (pago de fecha futura o sin pago todavía). Flecha roja: es plata
+// que sale. Se toca para abrir el pago, si ya tiene uno.
+function filaEntregaAnidada(persona,l){
+  const dia=l.dia?fmtDateShort(pf(l.dia)):'',quien=escHtml(persona);
+  const texto=l.tipo==='entregado'?'↳ Entregado a '+quien:'↳ Debes entregar a '+quien;
+  const fecha=l.dia?'<span class="tx-refund-date">· '+(l.tipo==='pendiente'?'vence ':'')+dia+'</span>':'';
+  const clic=l.txId?` onclick="event.stopPropagation();editarTx('${escHtml(l.txId.replace(/'/g,"\\'"))}')"`:'';
+  return `<div class="tx-refund-line tx-entrega-line${l.txId?'':' sin-pago'}"${clic}>${texto}: −${fmt(l.monto/100)} ${fecha}</div>`;
+}
+
 function filaTxPrincipal(t){
   const c=cleanName(t[2]);
   const em=getEmoji(c);
@@ -382,15 +393,19 @@ function filaTxPrincipal(t){
   // parte, que no cuenta como gasto.
   const entrega=t[3]==='Ingreso'?entregaDeIngresoCentimos(t)/100:0;
   const pagoEntrega=t[3]==='Gasto'&&esPagoDeEntrega(t[6]);
+  // Igual que un gasto con reembolsos: lo recibido, lo que aún debes entregar,
+  // el ingreso efectivo y debajo cada entrega con su flecha roja.
+  const debes=entrega>0?debesEntregarCentimos(t)/100:0,entregas=entrega>0?entregasDeIngreso(t[6]):[];
+  const personasEntrega=[...new Set(entregas.map(e=>e.persona))];
   const extraEntrega=entrega>0
-    ? `<div class="tx-refund-sub tx-por-cobrar">Debes entregar ${fmt(entrega)}${deudasDeIngreso(t[6]).length===1?' a '+escHtml(deudasDeIngreso(t[6])[0][1]||'—'):''} · te quedan ${fmt(ingresoNeto(t))}</div>`
+    ? `<div class="tx-refund-sub">Recibiste ${fmt(m)} en ${escHtml(t[5]||'—')}</div>${debes>0?`<div class="tx-refund-sub tx-por-cobrar">Debes entregar ${fmt(debes)}${personasEntrega.length===1?' a '+escHtml(personasEntrega[0]):personasEntrega.length>1?' a '+personasEntrega.length+' personas':''}</div>`:''}<div class="tx-refund-sub tx-refund-net">Ingreso efectivo: ${fmt(ingresoNeto(t))}</div>`
     : pagoEntrega?'<div class="tx-refund-sub">Parte que entregabas: no cuenta como gasto tuyo</div>':'';
   const extra=extraEntrega||(neto
     ? `<div class="tx-refund-sub">Pagaste ${fmt(m)} con ${escHtml(t[5]||'—')}</div>${porCobrar>0?`<div class="tx-refund-sub tx-por-cobrar">${escHtml(textoDeudas(deudas,porCobrar))}</div>`:''}${reembolsos.length>0?`<div class="tx-refund-sub tx-refund-net">Gasto efectivo: ${fmt(gastoNeto(t))}</div>`:''}`
     : '');
-  const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(neto?gastoNeto(t):m);
+  const importe=enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(neto?gastoNeto(t):entrega>0?ingresoNeto(t):m);
   const row=getTxRow(t);
-  const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('');
+  const nested=reembolsos.slice().sort((a,b)=>pf(a[0])-pf(b[0])).map(filaReembolsoAnidada).join('')+entregas.map(e=>e.lineas.map(l=>filaEntregaAnidada(e.persona,l)).join('')).join('');
   const pill=dual
     ? `<div class="tamt-pill transfer dual"><span class="pdot"></span><span class="leg-out">− ${enDivisa?fmtMoneda(Number(t[10]),'USD'):fmt(m)}</span><span class="leg-in">+ ${fmtMoneda(Number(t[14]),t[13]||monedaCuenta(t[7]||''))}</span></div>`
     : `<div class="tamt-pill ${transfer||pagoEntrega?'transfer':i?'in':'out'}"><span class="pdot"></span>${transfer?'↔':i?'+':'−'} ${importe}</div>`;
@@ -402,7 +417,14 @@ function movimientosVisibles(tx){
   // Al buscarla o filtrar por su cuenta receptora, sigue siendo una fila
   // editable aunque el gasto original quede fuera de la selección.
   const anidados=new Set(tx.filter(t=>t[3]==='Gasto').flatMap(t=>reembolsosDe(t[6]).map(r=>String(r[6]))));
-  return tx.filter(t=>t[3]!=='Reembolso'||!anidados.has(String(t[6])));
+  // Igual con el pago de la parte que entregas: va debajo de su ingreso, no
+  // como fila suelta en otro mes, mientras el ingreso esté a la vista.
+  const ingresos=new Set(tx.filter(t=>t[3]==='Ingreso').map(t=>String(t[6])));
+  return tx.filter(t=>{
+    if(t[3]==='Reembolso')return !anidados.has(String(t[6]));
+    if(t[3]==='Gasto'&&esPagoDeEntrega(t[6])){const id=ingresoDePagoEntrega(t[6]);return !(id&&ingresos.has(String(id)));}
+    return true;
+  });
 }
 
 function renderTx(){

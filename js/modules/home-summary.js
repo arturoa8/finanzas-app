@@ -136,7 +136,9 @@ function renderLineaInicio(tamano){
 }
 
 function renderUltimosInicio(){
-  const recientes=(datos.transacciones||[]).map((t,i)=>({t,i,f:pf(t[0])})).filter(x=>x.f&&!isNaN(+x.f))
+  // Lo que tiene fecha futura (un pago programado) todavía no pasó: no es de los últimos.
+  const ahora=new Date();
+  const recientes=(datos.transacciones||[]).map((t,i)=>({t,i,f:pf(t[0])})).filter(x=>x.f&&!isNaN(+x.f)&&x.f<=ahora)
     .sort((a,b)=>b.f-a.f||b.i-a.i).slice(0,3);
   // Un reembolso (también el cobro de un gasto por cobrar) es dinero que entra.
   const signo=t=>t[3]==='Ingreso'||t[3]==='Reembolso'?['+ ','in']:t[3]==='Transferencia'?['','']:['− ','out'];
