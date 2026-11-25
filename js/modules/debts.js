@@ -244,9 +244,26 @@ function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida}
   </div>`;
 }
 
+// Una deuda ya saldada en los números cuyo pago tiene fecha futura (la parte de
+// la universidad que sale de tu cuenta el 1 de enero): el dinero sale ese día,
+// no antes. Devuelve esa fecha (AAAA-MM-DD) o null.
+function pagoProgramado(d){
+  const id=String(d[0]),ahora=new Date(),hoy=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());
+  let mayor=null;
+  for(const ab of datos.deudasAbonos||[]){
+    if(_abDeudaId(ab)!==id)continue;
+    const tx=espejoDeAbono(ab),dia=toDateInput(tx?tx[0]:_abFecha(ab));
+    if(dia&&pf(dia)>hoy&&(!mayor||dia>mayor))mayor=dia;
+  }
+  return mayor;
+}
+
 // Línea de estado de una deuda suelta: "Venció hace 3 días · 3 oct".
 function estadoDeuda(f){
-  if(f.pendiente<0.005)return {texto:'Pagada',tono:'ok'};
+  if(f.pendiente<0.005){
+    const prog=pagoProgramado(f.d);
+    return prog?{texto:'Se paga el '+fechaCorta(prog),tono:'pronto'}:{texto:'Pagada',tono:'ok'};
+  }
   if(f.dias===null)return {texto:'',tono:''};
   const e=estadoVencimiento(f.dias);
   return {texto:(e.tono==='vencida'?'⚠ ':'')+e.texto+' · '+fechaCorta(f.fvVal),tono:e.tono};
@@ -325,7 +342,7 @@ const cabeceraGrupo=(i,v)=>`<div class="dcard-top">
 // Una fila del detalle: la persona, la cuota o la deuda, con su botón de cobro y
 // un menú ⋯ con la fecha límite, sus pagos, editar y archivar.
 function filaGrupo(i,m,v){
-  const paga=m.pendiente<0.005;
+  const paga=m.pendiente<0.005,prog=paga?pagoProgramado(m.d):null;
   const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
   const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
   const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
@@ -334,8 +351,8 @@ function filaGrupo(i,m,v){
   // ambos: así "Venció hace 10 días · Ya pagó…" no se parte en tres líneas.
   return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
       <div class="drow-name">${escHtml(nombre)}</div>
-      <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓ Pagado':fmtD(m.pendiente)}</div>
-      <div class="drow-sub${e?' '+e.tono:''}">${escHtml(paga?(m.fvVal?'Vencía '+fechaCorta(m.fvVal):''):sub)}</div>
+      <div class="drow-amt ${paga?'ok':v.cls}">${prog?'Programado':paga?'✓ Pagado':fmtD(m.pendiente)}</div>
+      <div class="drow-sub${e?' '+e.tono:''}">${escHtml(prog?'Se paga el '+fechaCorta(prog):paga?(m.fvVal?'Vencía '+fechaCorta(m.fvVal):''):sub)}</div>
       <div class="drow-acciones">
         ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
         <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>

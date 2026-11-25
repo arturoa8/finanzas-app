@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.11.17.01">
+<meta name="version-app" content="2026.11.25.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -569,7 +569,7 @@ try{
       <select class="sel" id="iGastoOrigen" onchange="seleccionarGastoReembolso(true)"></select>
       <div id="cobrarSwitchBox" class="cobrar-fields">
         <label class="cobrar-switch" for="iCobrar">
-          <span class="cobrar-texto"><strong>Todavía no me lo devuelven</strong><span>Lo pagaste tú, pero era de otra persona</span></span>
+          <span class="cobrar-texto"><strong id="cobrarSwitchTitulo">Todavía no me lo devuelven</strong><span id="cobrarSwitchSub">Lo pagaste tú, pero era de otra persona</span></span>
           <input type="checkbox" id="iCobrar" role="switch" onchange="toggleCobrar()">
           <span class="cobrar-track" aria-hidden="true"></span>
         </label>
@@ -597,9 +597,11 @@ try{
             <label class="cobrar-check" for="iCobrarYo"><input type="checkbox" id="iCobrarYo" checked onchange="repartirCobroIgual()"> Yo también pago mi parte</label>
             <p class="transfer-note" id="cobrarTotalVarias"></p>
           </div>
+          <div class="cuenta-row" id="entregaVenceRow" hidden><label class="cuenta-lbl" for="iEntregaVence">Vence</label><input id="iEntregaVence" class="sel" type="date"></div>
           <datalist id="personasDeuda"></datalist>
-          <p class="transfer-note">No entra dinero ahora. Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero. Si te paga de más, lo que sobra queda como ingreso extra.</p>
+          <p class="transfer-note" id="cobrarNotaGeneral">No entra dinero ahora. Mientras no te pague, no cuenta como gasto tuyo. Lo verás en Deudas › Me deben; cuando te pague, toca Cobrar y elige dónde recibiste el dinero. Si te paga de más, lo que sobra queda como ingreso extra.</p>
         </div>
+        <p class="transfer-note" id="entregaNota" hidden></p>
         <p class="transfer-note" id="cobrarNotaReembolso" hidden></p>
         <button type="button" class="btn btn-s" id="cobrarQuitarBtn" onclick="quitarCobroPendiente()" hidden>Quitar esta deuda</button>
       </div>
