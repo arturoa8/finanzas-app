@@ -354,11 +354,11 @@ function filaReembolsoAnidada(r){
 }
 
 // Un reembolso de un ingreso, debajo de él: "Reembolso a…" (ya salió, en su día)
-// o "Debes reembolsar a…" (pago de fecha futura o sin pago todavía). Flecha roja: es plata
+// o "Debes entregar a…" (pago de fecha futura o sin pago todavía). Flecha roja: es plata
 // que sale. Se toca para abrir el pago, si ya tiene uno.
 function filaEntregaAnidada(persona,l){
   const dia=l.dia?fmtDateShort(pf(l.dia)):'',quien=escHtml(persona);
-  const texto=l.tipo==='entregado'?'↳ Reembolso a '+quien:'↳ Debes reembolsar a '+quien;
+  const texto=l.tipo==='entregado'?'↳ Reembolso a '+quien:'↳ Debes entregar a '+quien;
   const fecha=l.dia?'<span class="tx-refund-date">· '+(l.tipo==='pendiente'?'vence ':'')+dia+'</span>':'';
   const clic=l.txId?` onclick="event.stopPropagation();editarTx('${escHtml(l.txId.replace(/'/g,"\\'"))}')"`:'';
   return `<div class="tx-refund-line tx-entrega-line${l.txId?'':' sin-pago'}"${clic}>${texto}: −${fmt(l.monto/100)} ${fecha}</div>`;

@@ -771,6 +771,7 @@ export function editarTx(row){
   if(guardandoTx)return;
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(row));
   if(!t)return;
+  if(abonoDeEntrega(t))return editarPagoEntrega(t);
   if(t[2]==='Diferencia de cambio'&&!String(t[5]||'').trim()){toast('Es la diferencia de cambio de un pago en dólares. Se quita eliminando ese pago en Tarjetas.');return;}
   editando=String(getTxRow(t));
   editandoFecha=t[0];
@@ -809,7 +810,88 @@ export function editarTx(row){
   document.getElementById('modal').classList.add('active');
 }
 
-export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active','modo-cobro','modo-entrega','modo-entrega-pend');editando=null;editandoFecha=null;}
+// ── Pago de la parte de un ingreso, visto como reembolso ────────────────────
+// El pago (un Gasto ligado a un abono de una deuda que sale de un ingreso) se
+// abre en la pestaña Reembolso, como la devolución de un gasto: "Ingreso que
+// devuelves", cuánto, desde qué cuenta y qué día. Por dentro sigue siendo el
+// mismo movimiento (baja la cuenta sin ser gasto tuyo), así que guardar cambia
+// ese movimiento y su abono. Si el gasto lo comparten varios abonos (una
+// transferencia que pagó dos cuotas) se edita como siempre, desde Deudas.
+let editandoEntrega=null;  // {abono, deuda, ingreso, tx}
+
+function abonoDeEntrega(t){
+  if(t[3]!=='Gasto'||!esPagoDeEntrega(t[6]))return null;
+  const usan=(datos.deudasAbonos||[]).filter(a=>a[5]&&String(a[5])===String(t[6]));
+  return usan.length===1?usan[0]:null;
+}
+
+function editarPagoEntrega(t){
+  const abono=abonoDeEntrega(t);
+  const deuda=[...(datos.deudas||[]),...(datos.deudasArchivadas||[])].find(d=>String(d[0])===String(abono[1]));
+  const ingreso=deuda?datos.transacciones.find(x=>x[3]==='Ingreso'&&String(x[6])===String(ingresoIdDeuda(deuda))):null;
+  if(!deuda||!ingreso){toast('No se encontró el ingreso de este reembolso','error');return;}
+  editando=String(t[6]);editandoFecha=t[0];editandoEntrega={abono,deuda,ingreso,tx:t};
+  document.querySelectorAll('#catChips .cchip').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('modalTitle').textContent='Editar reembolso';
+  document.getElementById('modalBtns').innerHTML=`<button class="btn btn-d" onclick="eliminar()">Eliminar</button><button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
+  document.getElementById('iFec').value=toDateInput(t[0]);
+  document.getElementById('iMon').value=t[4];
+  document.getElementById('iDes').value=t[1];
+  const mon=document.getElementById('iMoneda');if(mon){mon.value='PEN';mon.disabled=false;}
+  setTipo('Reembolso',false);
+  prepararCobro(t);
+  llenarCuentas(t[5]||'','');
+  sincronizarCamposMoneda();
+  const origen=document.getElementById('iGastoOrigen');
+  origen.innerHTML=`<option value="${escAttr(ingreso[6])}">${escHtml(fmtDateShort(pf(ingreso[0]))+' · '+ingreso[1]+' · '+fmt(ingreso[4])+' · '+ingreso[5])}</option>`;
+  origen.value=String(ingreso[6]);origen.disabled=true;
+  document.getElementById('gastoOrigenLbl').textContent='Ingreso que devuelves';
+  document.getElementById('accountLabel').textContent='Pagado desde';
+  document.getElementById('refundAvailable').textContent='Parte de «'+(ingreso[1]||'tu ingreso')+'» que devuelves a '+(deuda[1]||'otra persona')+' ('+(deuda[2]||'deuda')+'). No cuenta como gasto tuyo.';
+  document.getElementById('modal').classList.add('active','modo-entrega-edicion');
+}
+
+async function guardarPagoEntrega(){
+  const {abono,deuda,tx}=editandoEntrega;
+  const monto=Number(document.getElementById('iMon').value),dia=document.getElementById('iFec').value;
+  const cuenta=document.getElementById('iCue').value.trim(),descripcion=document.getElementById('iDes').value.trim();
+  if(!Number.isFinite(monto)||monto<=0||!dia||!descripcion){toast('Completa fecha, monto positivo y descripción','error');return;}
+  if(!cuenta){toast('Elige de qué cuenta sale el pago','error');return;}
+  if(Math.round(monto*100)>Math.round(Number(deuda[3])*100)){toast('El reembolso no puede superar lo que debes entregar ('+fmt(Number(deuda[3]))+')','error');return;}
+  guardandoTx=true;
+  const antes={monto:Number(abono[2]),fecha:abono[3],nota:abono[4]||''},txAntes={fecha:tx[0],monto:Number(tx[4]),cuenta:tx[5],descripcion:tx[1]};
+  try{
+    // La hora se conserva si el día no cambió; si cambió, se arma con la de ahora.
+    const txFecha=toDateInput(tx[0])===dia?tx[0]:momentoDeDia(dia);
+    await ejecutarAbono({tipo:'editar',id:abono[0],txId:tx[6],txFecha,txMonto:monto,patch:{monto,fecha:dia,nota:antes.nota}});
+    if(cuenta!==tx[5]||descripcion!==tx[1])await sbUpdate('transacciones',tx[6],{cuenta,descripcion});
+    cerrarM(true);
+    await cargar({silencioso:true});
+    ofrecerDeshacer('Reembolso actualizado',async()=>{
+      await ejecutarAbono({tipo:'editar',id:abono[0],txId:tx[6],txFecha:txAntes.fecha,txMonto:txAntes.monto,patch:antes});
+      await sbUpdate('transacciones',tx[6],{cuenta:txAntes.cuenta,descripcion:txAntes.descripcion});
+    });
+  }
+  catch(e){toast(e.message||'Error al guardar','error');}
+  finally{guardandoTx=false;}
+}
+
+async function eliminarPagoEntrega(){
+  const {abono,deuda,tx}=editandoEntrega;
+  if(!confirm('¿Quitar este reembolso? La deuda con '+(deuda[1]||'esa persona')+' vuelve a estar pendiente.'))return;
+  guardandoTx=true;
+  const copia={tipo:'crear',id:String(abono[0]),tx:cuerpoTx(tx),abono:{id:String(abono[0]),deuda_id:abono[1],monto:Number(abono[2]),fecha:abono[3],nota:abono[4]||'',tx_id:String(tx[6])}};
+  try{
+    await ejecutarAbono({tipo:'eliminar',id:abono[0],txId:tx[6]});
+    cerrarM(true);
+    await cargar({silencioso:true});
+    ofrecerDeshacer('Reembolso quitado',()=>ejecutarAbono(copia));
+  }
+  catch(e){toast(e.message||'Error al eliminar','error');}
+  finally{guardandoTx=false;}
+}
+
+export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active','modo-cobro','modo-entrega','modo-entrega-pend','modo-entrega-edicion');editando=null;editandoFecha=null;editandoEntrega=null;const o=document.getElementById('iGastoOrigen');if(o)o.disabled=false;}
 
 export function setTipo(t,sincronizar=true){
   if(guardandoTx)return;
@@ -849,6 +931,7 @@ export function setTipo(t,sincronizar=true){
 
 async function eliminar__base(){
   if(guardandoTx)return;
+  if(editandoEntrega)return eliminarPagoEntrega();
   const t=datos.transacciones.find(x=>String(getTxRow(x))===String(editando));
   const deudas=t?deudasDeGasto(t[6]):[],archivadas=t?(datos.deudasArchivadas||[]).filter(d=>d[10]&&String(d[10])===String(t[6])):[];
   // Un ingreso con una parte por entregar (la universidad en el sueldo de tu
@@ -916,6 +999,7 @@ let guardandoTx=false;
 
 async function guardar__base(){
   if(guardandoTx)return;
+  if(editandoEntrega)return guardarPagoEntrega();
   if(tipoA==='Reembolso'&&!editando&&ingresoElegido())return guardarEntrega();
   if(tipoA==='Reembolso'&&!editando&&document.getElementById('iCobrar')?.checked)return guardarCobroPendiente();
   try{validarCuentasDisponibles();}catch(e){toast(e.message,'error');return;}

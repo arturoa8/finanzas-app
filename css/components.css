@@ -278,6 +278,9 @@ body:has(.modal.centered.active):not(:has(.modal:not(.centered).active)) .undo-b
    movimiento. Con "Todavía no lo devuelvo" tampoco hay fecha ni cuenta. */
 #modal.modo-entrega .monto-row,#modal.modo-entrega #divisaFields,#modal.modo-entrega #accountStatus,#modal.modo-entrega #refundDevolucion,#modal.modo-entrega #catChips{display:none;}
 #modal.modo-entrega.modo-entrega-pend .pill-row,#modal.modo-entrega.modo-entrega-pend #cuentaRow{display:none;}
+/* Editar el pago de una entrega: se ve como un reembolso, sin cambiar de pestaña. */
+#modal.modo-entrega-edicion .tt{pointer-events:none;opacity:.55;}
+#modal.modo-entrega-edicion #refundDevolucion .transfer-note:not(#refundAvailable){display:none;}
 #modal.modo-entrega .cobrar-acciones .btn:nth-child(2),#modal.modo-entrega label[for="iCobrarYo"]{display:none;}
 #cobrarQuitarBtn{margin-top:12px;}
 .cuenta-row[hidden],#abonoGastoBox[hidden]{display:none;}
