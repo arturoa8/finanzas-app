@@ -230,13 +230,6 @@ export function entregasDeIngreso(id){
   });
 }
 
-// Céntimos de un ingreso que todavía no salieron de tu cuenta: sin pago o con
-// pago de fecha futura. Es lo que "debes" hoy.
-export function debesEntregarCentimos(t){
-  if(t[3]!=='Ingreso')return 0;
-  return entregasDeIngreso(t[6]).reduce((s,e)=>s+e.lineas.filter(l=>l.tipo!=='entregado').reduce((x,l)=>x+l.monto,0),0);
-}
-
 // Ingreso del que sale un gasto de pago de entrega (para anidarlo debajo), o null.
 export function ingresoDePagoEntrega(txId){
   if(txId==null)return null;
