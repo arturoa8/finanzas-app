@@ -3,6 +3,7 @@
 
 import {cuentasApp} from './accounts.js';
 import {CREDIT_CARDS} from './cards/config.js';
+import {getCuentaBalanceMoneda, monedaCuenta, valoracionAutomaticaUSD} from './currencies.js';
 import {render} from './dashboard.js';
 import {archivarFila, cobradoDeuda, cobrosDeGasto, deudasDeGasto, desarchivarFila, devueltoCentimos, entregaDeIngresoCentimos, filaDeuda, gastoDeDeuda, ingresoIdDeuda, pendienteDeuda, planCuotas, sumarMeses} from './por-cobrar.js';
 import {cargar, cuerpoTx, editarTx, getTxRow, sameAccount} from './transactions.js';
@@ -591,6 +592,7 @@ export function abrirModalAbono(id){
   document.getElementById('abonoMonto').placeholder=vinculada?'Monto que te devolvió':'Monto a abonar';
   document.getElementById('abonoExcedente').hidden=true;
   document.getElementById('abonoNota').value='';
+  document.getElementById('abonoUsd').value='';
   // Gasto por cobrar y "Me deben": dónde llegó el dinero. "Les debo": el pago
   // puede anotarse como gasto (apagado por defecto, porque sueles registrar ese
   // gasto aparte en Movimientos y así no se cuenta dos veces).
@@ -613,6 +615,7 @@ export function abrirModalAbono(id){
   if(pendienteTx){
     if(esLesDebo)document.getElementById('abonoGasto').checked=true;
     document.getElementById('abonoCuenta').value=pendienteTx.cuenta||document.getElementById('abonoCuenta').value;
+    if(pendienteTx.moneda_original==='USD')document.getElementById('abonoUsd').value=pendienteTx.monto_original;
     if(esLesDebo)document.getElementById('abonoCat').value=pendienteTx.categoria||'';
   }
   mostrarCamposAbono(vinculada||esMeDeben||abonoEntrega);
@@ -627,16 +630,25 @@ function mostrarCamposAbono(conCuenta){
   const gasto=abonoEntrega||(!document.getElementById('abonoGastoBox').hidden&&document.getElementById('abonoGasto').checked);
   document.getElementById('abonoCuentaRow').hidden=!(conCuenta||gasto);
   document.getElementById('abonoCatRow').hidden=!gasto;
+  // Pagar con dólares: el monto de arriba es lo que cubre de la deuda (en
+  // soles) y aquí se escriben los dólares que salen de la cuenta.
+  const usd=document.getElementById('abonoUsdRow');
+  if(usd)usd.hidden=!(gasto&&monedaCuenta(document.getElementById('abonoCuenta').value)==='USD');
 }
 
 export function toggleAbonoGasto(){mostrarCamposAbono(false);}
 
-// Cuentas en soles de efectivo para un abono sin gasto vinculado. Por defecto,
-// la cuenta del último abono del mismo tipo que llevó movimiento.
+// Cambiar la cuenta de pago puede pasar de soles a dólares y al revés.
+export function cambiarCuentaAbono(){mostrarCamposAbono(false);}
+
+// Cuentas de efectivo para un abono sin gasto vinculado: en soles y, cuando el
+// pago sale de tu bolsillo (Gasto), también tus cuentas en dólares que no son
+// de inversión. Por defecto, la cuenta del último abono del mismo tipo que
+// llevó movimiento.
 function llenarCuentaAbono(tipoTx){
   const sel=document.getElementById('abonoCuenta');
-  const efectivo=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&c[2]==='PEN').map(c=>c[0]);
-  sel.innerHTML=efectivo.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+  const efectivo=cuentasApp().filter(c=>!c[3]&&c[1]!=='inversion'&&(c[2]==='PEN'||(tipoTx==='Gasto'&&c[2]==='USD'))).map(c=>c[0]);
+  sel.innerHTML=efectivo.map(c=>`<option value="${escAttr(c)}">${escHtml(monedaCuenta(c)==='USD'?c+' (dólares)':c)}</option>`).join('');
   const vinculados=new Set((datos.deudasAbonos||[]).map(_abTxId).filter(Boolean).map(String));
   const ultima=(datos.transacciones||[]).filter(t=>t[3]===tipoTx&&vinculados.has(String(t[6]))&&efectivo.some(c=>sameAccount(c,t[5])))
     .sort((a,b)=>pf(b[0])-pf(a[0]))[0];
@@ -742,6 +754,18 @@ async function guardarAbono__base(){
     if(!cuenta){toast('Elige de qué cuenta salió el pago','error');return;}
     if(!categoria){toast('Elige la categoría del gasto','error');return;}
     tx={id:solicitudAbonoTxId,fecha:momento,descripcion:d?(d[1]||'')+(d[2]?' · '+d[2]:''):'',categoria,tipo:'Gasto',monto,cuenta};
+    // Pago con dólares propios: el gasto se guarda en dólares y su valor en
+    // soles sale del costo promedio de tus dólares a esa fecha, como cualquier
+    // otro gasto en una cuenta en dólares. El abono (lo que baja la deuda)
+    // sigue siendo el monto en soles de arriba.
+    if(monedaCuenta(cuenta)==='USD'){
+      const usd=Math.round(Number(document.getElementById('abonoUsd').value)*100)/100;
+      if(!Number.isFinite(usd)||usd<=0){toast('Escribe los dólares que entregas','error');return;}
+      if(usd>getCuentaBalanceMoneda(cuenta).saldo+0.005){toast('No tienes tantos dólares en '+cuenta+' (saldo US$ '+getCuentaBalanceMoneda(cuenta).saldo.toFixed(2)+')','error');return;}
+      const val=valoracionAutomaticaUSD('Gasto',fecha);
+      if(!val.tc){toast(val.mensaje,'error');return;}
+      tx={...tx,monto:Math.round(usd*val.tc*100)/100,moneda_original:'USD',monto_original:usd,tc:val.tc,tc_fuente:val.fuente};
+    }
   }
   try{
     const id=solicitudAbonoId;
@@ -947,6 +971,7 @@ export function editarCobro(txId,deudaId=null){
   document.getElementById('abonoNota').value=String(t[1]).startsWith(base+' · ')?String(t[1]).slice(base.length+3):'';
   document.getElementById('abonoGastoBox').hidden=true;
   document.getElementById('abonoGasto').checked=false;
+  document.getElementById('abonoUsdRow').hidden=true;
   document.getElementById('abonoCuentaLbl').textContent='Recibido en';
   llenarCuentaCobro(gastoDeDeuda(d));
   const sel=document.getElementById('abonoCuenta');

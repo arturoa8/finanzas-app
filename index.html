@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
-<meta name="version-app" content="2026.11.25.04">
+<meta name="version-app" content="2026.11.26.01">
 <link rel="apple-touch-icon" href="">
 <link rel="icon" href="">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -948,7 +948,11 @@ try{
     </div>
     <div class="cuenta-row" id="abonoCuentaRow" hidden>
       <label class="cuenta-lbl" for="abonoCuenta" id="abonoCuentaLbl">Recibido en</label>
-      <select class="sel" id="abonoCuenta"></select>
+      <select class="sel" id="abonoCuenta" onchange="cambiarCuentaAbono()"></select>
+    </div>
+    <div id="abonoUsdRow" hidden>
+      <input type="number" class="big-input muto" id="abonoUsd" placeholder="Dólares que entregas (US$)" step="0.01" inputmode="decimal">
+      <p class="transfer-note">El monto de arriba es lo que cubre de la deuda en soles. Aquí van los dólares que salen de tu cuenta; su valor en soles sale del costo promedio de tus dólares.</p>
     </div>
     <div class="cuenta-row" id="abonoCatRow" hidden>
       <label class="cuenta-lbl" for="abonoCat">Categoría</label>

@@ -820,7 +820,7 @@ export function editarTx(row){
 let editandoEntrega=null;  // {abono, deuda, ingreso, tx}
 
 function abonoDeEntrega(t){
-  if(t[3]!=='Gasto'||!esPagoDeEntrega(t[6]))return null;
+  if(t[3]!=='Gasto'||t[9]==='USD'||!esPagoDeEntrega(t[6]))return null;
   const usan=(datos.deudasAbonos||[]).filter(a=>a[5]&&String(a[5])===String(t[6]));
   return usan.length===1?usan[0]:null;
 }
