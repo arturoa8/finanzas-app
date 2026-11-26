@@ -820,7 +820,7 @@ export function editarTx(row){
 let editandoEntrega=null;  // {abono, deuda, ingreso, tx}
 
 function abonoDeEntrega(t){
-  if(t[3]!=='Gasto'||t[9]==='USD'||!esPagoDeEntrega(t[6]))return null;
+  if(t[3]!=='Gasto'||!esPagoDeEntrega(t[6]))return null;
   const usan=(datos.deudasAbonos||[]).filter(a=>a[5]&&String(a[5])===String(t[6]));
   return usan.length===1?usan[0]:null;
 }
@@ -835,19 +835,23 @@ function editarPagoEntrega(t){
   document.getElementById('modalTitle').textContent='Editar reembolso';
   document.getElementById('modalBtns').innerHTML=`<button class="btn btn-d" onclick="eliminar()">Eliminar</button><button class="btn btn-s" onclick="cerrarM()">Cancelar</button><button class="btn btn-p" onclick="guardar()">Guardar</button>`;
   document.getElementById('iFec').value=toDateInput(t[0]);
-  document.getElementById('iMon').value=t[4];
+  // Un pago con dólares propios: lo que baja la deuda es el abono en soles, no
+  // el valor del gasto, y la cuenta (en dólares) no se cambia desde aquí.
+  const conDolares=t[9]==='USD';
+  document.getElementById('iMon').value=conDolares?Number(abono[2]):t[4];
   document.getElementById('iDes').value=t[1];
   const mon=document.getElementById('iMoneda');if(mon){mon.value='PEN';mon.disabled=false;}
   setTipo('Reembolso',false);
   prepararCobro(t);
   llenarCuentas(t[5]||'','');
+  document.getElementById('iCue').disabled=conDolares;
   sincronizarCamposMoneda();
   const origen=document.getElementById('iGastoOrigen');
   origen.innerHTML=`<option value="${escAttr(ingreso[6])}">${escHtml(fmtDateShort(pf(ingreso[0]))+' · '+ingreso[1]+' · '+fmt(ingreso[4])+' · '+ingreso[5])}</option>`;
   origen.value=String(ingreso[6]);origen.disabled=true;
   document.getElementById('gastoOrigenLbl').textContent='Ingreso que devuelves';
   document.getElementById('accountLabel').textContent='Pagado desde';
-  document.getElementById('refundAvailable').textContent='Parte de «'+(ingreso[1]||'tu ingreso')+'» que devuelves a '+(deuda[1]||'otra persona')+' ('+(deuda[2]||'deuda')+'). No cuenta como gasto tuyo.';
+  document.getElementById('refundAvailable').textContent='Parte de «'+(ingreso[1]||'tu ingreso')+'» que devuelves a '+(deuda[1]||'otra persona')+' ('+(deuda[2]||'deuda')+'). No cuenta como gasto tuyo.'+(conDolares?' Se pagó con US$ '+Number(t[10]).toFixed(2)+' de '+(t[5]||'tu cuenta')+': aquí cambias el monto en soles que baja la deuda, la fecha y la descripción.':'');
   document.getElementById('modal').classList.add('active','modo-entrega-edicion');
 }
 
@@ -863,7 +867,8 @@ async function guardarPagoEntrega(){
   try{
     // La hora se conserva si el día no cambió; si cambió, se arma con la de ahora.
     const txFecha=toDateInput(tx[0])===dia?tx[0]:momentoDeDia(dia);
-    await ejecutarAbono({tipo:'editar',id:abono[0],txId:tx[6],txFecha,txMonto:monto,patch:{monto,fecha:dia,nota:antes.nota}});
+    // Con dólares el gasto conserva su valor en soles: solo cambia lo que baja la deuda.
+    await ejecutarAbono({tipo:'editar',id:abono[0],txId:tx[6],txFecha,txMonto:tx[9]==='USD'?Number(tx[4]):monto,patch:{monto,fecha:dia,nota:antes.nota}});
     if(cuenta!==tx[5]||descripcion!==tx[1])await sbUpdate('transacciones',tx[6],{cuenta,descripcion});
     cerrarM(true);
     await cargar({silencioso:true});
@@ -891,7 +896,7 @@ async function eliminarPagoEntrega(){
   finally{guardandoTx=false;}
 }
 
-export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active','modo-cobro','modo-entrega','modo-entrega-pend','modo-entrega-edicion');editando=null;editandoFecha=null;editandoEntrega=null;const o=document.getElementById('iGastoOrigen');if(o)o.disabled=false;}
+export function cerrarM(forzar=false){if(guardandoTx&&!forzar)return;document.getElementById('modal').classList.remove('active','modo-cobro','modo-entrega','modo-entrega-pend','modo-entrega-edicion');editando=null;editandoFecha=null;editandoEntrega=null;const o=document.getElementById('iGastoOrigen');if(o)o.disabled=false;const c=document.getElementById('iCue');if(c)c.disabled=false;}
 
 export function setTipo(t,sincronizar=true){
   if(guardandoTx)return;
