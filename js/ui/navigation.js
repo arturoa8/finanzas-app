@@ -7,7 +7,9 @@ import {abrirPagoTarjeta} from '../modules/cards/payments.js';
 import {ocultarBusquedaInicio, render} from '../modules/dashboard.js';
 import {abrirModalDeuda, renderDeb} from '../modules/debts.js';
 import {renderPortafolio} from '../modules/portfolio/portfolio.js';
-import {abrirM} from '../modules/transactions.js';
+import {fueraDePerimetro} from '../modules/accounts.js';
+import {ingresoNeto} from '../modules/por-cobrar.js';
+import {abrirM, gastoNeto} from '../modules/transactions.js';
 import {abrirConfiguracion, renderConfiguracion} from '../modules/settings.js';
 import {abrirNuevoPresupuesto, renderPresupuestos} from '../modules/presupuestos.js';
 import {stopPfYahoo} from '../services/market-data.js';
@@ -66,14 +68,16 @@ export function aplicarMesPicker(){
 function renderMesPickerGrid(){
   document.getElementById('mpAnio').textContent=mesPickerYear;
   document.getElementById('mpTodos').classList.toggle('active',mesPickerTodo);
-  // calcular net por mes para el año seleccionado
+  // Neto por mes del año elegido, igual que el balance del período: el ingreso
+  // sin lo que debes entregar y el gasto sin reembolsos ni pagos de esa entrega
+  // (el reembolso ya está plegado en su gasto, no se suma aparte).
   const netos=Array(12).fill(null);
   datos.transacciones.forEach(t=>{
     const f=pf(t[0]);
     if(f.getFullYear()===mesPickerYear){
-      const m=parseFloat(t[4])||0;
-      const sign=t[3]==='Ingreso'||t[3]==='Reembolso'?1:t[3]==='Gasto'?-1:0;
-      netos[f.getMonth()]=(netos[f.getMonth()]||0)+(m*sign);
+      const enPerimetro=!fueraDePerimetro(t[5]||'');
+      const delta=!enPerimetro?0:t[3]==='Ingreso'?ingresoNeto(t):t[3]==='Gasto'?-gastoNeto(t):0;
+      netos[f.getMonth()]=(netos[f.getMonth()]||0)+delta;
     }
   });
   document.getElementById('mpGrid').innerHTML=mesesC.map((mc,i)=>{

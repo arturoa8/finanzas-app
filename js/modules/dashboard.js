@@ -324,7 +324,10 @@ function renderCat(){
   // Los reembolsos no se cuentan aparte: su efecto ya está plegado en el
   // gasto original vía gastoNeto, así que la compra sigue siendo un solo
   // movimiento (no dos) y su categoría refleja el gasto efectivo.
-  tx.filter(x=>x[3]!=='Transferencia'&&x[3]!=='Reembolso').forEach(x=>{const k=cleanName(x[2]);const m=x[3]==='Gasto'?-gastoNeto(x):(parseFloat(x[4])||0);t[k]=(t[k]||0)+m;c[k]=(c[k]||0)+1;});
+  // El ingreso va neto (sin la parte que debes entregar), igual que el resto de
+  // la app; el bruto se ve al elegir la categoría (renderIngresoBruto).
+  tx.filter(x=>x[3]!=='Transferencia'&&x[3]!=='Reembolso').forEach(x=>{const k=cleanName(x[2]);const m=x[3]==='Gasto'?-gastoNeto(x):x[3]==='Ingreso'?ingresoNeto(x):(parseFloat(x[4])||0);t[k]=(t[k]||0)+m;c[k]=(c[k]||0)+1;});
+  renderIngresoBruto();
   // Transferencias aparte: se muestran para poder filtrarlas, pero no entran
   // en ningún total ni llevan signo o color de ingreso o gasto.
   const tr={},trc={};
@@ -340,6 +343,20 @@ function renderCat(){
   g.innerHTML=cs.slice(0,8).map(([k,m])=>tarjeta(k,`<div class="camt ${m>=0?'in':'out'}">${m>=0?'+':'-'}${fmtC(Math.abs(m))}</div><div class="ccnt">${c[k]} mov${c[k]>1?'s':''}</div>`))
     .concat(trs.map(([k,m])=>tarjeta(k,`<div class="camt neutral">${fmtC(m)}</div><div class="ccnt">${trc[k]} mov${trc[k]>1?'s':''} · no suma</div>`)))
     .join('');
+}
+
+// Con una categoría elegida que tiene un ingreso con parte por entregar (un
+// reembolso), dice cuánto entró en tu cuenta y cuánto es tuyo. Sin reembolso
+// en la categoría no muestra nada.
+function renderIngresoBruto(){
+  const caja=document.getElementById('catIngresoBruto');
+  if(!caja)return;
+  const ingresos=filtroCategoria?movimientosDelPeriodo().filter(t=>t[3]==='Ingreso'&&norm(t[2])===norm(filtroCategoria)):[];
+  const conReembolso=ingresos.some(t=>entregaDeIngresoCentimos(t)>0);
+  if(!conReembolso){caja.innerHTML='';caja.hidden=true;return;}
+  const bruto=ingresos.reduce((s,t)=>s+(Number(t[4])||0),0),neto=ingresos.reduce((s,t)=>s+ingresoNeto(t),0);
+  caja.innerHTML=`<div class="cat-bruto-fila"><span>Ingreso bruto</span><strong>+ ${fmt(bruto)}</strong></div><div class="cat-bruto-fila"><span>Ingreso sin contar el reembolso</span><strong>+ ${fmt(neto)}</strong></div>`;
+  caja.hidden=false;
 }
 
 export function filtrarPorCat(k){filtroCategoria=norm(filtroCategoria)===norm(k)?null:k;render();}
