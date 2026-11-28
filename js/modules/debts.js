@@ -84,6 +84,7 @@ function avatarDeuda({nombre,icono,pct=0,cls='in',grande=false,apagado=false}){
 // cómo se reparte lo que falta entre vencido, esta semana, después y sin fecha.
 function resumenDeudas(esMeDeben,filas,tarjetas,porTramo){
   const total=filas.reduce((s,f)=>s+f.pendiente,0);
+  const programado=filas.reduce((s,f)=>s+Math.min(f.programado||0,f.pendiente),0);
   const original=filas.reduce((s,f)=>s+f.monto,0);
   const devuelto=filas.reduce((s,f)=>s+f.abonado,0);
   const partes=TRAMOS.filter(t=>t.k!=='saldada'&&porTramo[t.k]>0.004);
@@ -92,7 +93,7 @@ function resumenDeudas(esMeDeben,filas,tarjetas,porTramo){
   return `<section class="dres ${esMeDeben?'in':'out'}">
     <div class="dres-lbl">${esMeDeben?'Te deben en total':'Debes en total'}</div>
     <div class="dres-amt">${fmtD(total)}</div>
-    <div class="dres-sub">${tarjetas} deuda${tarjetas===1?'':'s'}${devuelto>0.004?` · ${esMeDeben?'ya te devolvieron':'ya pagaste'} <b>${fmtD(devuelto)}</b> de ${fmtD(original)}`:''}</div>
+    <div class="dres-sub">${tarjetas} deuda${tarjetas===1?'':'s'}${devuelto>0.004?` · ${esMeDeben?'ya te devolvieron':'ya pagaste'} <b>${fmtD(devuelto)}</b> de ${fmtD(original)}`:''}${programado>0.004?` · <b>${fmtD(programado)}</b> ${esMeDeben?'por recibir programado':'con pago programado'}`:''}</div>
     ${barra}
   </section>`;
 }
@@ -134,12 +135,19 @@ function pintarDeb(){
   const filas=activas.map(d=>{
     const id=String(d[0]);
     const monto=parseFloat(d[3])||0;
-    const abonado=d[8]?cobradoDeuda(d):(datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===id).reduce((s,ab)=>s+_abMonto(ab),0);
+    // Un pago programado (fecha futura) todavía no salió: se sigue debiendo
+    // hasta ese día. Se cuenta aparte para mostrarlo como "programado".
+    let abonado=0,programado=0;
+    if(d[8])abonado=cobradoDeuda(d);
+    else for(const ab of datos.deudasAbonos||[]){
+      if(_abDeudaId(ab)!==id)continue;
+      if(esPagoFuturo(ab,hoy))programado+=_abMonto(ab);else abonado+=_abMonto(ab);
+    }
     const pendiente=Math.max(0,monto-abonado);
     const fvVal=toDateInput(d[6]);
     const fvDate=fvVal?pf(fvVal):null;
     const dias=fvDate?Math.round((fvDate-hoy)/86400000):null;
-    return {d,id,monto,abonado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
+    return {d,id,monto,abonado,programado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
       vencida:dias!==null&&dias<0&&pendiente>0,warnVenc:dias!==null&&dias>=0&&dias<=7&&pendiente>0};
   });
   // Una sola tarjeta para lo que viene del mismo gasto (dividido entre personas
@@ -310,6 +318,13 @@ function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida,
 // Una deuda ya saldada en los números cuyo pago tiene fecha futura (la parte de
 // la universidad que sale de tu cuenta el 1 de enero): el dinero sale ese día,
 // no antes. Devuelve esa fecha (AAAA-MM-DD) o null.
+// El dinero de un abono sale el día de su movimiento (o del abono): si ese día
+// es posterior a hoy, el pago está programado y aún no cuenta como hecho.
+const hoyInicio=()=>{const a=new Date();return new Date(a.getFullYear(),a.getMonth(),a.getDate());};
+function esPagoFuturo(ab,hoy){
+  const tx=espejoDeAbono(ab),dia=toDateInput(tx?tx[0]:_abFecha(ab));
+  return !!dia&&pf(dia)>hoy;
+}
 function pagoProgramado(d){
   const id=String(d[0]),ahora=new Date(),hoy=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());
   let mayor=null;
@@ -326,6 +341,10 @@ function estadoDeuda(f){
   if(f.pendiente<0.005){
     const prog=pagoProgramado(f.d);
     return prog?{texto:'Se paga el '+fechaCorta(prog),tono:'pronto'}:{texto:'Pagada',tono:'ok'};
+  }
+  if(f.programado>0.004){
+    const prog=pagoProgramado(f.d);
+    if(prog)return {texto:'Se paga el '+fechaCorta(prog),tono:'pronto'};
   }
   if(f.dias===null)return {texto:'',tono:''};
   const e=estadoVencimiento(f.dias);
@@ -381,7 +400,7 @@ function infoGrupo(clave,miembros,esMeDeben){
     pagan:miembros.filter(m=>m.pendiente<0.005).length,
     titulo:clase==='deudas'?persona:baseDesc,
     etiqueta:n+(clase==='personas'?' personas':clase==='cuotas'?' cuotas':' deudas'),
-    subtitulo:clase==='personas'?'Dividido entre '+n+' personas':clase==='cuotas'?n+' cuotas de '+persona:n+' deudas pendientes',
+    subtitulo:clase==='personas'?'Dividido entre '+n+' personas':clase==='cuotas'?n+' cuotas de '+persona:(()=>{const p=miembros.filter(m=>m.pendiente>=0.005).length;return p===n?n+' deudas pendientes':p+' pendiente'+(p===1?'':'s')+' de '+n+' deudas';})(),
     gasto:clase==='deudas'?null:(miembros[0].d[8]?gastoDeDeuda(miembros[0].d):null),
     verDetalle:clase==='personas'?'Ver quién falta':clase==='cuotas'?'Ver las cuotas':'Ver las deudas'};
 }
@@ -415,8 +434,8 @@ function cabeceraGrupo(i,v){
 // Una fila del detalle: la persona, la cuota o la deuda, con su botón de cobro y
 // un menú ⋯ con la fecha límite, sus pagos, editar y archivar.
 function filaGrupo(i,m,v){
-  const paga=m.pendiente<0.005,prog=paga?pagoProgramado(m.d):null;
-  const e=!paga&&m.dias!==null?estadoVencimiento(m.dias):null;
+  const paga=m.pendiente<0.005,prog=paga||m.programado>0.004?pagoProgramado(m.d):null;
+  const e=!paga&&!prog&&m.dias!==null?estadoVencimiento(m.dias):null;
   const parcial=!paga&&m.abonado>0?'Ya pagó '+fmtD(m.abonado)+' de '+fmtD(m.monto):'';
   const sub=paga?'Pagado':[e?(e.tono==='vencida'?'⚠ ':'')+e.texto+(m.fvVal?' · '+fechaCorta(m.fvVal):''):'',parcial].filter(Boolean).join(' · ')||'Sin fecha límite';
   const nombre=i.clase==='personas'?(m.d[1]||'?'):i.clase==='cuotas'?numCuota(m):(m.d[2]||'Sin descripción');
@@ -424,10 +443,10 @@ function filaGrupo(i,m,v){
   // ambos: así "Venció hace 10 días · Ya pagó…" no se parte en tres líneas.
   return `<div class="drow${paga?' pagada':''}${m.vencida?' vencida':''}">
       <div class="drow-name">${escHtml(nombre)}</div>
-      <div class="drow-amt ${paga?'ok':v.cls}">${prog?'Programado':paga?'✓ Pagado':fmtD(m.pendiente)}</div>
-      <div class="drow-sub${e?' '+e.tono:''}">${escHtml(prog?'Se paga el '+fechaCorta(prog):paga?(m.fvVal?'Vencía '+fechaCorta(m.fvVal):''):sub)}</div>
+      <div class="drow-amt ${paga?'ok':v.cls}">${paga?'✓ Pagado':fmtD(m.pendiente)}</div>
+      <div class="drow-sub${prog?' pronto':e?' '+e.tono:''}">${escHtml(prog?'Se paga el '+fechaCorta(prog):paga?(m.fvVal?'Vencía '+fechaCorta(m.fvVal):''):sub)}</div>
       <div class="drow-acciones">
-        ${paga?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
+        ${paga||(prog&&m.programado>=m.pendiente-0.005)?'':`<button class="drow-btn" onclick="abrirModalAbono('${m.id}')">${i.esMeDeben?'Cobrar':'Pagar'}</button>`}
         <button class="drow-mas" aria-label="Más opciones" onclick="this.closest('.drow').classList.toggle('mas')">⋯</button>
       </div>
       <div class="drow-opciones">
@@ -1009,7 +1028,7 @@ export function pagosDeDeuda(d){
   return (datos.deudasAbonos||[]).filter(ab=>_abDeudaId(ab)===String(d[0]))
     .sort((a,b)=>pf(_abFecha(b))-pf(_abFecha(a)))
     .map(ab=>{const tx=espejoDeAbono(ab),x=abonoConExtra(ab)?.extra;return {tipo:'abono',id:_abId(ab),monto:_abMonto(ab),fecha:_abFecha(ab),
-      meta:[_abNota(ab),tx?'en '+(tx[5]||'—'):'',x?'+'+fmtD(x[4])+' de más como ingreso':''].filter(Boolean).join(' · ')};});
+      meta:[esPagoFuturo(ab,hoyInicio())?'programado':'',_abNota(ab),tx?'en '+(tx[5]||'—'):'',x?'+'+fmtD(x[4])+' de más como ingreso':''].filter(Boolean).join(' · ')};});
 }
 
 function listaPagos(d,esMeDeben){
