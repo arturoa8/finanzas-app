@@ -150,23 +150,16 @@ function pintarDeb(){
     return {d,id,monto,abonado,programado,pendiente,fiVal:toDateInput(d[5]),fvVal,dias,
       vencida:dias!==null&&dias<0&&pendiente>0,warnVenc:dias!==null&&dias>=0&&dias<=7&&pendiente>0};
   });
-  // Una sola tarjeta para lo que viene del mismo gasto (dividido entre personas
-  // o en cuotas), para cuotas de lo mismo y, con lo que queda suelto, para varias
-  // deudas de la misma persona. El resto va por separado.
-  const porClave=new Map();
-  for(const f of filas){const k=claveGrupoDeuda(f.d);if(k)(porClave.get(k)||porClave.set(k,[]).get(k)).push(f);}
-  const base=[],usados=new Set();
+  // Solo se juntan en una fila los gastos divididos entre varias personas (la
+  // cena entre tres). Lo demás va por separado, cuotas incluidas: así cada una
+  // cae en su tramo según su propia fecha.
+  const porGasto=new Map();
+  for(const f of filas){const k=f.d[8]?'g'+f.d[8]:null;if(k)(porGasto.get(k)||porGasto.set(k,[]).get(k)).push(f);}
+  const entrePersonas=m=>m&&m.length>1&&new Set(m.map(x=>norm(x.d[1]))).size>1;
+  const items=[],usados=new Set();
   for(const f of filas){
-    const k=claveGrupoDeuda(f.d),miembros=k?porClave.get(k):null;
-    if(!miembros||miembros.length<2)base.push({tipo:'sola',f});
-    else if(!usados.has(k)){usados.add(k);base.push({tipo:'grupo',k,miembros});}
-  }
-  const porPersona=new Map();
-  for(const it of base)if(it.tipo==='sola'){const k=clavePersonaDeuda(it.f.d);if(k)(porPersona.get(k)||porPersona.set(k,[]).get(k)).push(it.f);}
-  const items=[];
-  for(const it of base){
-    const k=it.tipo==='sola'?clavePersonaDeuda(it.f.d):null,miembros=k?porPersona.get(k):null;
-    if(!miembros||miembros.length<2)items.push(it);
+    const k=f.d[8]?'g'+f.d[8]:null,miembros=k?porGasto.get(k):null;
+    if(!entrePersonas(miembros))items.push({tipo:'sola',f});
     else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
   }
   // Cada fila va a su tramo (Vencidas, Esta semana…): listas agrupadas como en
@@ -198,20 +191,6 @@ function pintarDeb(){
 }
 
 const reCuota=/^(.*) · Cuota (\d+)\/(\d+)$/;
-// Gastos por cobrar: todas las deudas del gasto. Cuotas sueltas: misma persona,
-// misma descripción y mismo total de cuotas.
-function claveGrupoDeuda(d){
-  if(d[8])return 'g'+d[8];
-  const m=reCuota.exec(d[2]||'');
-  return m?'c|'+norm(d[1])+'|'+norm(m[1])+'|'+m[3]+'|'+d[7]:null;
-}
-
-// Varias deudas de la misma persona (Mamá con "Supermercado" y "Farmacia"). Las
-// que dicen "Cuota n/m" quedan fuera por ahora: siguen como estaban.
-const reCuotaLibre=/Cuota\s*\d+\/\d+/i;
-function clavePersonaDeuda(d){
-  return reCuotaLibre.test(d[2]||'')||!String(d[1]||'').trim()?null:'p|'+norm(d[1])+'|'+d[7];
-}
 
 // Grupos de la lista pintada y el que está abierto en la hoja de detalle: así la
 // hoja se repinta sola al cobrar, editar o archivar.
