@@ -52,21 +52,49 @@ function estadoVencimiento(dias){
 
 const fechaCorta=iso=>fmtDateShort(pf(iso)).replace(/\.$/,'');
 
-// Resumen de la pestaña: cuánto es en total y qué pide atención. Explica en una
-// frase qué significa la pestaña, para quien no la recuerda.
-function resumenDeudas(esMeDeben,filas,tarjetas){
+// Tramos de la lista, en el orden en que se muestran: lo urgente arriba.
+const TRAMOS=[
+  {k:'vencida',titulo:'Vencidas',corto:'Vencido'},
+  {k:'pronto',titulo:'Esta semana',corto:'Esta semana'},
+  {k:'despues',titulo:'Más adelante',corto:'Más adelante'},
+  {k:'sinfecha',titulo:'Sin fecha límite',corto:'Sin fecha'},
+  {k:'saldada',titulo:'Saldadas',corto:'Saldado'},
+];
+// En qué tramo va una deuda o un grupo: por lo que falta y por su próximo vencimiento.
+function tramoDe({pendiente,vencida,dias}){
+  if(pendiente<0.005)return 'saldada';
+  if(vencida)return 'vencida';
+  if(dias===null||dias===undefined)return 'sinfecha';
+  return dias<=7?'pronto':'despues';
+}
+
+// Monograma con un anillo de avance alrededor, como los de Contactos y Actividad.
+// texto: iniciales; icono: 'personas' para un gasto entre varias personas.
+const iniciales=s=>{const p=String(s||'?').trim().split(/\s+/).filter(Boolean);return ((p[0]||'?')[0]+(p.length>1?p[p.length-1][0]:'')).toUpperCase();};
+const ICONO_PERSONAS='<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.5 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM9 12.5c-3.3 0-6 1.7-6 3.9V19h12v-2.6c0-2.2-2.7-3.9-6-3.9Zm7.5.2c-.6 0-1.2.1-1.7.2 1.1.9 1.7 2.1 1.7 3.5V19H21v-2.4c0-2.1-2-3.9-4.5-3.9Z"/></svg>';
+function avatarDeuda({nombre,icono,pct=0,cls='in',grande=false,apagado=false}){
+  const r=21.5,c=2*Math.PI*r,largo=Math.max(0,Math.min(100,pct))/100*c;
+  return `<span class="dav${grande?' dav-xl':''}${apagado?' dav-off':''}" aria-hidden="true">
+    <svg class="dav-anillo" viewBox="0 0 48 48"><circle class="dav-pista" cx="24" cy="24" r="${r}"/>${largo>0?`<circle class="dav-avance ${cls}" cx="24" cy="24" r="${r}" stroke-dasharray="${largo.toFixed(2)} ${c.toFixed(2)}"/>`:''}</svg>
+    <span class="dav-mono">${icono==='personas'?ICONO_PERSONAS:escHtml(iniciales(nombre))}</span>
+  </span>`;
+}
+
+// Resumen de la pestaña: cuánto es en total, cuánto ya volvió y, en una barra,
+// cómo se reparte lo que falta entre vencido, esta semana, después y sin fecha.
+function resumenDeudas(esMeDeben,filas,tarjetas,porTramo){
   const total=filas.reduce((s,f)=>s+f.pendiente,0);
-  const vencidas=filas.filter(f=>f.vencida).length;
-  const pronto=filas.filter(f=>f.warnVenc).length;
-  const avisos=[];
-  if(vencidas)avisos.push(`<span class="dresumen-aviso vencida">${vencidas} vencida${vencidas===1?'':'s'}</span>`);
-  if(pronto)avisos.push(`<span class="dresumen-aviso pronto">${pronto} por vencer</span>`);
-  return `<div class="dresumen ${esMeDeben?'in':'out'}">
-    <div class="dresumen-lbl">${esMeDeben?'Te deben en total':'Debes en total'}</div>
-    <div class="dresumen-amt">${fmtD(total)}</div>
-    <div class="dresumen-meta"><span>${tarjetas} deuda${tarjetas===1?'':'s'}</span>${avisos.join('')}</div>
-    <p class="dresumen-ayuda">${esMeDeben?'Dinero que prestaste o pagaste por otros y todavía no te devuelven.':'Dinero que tú le debes a otras personas.'}</p>
-  </div>`;
+  const original=filas.reduce((s,f)=>s+f.monto,0);
+  const devuelto=filas.reduce((s,f)=>s+f.abonado,0);
+  const partes=TRAMOS.filter(t=>t.k!=='saldada'&&porTramo[t.k]>0.004);
+  const barra=total>0.004?`<div class="dres-barra" role="img" aria-label="${escAttr(partes.map(t=>t.corto+' '+fmtD(porTramo[t.k])).join(', '))}">${partes.map(t=>`<span class="t-${t.k}" style="flex-grow:${porTramo[t.k].toFixed(2)}"></span>`).join('')}</div>
+    <div class="dres-leyenda">${partes.map(t=>`<div class="dres-ley t-${t.k}"><i></i><span>${t.corto}</span><b>${fmtD(porTramo[t.k])}</b></div>`).join('')}</div>`:'';
+  return `<section class="dres ${esMeDeben?'in':'out'}">
+    <div class="dres-lbl">${esMeDeben?'Te deben en total':'Debes en total'}</div>
+    <div class="dres-amt">${fmtD(total)}</div>
+    <div class="dres-sub">${tarjetas} deuda${tarjetas===1?'':'s'}${devuelto>0.004?` · ${esMeDeben?'ya te devolvieron':'ya pagaste'} <b>${fmtD(devuelto)}</b> de ${fmtD(original)}`:''}</div>
+    ${barra}
+  </section>`;
 }
 
 export function renderDeb(){
@@ -133,12 +161,32 @@ function pintarDeb(){
     if(!miembros||miembros.length<2)items.push(it);
     else if(!usados.has(k)){usados.add(k);items.push({tipo:'grupo',k,miembros});}
   }
-  // Las filas van juntas en una sola lista agrupada, como en Ajustes de iOS.
-  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length)+'<div class="dlista">'+items.map(it=>{
-    if(it.tipo==='sola'){gruposVigentes.set('s'+it.f.id,{miembros:[it.f],esMeDeben,sola:true});return itemDeudaSola(it.f,esMeDeben);}
-    gruposVigentes.set(it.k,{miembros:it.miembros,esMeDeben});
-    return itemDeudaGrupo(infoGrupo(it.k,it.miembros,esMeDeben));
-  }).join('')+'</div>';
+  // Cada fila va a su tramo (Vencidas, Esta semana…): listas agrupadas como en
+  // Ajustes de iOS, con su título y lo que suma cada una.
+  const secciones=new Map(TRAMOS.map(t=>[t.k,{html:[],suma:0}]));
+  for(const it of items){
+    let html,tramo,pendiente;
+    if(it.tipo==='sola'){
+      gruposVigentes.set('s'+it.f.id,{miembros:[it.f],esMeDeben,sola:true});
+      html=itemDeudaSola(it.f,esMeDeben);pendiente=it.f.pendiente;tramo=tramoDe(it.f);
+    }else{
+      gruposVigentes.set(it.k,{miembros:it.miembros,esMeDeben});
+      const i=infoGrupo(it.k,it.miembros,esMeDeben);
+      html=itemDeudaGrupo(i);pendiente=i.pendiente;
+      tramo=tramoDe({pendiente:i.pendiente,vencida:i.vencidas.length>0,dias:i.siguiente?i.siguiente.dias:null});
+    }
+    const s=secciones.get(tramo);s.html.push(html);s.suma+=pendiente;
+  }
+  const porTramo=Object.fromEntries([...secciones].map(([k,s])=>[k,s.suma]));
+  l.innerHTML=resumenDeudas(esMeDeben,filas,items.length,porTramo)
+    +TRAMOS.filter(t=>secciones.get(t.k).html.length).map(t=>{
+      const s=secciones.get(t.k);
+      return `<section class="dsec t-${t.k}" aria-label="${escAttr(t.titulo)}">
+        <header class="dsec-head"><h3 class="dsec-titulo">${t.titulo}<span class="dsec-n">${s.html.length}</span></h3>${t.k==='saldada'?'':`<span class="dsec-tot">${fmtD(s.suma)}</span>`}</header>
+        <div class="dlista">${s.html.join('')}</div>
+      </section>`;
+    }).join('')
+    +`<p class="dlista-ayuda dlista-pie">${esMeDeben?'Dinero que prestaste o pagaste por otros y todavía no te devuelven. Toca una deuda para cobrarla, ver sus pagos o cambiar su fecha.':'Dinero que tú le debes a otras personas. Toca una deuda para registrar un pago, ver lo que ya pagaste o cambiar su fecha.'}</p>`;
 }
 
 const reCuota=/^(.*) · Cuota (\d+)\/(\d+)$/;
@@ -199,49 +247,63 @@ function detalleDeudaSola(f,esMeDeben){
   const gasto=d[8]?gastoDeDeuda(d):null;
   const ingresoOrigen=ingresoIdDeuda(d)?(datos.transacciones||[]).find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoIdDeuda(d))):null;
   const pct=monto>0?Math.min(100,Math.round(abonado/monto*100)):0;
-  return `<div class="dsola">
-    <div class="dcard-top">
-      <div class="dcard-info">
-        <div class="dcard-person">${escHtml(d[1]||'?')}</div>
-        <div class="dcard-desc">${escHtml(d[2]||'')}</div>
-        ${gasto?`<div class="dcard-origen">Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</div>`:''}
-        ${ingresoOrigen?`<div class="dcard-origen">Sale de «${escHtml(ingresoOrigen[1]||'tu ingreso')}» (${fmtD(ingresoOrigen[4])} · ${fmtDateShort(pf(ingresoOrigen[0]))}). No cuenta como ingreso ni como gasto tuyo.</div>`:''}
-      </div>
-      <div class="dcard-right">
-        <div class="dcard-amt-lbl">${v.falta}</div>
-        <div class="dcard-amt ${v.cls}">${fmtD(pendiente)}</div>
-      </div>
+  const e=estadoDeuda(f);
+  const ya=(d[8]?v.ya2:v.ya).trim();
+  return `<div class="dsola dhoja">
+    <div class="dh-hero">
+      ${avatarDeuda({nombre:d[1],pct,cls:v.cls,grande:true})}
+      <div class="dh-nombre">${escHtml(d[1]||'?')}</div>
+      ${d[2]?`<div class="dh-desc">${escHtml(d[2])}</div>`:''}
+      <div class="dh-amt-lbl">${pendiente<0.005?(esMeDeben?'Ya te pagó todo':'Ya pagaste todo'):v.falta}</div>
+      <div class="dh-amt ${v.cls}">${fmtD(pendiente)}</div>
+      ${e.texto?`<span class="dh-estado ${e.tono||''}">${escHtml(e.texto)}</span>`:''}
     </div>
-    ${abonado>0?`<div class="dcard-prog">
-      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${pct}%"></div></div>
-      <div class="dcard-progmeta"><span>${d[8]?v.ya2:v.ya}${fmtD(abonado)} de ${fmtD(monto)}</span><span>${pct}%</span></div>
+    ${gasto||ingresoOrigen?`<div class="dh-origen">
+      ${gasto?`<p>Pagaste ${fmtD(gasto[4])} con ${escHtml(gasto[5]||'—')} · ${fmtDateShort(pf(gasto[0]))}</p>`:''}
+      ${ingresoOrigen?`<p>Sale de «${escHtml(ingresoOrigen[1]||'tu ingreso')}» (${fmtD(ingresoOrigen[4])} · ${fmtDateShort(pf(ingresoOrigen[0]))}). No cuenta como ingreso ni como gasto tuyo.</p>`:''}
     </div>`:''}
-    <div class="dcard-fechas">
-      ${campoFechaVence(f)}
-      <label class="dcard-fecha dcard-fecha-inicio">
-        <span class="dcard-fecha-txt">Desde ${fiVal?fechaCorta(fiVal):'—'}</span>
+    <div class="dh-stats">
+      <div><span>Total</span><b>${fmtD(monto)}</b></div>
+      <div><span>${ya.charAt(0).toUpperCase()+ya.slice(1)}</span><b class="${abonado>0?v.cls:''}">${fmtD(abonado)}</b></div>
+      <div><span>Avance</span><b>${pct}%</b></div>
+    </div>
+    <div class="dh-grupo">
+      ${filaFechaVence(f)}
+      <label class="dh-fila">
+        <span class="dh-fila-lbl">Desde</span>
+        <span class="dh-fila-val">${fiVal?fechaCorta(fiVal):'—'}</span>
         <input type="date" value="${fiVal}" aria-label="Fecha de inicio" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','inicio',this.value)">
       </label>
     </div>
     ${listaPagos(d,esMeDeben)}
-    <div class="dcard-actions">
-      <button class="dcard-btn primary" onclick="abrirModalAbono('${id}')">${v.accion}</button>
-      ${enlacesDeuda(id,gasto)}
-    </div>
+    <button type="button" class="dh-primario" onclick="abrirModalAbono('${id}')">${v.accion}</button>
+    <div class="dh-enlaces">${enlacesDeuda(id,gasto)}</div>
   </div>`;
+}
+
+// Fecha límite como fila de ajustes: etiqueta a la izquierda, fecha a la
+// derecha; toda la fila abre el calendario.
+function filaFechaVence({id,fvVal,dias,pendiente}){
+  const e=dias!==null&&pendiente>0?estadoVencimiento(dias):null;
+  return `<label class="dh-fila">
+    <span class="dh-fila-lbl">Fecha límite</span>
+    <span class="dh-fila-val${e?' '+e.tono:''}${fvVal?'':' vacio'}">${fvVal?fechaCorta(fvVal):'Poner fecha'}</span>
+    <input type="date" value="${fvVal}" aria-label="Fecha límite" onclick="try{this.showPicker()}catch(e){}" onchange="editarFechaDeuda('${id}','venc',this.value)">
+  </label>`;
 }
 
 // Fila compacta de la lista: quién, qué y cuánto, y una línea de estado. Se toca
 // para abrir la hoja de detalle con los botones (Cobrar, Editar, Archivar) y sus pagos.
-function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida}){
+function itemDeuda({clave,titulo,etiqueta,sub,estado,tono,monto,cls,pct,vencida,avatar}){
   return `<div class="ditem${vencida?' vencida':''}" role="button" tabindex="0" aria-label="${escAttr('Ver detalle de '+titulo)}" data-k="${escAttr(clave)}" onclick="abrirDetalleGrupo(this.dataset.k)" onkeydown="if(event.target===this&amp;&amp;(event.key==='Enter'||event.key===' ')){event.preventDefault();abrirDetalleGrupo(this.dataset.k)}">
+    ${avatarDeuda({...avatar,pct,cls})}
     <div class="ditem-main">
       <div class="ditem-title">${escHtml(titulo)}${etiqueta?`<span class="dgrupo-tag">${escHtml(etiqueta)}</span>`:''}</div>
       ${sub?`<div class="ditem-sub">${escHtml(sub)}</div>`:''}
       ${estado?`<div class="ditem-estado ${tono||''}">${escHtml(estado)}</div>`:''}
     </div>
-    <div class="ditem-right"><span class="ditem-amt ${cls}">${fmtD(monto)}</span><span class="ditem-flecha" aria-hidden="true">›</span></div>
-    ${pct>0?`<div class="ditem-barra"><span class="${cls}" style="width:${pct}%"></span></div>`:''}
+    <div class="ditem-right"><span class="ditem-amt">${fmtD(monto)}</span>${pct>0?`<span class="ditem-pct">${pct}% ${cls==='in'?'cobrado':'pagado'}</span>`:''}</div>
+    <span class="ditem-flecha" aria-hidden="true"><svg viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
   </div>`;
 }
 
@@ -275,7 +337,7 @@ function itemDeudaSola(f,esMeDeben){
   const ingreso=ingresoIdDeuda(d)?(datos.transacciones||[]).find(t=>t[3]==='Ingreso'&&String(t[6])===String(ingresoIdDeuda(d))):null;
   const sub=[d[2]||'',ingreso?'sale de '+(ingreso[1]||'tu ingreso'):''].filter(Boolean).join(' · ');
   return itemDeuda({clave:'s'+f.id,titulo:d[1]||'?',sub,estado:e.texto,tono:e.tono,monto:f.pendiente,cls:v.cls,
-    pct:f.monto>0?Math.min(100,Math.round(f.abonado/f.monto*100)):0,vencida:f.vencida});
+    pct:f.monto>0?Math.min(100,Math.round(f.abonado/f.monto*100)):0,vencida:f.vencida,avatar:{nombre:d[1]}});
 }
 function itemDeudaGrupo(i){
   const v=verbos(i.esMeDeben);
@@ -285,8 +347,9 @@ function itemDeudaGrupo(i){
     const e=estadoVencimiento(i.siguiente.dias);
     texto=(i.clase==='cuotas'?'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1):e.texto)+' · '+fechaCorta(i.siguiente.fvVal);tono=e.tono;
   }
-  return itemDeuda({clave:i.clave,titulo:i.titulo,etiqueta:i.etiqueta,sub:i.subtitulo,estado:texto,tono,monto:i.pendiente,cls:v.cls,pct:i.pct,vencida:i.vencidas.length>0});
+  return itemDeuda({clave:i.clave,titulo:i.titulo,etiqueta:i.etiqueta,sub:i.subtitulo,estado:texto,tono,monto:i.pendiente,cls:v.cls,pct:i.pct,vencida:i.vencidas.length>0,avatar:avatarGrupo(i)});
 }
+const avatarGrupo=i=>i.clase==='personas'?{icono:'personas'}:{nombre:i.persona};
 
 const enlacesDeuda=(id,gasto)=>`<button class="dcard-link" onclick="${gasto?`editarGastoDeDeuda('${id}')`:`abrirModalDeudaEdit('${id}')`}">Editar</button>
       <button class="dcard-link" onclick="abrirModalArchivar('${id}')">Archivar</button>`;
@@ -323,22 +386,31 @@ function infoGrupo(clave,miembros,esMeDeben){
     verDetalle:clase==='personas'?'Ver quién falta':clase==='cuotas'?'Ver las cuotas':'Ver las deudas'};
 }
 
-const cabeceraGrupo=(i,v)=>`<div class="dcard-top">
-      <div class="dcard-info">
-        ${i.conTitulo?`<div class="dcard-person">${escHtml(i.titulo)}<span class="dgrupo-tag">${i.etiqueta}</span></div>`:''}
-        <div class="dcard-desc">${escHtml(i.subtitulo)}</div>
-        ${i.gasto?`<div class="dcard-origen">Pagaste ${fmtD(i.gasto[4])} con ${escHtml(i.gasto[5]||'—')} · ${fmtDateShort(pf(i.gasto[0]))}</div>`:''}
-      </div>
-      <div class="dcard-right">
-        <div class="dcard-amt-lbl">${v.falta}</div>
-        <div class="dcard-amt ${v.cls}">${fmtD(i.pendiente)}</div>
-      </div>
+// Cabecera de la hoja de un grupo: monograma con anillo, lo que falta y, en tres
+// cifras, cuántas van saldadas, cuánto volvió y el total.
+function cabeceraGrupo(i,v){
+  let estado=null;
+  if(i.vencidas.length)estado={texto:'⚠ '+i.vencidas.length+' vencida'+(i.vencidas.length===1?'':'s'),tono:'vencida'};
+  else if(i.siguiente&&i.siguiente.dias!==null){
+    const e=estadoVencimiento(i.siguiente.dias);
+    estado={texto:(i.clase==='cuotas'?'Próxima: '+e.texto.charAt(0).toLowerCase()+e.texto.slice(1):e.texto)+' · '+fechaCorta(i.siguiente.fvVal),tono:e.tono};
+  }else if(i.pendiente<0.005)estado={texto:'Todo saldado',tono:'ok'};
+  const ya=v.ya.trim();
+  return `<div class="dh-hero">
+      ${avatarDeuda({...avatarGrupo(i),pct:i.pct,cls:v.cls,grande:true})}
+      <div class="dh-nombre">${escHtml(i.titulo)}<span class="dgrupo-tag">${escHtml(i.etiqueta)}</span></div>
+      <div class="dh-desc">${escHtml(i.subtitulo)}</div>
+      <div class="dh-amt-lbl">${v.falta}</div>
+      <div class="dh-amt ${v.cls}">${fmtD(i.pendiente)}</div>
+      ${estado?`<span class="dh-estado ${estado.tono}">${escHtml(estado.texto)}</span>`:''}
     </div>
-    <div class="dcard-prog">
-      <div class="dcard-progbar"><div class="dcard-progfill ${v.cls}" style="width:${i.pct}%"></div></div>
-      <div class="dcard-progmeta"><span>${i.pagan} de ${i.n} ${i.clase==='cuotas'?'cuotas pagadas':i.clase==='personas'?'ya pagaron':'saldadas'} · ${fmtD(i.abonado)} de ${fmtD(i.total)}</span><span>${i.pct}%</span></div>
-    </div>
-    ${i.estado?`<div class="dcard-fechas">${i.estado}</div>`:''}`;
+    ${i.gasto?`<div class="dh-origen"><p>Pagaste ${fmtD(i.gasto[4])} con ${escHtml(i.gasto[5]||'—')} · ${fmtDateShort(pf(i.gasto[0]))}</p></div>`:''}
+    <div class="dh-stats">
+      <div><span>${i.clase==='cuotas'?'Cuotas pagadas':i.clase==='personas'?'Ya pagaron':'Saldadas'}</span><b>${i.pagan} de ${i.n}</b></div>
+      <div><span>${ya.charAt(0).toUpperCase()+ya.slice(1)}</span><b class="${i.abonado>0?v.cls:''}">${fmtD(i.abonado)}</b></div>
+      <div><span>Total</span><b>${fmtD(i.total)}</b></div>
+    </div>`;
+}
 
 // Una fila del detalle: la persona, la cuota o la deuda, con su botón de cobro y
 // un menú ⋯ con la fecha límite, sus pagos, editar y archivar.
@@ -371,8 +443,9 @@ function detalleGrupo(i){
   const v=verbos(i.esMeDeben);
   // Entre personas o deudas, primero lo que falta; las cuotas van por fecha.
   const ordenados=i.clase==='cuotas'?i.miembros:[...i.miembros].sort((a,b)=>(a.pendiente<0.005)-(b.pendiente<0.005));
-  return `${cabeceraGrupo({...i,conTitulo:true},v)}
-    <div class="dgrupo-lista grupo-scroll">${ordenados.map(m=>filaGrupo(i,m,v)).join('')}</div>`;
+  return `<div class="dhoja">${cabeceraGrupo(i,v)}
+    <div class="dh-seccion">${i.clase==='cuotas'?'Cuotas':i.clase==='personas'?'Personas':'Deudas'}</div>
+    <div class="dgrupo-lista grupo-scroll">${ordenados.map(m=>filaGrupo(i,m,v)).join('')}</div></div>`;
 }
 
 function renderDebArchivadas(l){
@@ -380,7 +453,16 @@ function renderDebArchivadas(l){
   if(arch.length===0){l.innerHTML='<div class="empty empty-deudas"><strong>Nada archivado</strong><span>Cuando una deuda se salde o la des por perdida, archívala y quedará aquí.</span></div>';return;}
   // Una fila por deuda: quién, qué y cómo terminó. Restaurar va como enlace,
   // no como botón grande: es lo menos frecuente.
-  l.innerHTML='<p class="dlista-ayuda">Deudas que ya cerraste. Restaura una si la archivaste por error.</p><div class="dlista">'+[...arch].reverse().map(d=>{
+  // Dos listas: las que se saldaron y las que se cerraron sin pagar.
+  const filasArch=[...arch].reverse().map(d=>{
+    const motivo=(d[8]||'').toString().toLowerCase();
+    return {d,pagada:motivo.includes('pagado')||motivo.includes('saldada')};
+  });
+  const seccionArch=(titulo,lista)=>lista.length?`<section class="dsec"><header class="dsec-head"><h3 class="dsec-titulo">${titulo}<span class="dsec-n">${lista.length}</span></h3></header><div class="dlista">${lista.map(x=>filaArchivada(x.d)).join('')}</div></section>`:'';
+  l.innerHTML=seccionArch('Saldadas',filasArch.filter(x=>x.pagada))+seccionArch('Cerradas sin pagar',filasArch.filter(x=>!x.pagada))
+    +'<p class="dlista-ayuda dlista-pie">Deudas que ya cerraste. Restaura una si la archivaste por error.</p>';
+}
+function filaArchivada(d){
     const esMeDeben=(d[7]||'').toString().toLowerCase()==='me-deben';
     const monto=parseFloat(d[3])||0;
     const logAb=d[10]?cobradoDeuda(d):calcAbonadoFromLog(d[0]);
@@ -390,6 +472,7 @@ function renderDebArchivadas(l){
     const faDisp=d[9]?fechaCorta(d[9]):'';
     const estado=(isPagado?'Saldada':esMeDeben?'No pagó':'No se pagó')+(abonado>0&&abonado<monto?' · pagó '+fmtD(abonado):'')+(faDisp?' · '+faDisp:'');
     return `<div class="ditem darch">
+      ${avatarDeuda({nombre:d[1],apagado:true})}
       <div class="ditem-main">
         <div class="ditem-title">${escHtml(d[1]||'?')}</div>
         <div class="ditem-sub">${escHtml([esMeDeben?'Te debía':'Le debías',d[2]||''].filter(Boolean).join(' · '))}</div>
@@ -400,10 +483,17 @@ function renderDebArchivadas(l){
         <button type="button" class="dcard-link darch-restaurar" onclick="confirmarDesarchivar('${escAttr(String(d[0]))}')">Restaurar</button>
       </div>
     </div>`;
-  }).join('')+'</div>';
 }
 
-export function setDT(t,b){dT=t;document.querySelectorAll('.dtabs .detail-tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderDeb();}
+// El fondo del control segmentado se desliza hasta la pestaña elegida (--i).
+export function setDT(t,b){
+  dT=t;
+  const tabs=[...document.querySelectorAll('.dtabs .detail-tab')];
+  tabs.forEach(x=>{x.classList.remove('active');x.setAttribute?.('aria-selected','false');});
+  b.classList.add('active');b.setAttribute?.('aria-selected','true');
+  b.closest?.('.dtabs')?.style?.setProperty('--i',String(Math.max(0,tabs.indexOf(b))));
+  renderDeb();
+}
 
 // ── Modal deuda ──────────────────────────────────────────────────────────────
 export function abrirModalDeuda(){
